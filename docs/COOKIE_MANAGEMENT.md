@@ -1,5 +1,7 @@
 # Cookie Management Reference
 
+[Kromium Documentation](README.md) &bull; [Interactive Web Portal](https://kromium.daviante.dev/#/docs/cookie-management)
+
 This guide details Kromium's cookie management system via `KromiumCookieManager`, enabling coroutine-based cookie retrieval, insertion, deletion, and disk synchronization.
 
 ---
@@ -206,3 +208,7 @@ fun rehydrateSession(url: String, inputFile: File) {
     println("Rehydrated ${cookies.size} cookies for $url")
 }
 ```
+
+---
+
+[← Return to Documentation Index](README.md) &bull; [Visit Online Documentation](https://kromium.daviante.dev/#/docs/cookie-management)

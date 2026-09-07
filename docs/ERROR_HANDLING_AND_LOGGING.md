@@ -1,5 +1,7 @@
 # Error Handling & Logging Reference
 
+[Kromium Documentation](README.md) &bull; [Interactive Web Portal](https://kromium.daviante.dev/#/docs/troubleshooting)
+
 This guide catalogs the complete `KromiumException` sealed error hierarchy, runtime diagnostic codes, and the pluggable `KromiumLogger` logging subsystem.
 
 ---
@@ -187,3 +189,7 @@ Kromium.initialize {
     logSeverity = CefSettings.LogSeverity.LOGSEVERITY_WARNING
 }
 ```
+
+---
+
+[← Return to Documentation Index](README.md) &bull; [Visit Online Documentation](https://kromium.daviante.dev/#/docs/troubleshooting)

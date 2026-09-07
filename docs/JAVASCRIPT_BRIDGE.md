@@ -1,5 +1,7 @@
 # JavaScript Bridge & DOM Inspection
 
+[Kromium Documentation](README.md) &bull; [Interactive Web Portal](https://kromium.daviante.dev/#/docs/js-bridge)
+
 This guide explains how to execute JavaScript, extract DOM elements, exchange structured data, and handle asynchronous results using Kromium's coroutine-based JavaScript evaluation engine.
 
 ---
@@ -262,3 +264,7 @@ suspend fun executeWithStrictTimeout(browser: KromiumBrowser) {
 > [!WARNING]
 > **JavaScript Code Injection**:
 > The `expression` parameter passed to `evaluateJavaScript()` is evaluated directly in the page's V8 context. Never concatenate unescaped user-supplied input directly into an executable script. Always sanitize inputs or use JSON serialization (e.g. `Json.encodeToString()`) when interpolating dynamic data into JavaScript strings.
+
+---
+
+[← Return to Documentation Index](README.md) &bull; [Visit Online Documentation](https://kromium.daviante.dev/#/docs/js-bridge)

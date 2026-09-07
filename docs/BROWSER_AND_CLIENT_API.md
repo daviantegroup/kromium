@@ -1,5 +1,7 @@
 # Browser & Client API Reference
 
+[Kromium Documentation](README.md) &bull; [Interactive Web Portal](https://kromium.daviante.dev/#/api/kromium-client)
+
 This document provides a detailed reference for `KromiumClient` and `KromiumBrowser`, enabling direct usage of Kromium in Kotlin JVM, headless environments, or traditional Swing/AWT desktop applications without Compose.
 
 ---
@@ -345,3 +347,7 @@ fun main() = runBlocking {
     }
 }
 ```
+
+---
+
+[← Return to Documentation Index](README.md) &bull; [Visit Online Documentation](https://kromium.daviante.dev/#/api/kromium-client)

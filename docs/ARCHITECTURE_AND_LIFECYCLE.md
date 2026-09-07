@@ -1,5 +1,7 @@
 # Architecture & Engine Lifecycle
 
+[Kromium Documentation](README.md) &bull; [Interactive Web Portal](https://kromium.daviante.dev/#/docs/overview)
+
 This document provides a comprehensive guide to Kromium's internal architecture, platform resolution, automated binary provisioning, engine bootstrapping, reactive lifecycle states, and configuration options.
 
 ---
@@ -323,4 +325,9 @@ To manually trigger engine disposal:
 Kromium.dispose()
 ```
 
-> **Note:** Once `Kromium.dispose()` is called, the state transitions to `KromiumState.Disposed`. Attempting to call `newClient()` or `awaitClient()` will throw `KromiumException.Disposed`.
+> [!NOTE]
+> Once `Kromium.dispose()` is called, the state transitions to `KromiumState.Disposed`. Attempting to call `newClient()` or `awaitClient()` will throw `KromiumException.Disposed`.
+
+---
+
+[← Return to Documentation Index](README.md) &bull; [Visit Online Documentation](https://kromium.daviante.dev/#/docs/overview)

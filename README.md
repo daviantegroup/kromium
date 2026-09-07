@@ -1,34 +1,55 @@
-# Kromium
+<div align="center">
+  <img src="assets/logo.svg" alt="Kromium Logo" width="88" height="88" />
+  <br />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/brand.svg">
+    <img alt="Kromium" src="assets/brand.svg" width="280">
+  </picture>
+  <p><strong>Embed Modern Web Capabilities in Compose Multiplatform Desktop &amp; Kotlin JVM</strong></p>
 
-[![Kotlin](https://img.shields.io/badge/Kotlin-2.1.10-blue.svg?logo=kotlin)](https://kotlinlang.org)
-[![Compose Multiplatform](https://img.shields.io/badge/Compose%20Multiplatform-1.7.3-purple.svg?logo=jetpackcompose)](https://www.jetbrains.com/lp/compose-multiplatform/)
-[![Website](https://img.shields.io/badge/Website-kromium.daviante.dev-2ea44f.svg)](https://kromium.daviante.dev)
-[![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
-
-**Kromium** ([kromium.daviante.dev](https://kromium.daviante.dev)) is a modern, high-performance Chromium Embedded Framework (CEF) library for **Kotlin** and **Compose Multiplatform Desktop** (Windows, macOS, Linux).
-
-Built directly on pure **JCEF** (`jcef.jar`), Kromium features zero-config automated engine downloads from JetBrains Runtime releases, reactive `StateFlow` download & initialization progress, coroutine-based JavaScript evaluation, cookie management, network interception, and a first-class declarative `@Composable` component (`KromiumView`).
-
----
-
-## 📚 Complete Documentation
-
-Comprehensive guides covering every feature in depth are available in the [`docs/`](docs/) directory:
-
-| Document | Description |
-|---|---|
-| **[Architecture & Engine Lifecycle](docs/ARCHITECTURE_AND_LIFECYCLE.md)** | Automated JBR bundle download, SHA-256 checksums, Zip-Slip-safe extraction, platform detection, `KromiumState` state machine, `KromiumConfig`, and shutdown hooks. |
-| **[Compose Multiplatform Desktop Guide](docs/COMPOSE_DESKTOP_GUIDE.md)** | Declarative `KromiumView`, `rememberKromiumState`, `KromiumViewState`, observable state properties (`url`, `title`, `isLoading`, `canGoBack`, `canGoForward`), and a complete multi-tab browser example. |
-| **[Browser & Client API Reference](docs/BROWSER_AND_CLIENT_API.md)** | Direct JVM / Swing integration via `KromiumClient` and `KromiumBrowser`, navigation, in-page text search, zoom control, DevTools, screenshots, and PDF printing. |
-| **[JavaScript Bridge & DOM Inspection](docs/JAVASCRIPT_BRIDGE.md)** | Coroutine-based `evaluateJavaScript`, cancellation cleanup, timeout handling, JSON data exchange, DOM extraction (`getHtml`, `getText`, `getFaviconUrl`), and click simulation. |
-| **[Network Interception & Security](docs/NETWORK_AND_SECURITY.md)** | `KromiumRequestInterceptor`, header injection, ad/tracker blocking, navigation overrides (`shouldOverrideUrlLoading`), `SslErrorPolicy`, `KromiumProxy`, and Chromium sandboxing. |
-| **[Cookie Management Reference](docs/COOKIE_MANAGEMENT.md)** | Suspendable `KromiumCookieManager`: asynchronous `getCookies()`, `getCookie()`, `setCookie()`, `deleteCookie()`, `clearCookies()`, disk flushing, and session rehydration. |
-| **[Handlers, Listeners & Events](docs/HANDLERS_AND_EVENTS.md)** | Event callbacks: HTTP/Proxy authentication (`KromiumAuthListener`), JS modal dialogs (`KromiumJsDialogListener`), downloads (`KromiumDownloadListener`), console logs, and load errors. |
-| **[Error Handling & Logging](docs/ERROR_HANDLING_AND_LOGGING.md)** | The complete sealed `KromiumException` catalog, recovery strategies, and the pluggable `KromiumLogger` interface (SLF4J, Logback, Kermit). |
+  <p>
+    <a href="https://central.sonatype.com/artifact/dev.daviante/kromium-compose"><img src="https://img.shields.io/badge/Maven_Central-v1.0.150-107c41?style=flat-square&logo=apachemaven" alt="Maven Central" /></a>
+    <a href="https://kromium.daviante.dev"><img src="https://img.shields.io/badge/Docs_Portal-kromium.daviante.dev-0078d4?style=flat-square" alt="Documentation Portal" /></a>
+    <a href="https://kotlinlang.org"><img src="https://img.shields.io/badge/Kotlin-2.1.10-7F52FF?style=flat-square&logo=kotlin" alt="Kotlin" /></a>
+    <a href="https://www.jetbrains.com/lp/compose-multiplatform/"><img src="https://img.shields.io/badge/Compose_Desktop-1.7.3-4285F4?style=flat-square&logo=jetpackcompose" alt="Compose Multiplatform" /></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-5c2d91?style=flat-square" alt="License" /></a>
+  </p>
+</div>
 
 ---
 
-## Architecture at a Glance
+**Kromium** is an open-source, production-grade Chromium Embedded Framework (CEF) library tailored specifically for **Compose Multiplatform Desktop** and **Kotlin JVM** applications across Windows, macOS, and Linux.
+
+Powered by standard **CEF 150** without third-party wrappers, Kromium delivers zero-config automated engine downloads from JetBrains Runtime releases, hardware-accelerated 120 FPS rendering, coroutine-based JavaScript bridges, suspendable cookie managers, network request interception, and a first-class declarative `@Composable KromiumView`.
+
+> [!NOTE]
+> **Explore the Online Portal**: An interactive documentation portal with live Compose simulators, full API browser, and search is available at **[kromium.daviante.dev](https://kromium.daviante.dev)**.
+
+---
+
+## 📚 Complete Documentation Hub
+
+Detailed guides covering every subsystem are available in the **[`docs/`](docs/)** directory:
+
+| Guide | Topic Description |
+|:---|:---|
+| **[Documentation Index](docs/README.md)** | Master hub linking all 11 guides, categorized architecture, and API index. |
+| **[Architecture & Engine Lifecycle](docs/ARCHITECTURE_AND_LIFECYCLE.md)** | Automated JBR bundle download, SHA-256 checksums, Zip-Slip safe extraction, platform detection, and `KromiumState` machine. |
+| **[Compose Multiplatform Guide](docs/COMPOSE_DESKTOP_GUIDE.md)** | Declarative `KromiumView`, `rememberKromiumState`, observable properties (`url`, `title`, `isLoading`), and multi-tab browser tutorial. |
+| **[Core JVM & Swing Integration](docs/SWING_AND_JVM_GUIDE.md)** | Pure Kotlin JVM & Java Swing integration without Compose (`JFrame`, `JPanel`, EDT safety, window listeners). |
+| **[Browser & Client API Reference](docs/BROWSER_AND_CLIENT_API.md)** | Direct browser control via `KromiumClient` & `KromiumBrowser`, navigation, in-page search, zoom, screenshots, and PDF printing. |
+| **[JavaScript Bridge & DOM Inspection](docs/JAVASCRIPT_BRIDGE.md)** | Suspendable `evaluateJavaScript`, cancellation cleanup, timeout handling, and DOM extraction (`getHtml`, `getText`, `getFaviconUrl`). |
+| **[Network Interception & Security](docs/NETWORK_AND_SECURITY.md)** | `KromiumRequestInterceptor`, header injection, ad/tracker blocking, navigation overrides, `SslErrorPolicy`, and proxies. |
+| **[Cookie Management Reference](docs/COOKIE_MANAGEMENT.md)** | Suspendable `KromiumCookieManager`: asynchronous `getCookies()`, `setCookie()`, `deleteCookie()`, and disk flushing. |
+| **[Handlers, Listeners & Events](docs/HANDLERS_AND_EVENTS.md)** | Callbacks for HTTP authentication, JS modal dialogs (`alert`/`confirm`/`prompt`), downloads, console logs, and errors. |
+| **[Error Handling & Logging](docs/ERROR_HANDLING_AND_LOGGING.md)** | Sealed `KromiumException` catalog, recovery strategies, and pluggable `KromiumLogger` interface. |
+| **[Troubleshooting, Distribution & FAQ](docs/TROUBLESHOOTING_AND_FAQ.md)** | Black screen fixes, Linux package dependencies, macOS Gatekeeper handling, packaging with Conveyor / Gradle, and ProGuard rules. |
+| **[Migration & Release Notes](docs/MIGRATION_AND_RELEASE_NOTES.md)** | What's new in v1.0.150, compatibility matrices, and migration guides from JavaFX WebView and raw JCEF. |
+
+---
+
+## 🏗️ Architecture at a Glance
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -73,7 +94,7 @@ Comprehensive guides covering every feature in depth are available in the [`docs
 
 ---
 
-## Modules
+## 📦 Modules
 
 ```
 kromium/
@@ -84,7 +105,7 @@ kromium/
 
 ---
 
-## Installation
+## 📥 Installation
 
 Add the desired module to your `build.gradle.kts`:
 
@@ -94,27 +115,27 @@ repositories {
 }
 
 dependencies {
-    // For Compose Multiplatform Desktop applications
+    // For Compose Multiplatform Desktop applications:
     implementation("dev.daviante:kromium-compose:1.0.150")
 
-    // Or for standalone Kotlin JVM / Swing / Headless applications
-    implementation("dev.daviante:kromium-core:1.0.150")
+    // Or for standalone Kotlin JVM / Swing / Headless applications:
+    // implementation("dev.daviante:kromium-core:1.0.150")
 }
 ```
 
 ---
 
-## Quick Start
+## ⚡ Quick Start
 
 ### 1. Initialize the Engine
-Initialize Kromium once in your application startup:
+Initialize Kromium once in your application startup before rendering any UI:
 
 ```kotlin
 import dev.daviante.kromium.presentation.browser.Kromium
 
 suspend fun main() {
     Kromium.initialize {
-        // Standard hardware-accelerated windowed rendering (default: false)
+        // Hardware-accelerated windowed rendering (default: false)
         windowlessRendering = false
         
         // Optional: enable DevTools remote debugging port
@@ -150,7 +171,7 @@ import dev.daviante.kromium.compose.rememberKromiumState
 
 @Composable
 fun BrowserScreen() {
-    val state = rememberKromiumState(initialUrl = "https://github.com")
+    val state = rememberKromiumState(initialUrl = "https://github.com/daviantegroup/kromium")
 
     Column(modifier = Modifier.fillMaxSize()) {
         // Navigation toolbar
@@ -172,7 +193,7 @@ fun BrowserScreen() {
 
 ---
 
-## Feature Highlights
+## ✨ Feature Highlights
 
 ### 🍪 Coroutine Cookie Management
 ```kotlin
@@ -199,13 +220,13 @@ state.requestInterceptor = KromiumRequestInterceptor { request ->
     if (request.url.contains("doubleclick.net")) {
         return@KromiumRequestInterceptor true
     }
-    // Inject custom headers
+    // Inject custom authorization headers
     request.headers["Authorization"] = "Bearer my-secret-token"
-    false // Proceed
+    false // Allow request to proceed
 }
 ```
 
-### 🔗 Navigation Overrides (OAuth / Deep Links)
+### 🔗 Navigation Overrides (OAuth & Deep Links)
 ```kotlin
 state.shouldOverrideUrlLoading = { url ->
     if (url.startsWith("myapp://oauth-callback")) {
@@ -217,9 +238,9 @@ state.shouldOverrideUrlLoading = { url ->
 }
 ```
 
-### 📄 Extracting HTML & Executing JavaScript
+### 📄 Extracting DOM & Executing JavaScript
 ```kotlin
-// Run custom JavaScript and get the result
+// Run custom JavaScript asynchronously and get the result
 val title = state.evaluateJavaScript("document.title")
 
 // Extract complete page HTML
@@ -240,9 +261,18 @@ browser.printToPdf("C:/Reports/page.pdf")
 
 ---
 
-## 🚀 Running the Demo Application
+## 🤖 AI Coding Agent Feeds
 
-The repository includes a ready-to-run showcase browser application in `:kromium-demo` illustrating multi-tab navigation, custom dialogs, asynchronous JavaScript evaluation, cookie inspection, live canvas rendering, and developer tools:
+If you are developing with autonomous AI coding agents (Cursor, Claude Code, GitHub Copilot), direct plain-text documentation endpoints adhering to the `llmstxt.org` specification are available:
+
+- **[llms.txt (Quickstart & Index)](https://kromium.daviante.dev/llms.txt)**: Fast-loading index and API definitions.
+- **[llms-full.txt (Full Concatenated Docs)](https://kromium.daviante.dev/llms-full.txt)**: 40KB single-file complete documentation of all 26 articles.
+
+---
+
+## 🚀 Running the Showcase Demo
+
+The repository includes a ready-to-run showcase desktop browser application in `:kromium-demo` illustrating multi-tab navigation, custom dialogs, asynchronous JavaScript evaluation, cookie inspection, live canvas rendering, and developer tools:
 
 ```bash
 ./gradlew :kromium-demo:run
@@ -250,7 +280,15 @@ The repository includes a ready-to-run showcase browser application in `:kromium
 
 ---
 
-## License
+## 🛡️ Zero Telemetry & Security
+
+Kromium strictly guarantees **Zero Built-In Telemetry**. All Google metrics collection, crash reporting (`crashpad`), and background diagnostic pings are disabled at engine boot.
+
+Security vulnerabilities should be reported responsibly in accordance with our [Security Policy](SECURITY.md).
+
+---
+
+## 📄 License
 
 ```
 Copyright 2026 Daviante Group

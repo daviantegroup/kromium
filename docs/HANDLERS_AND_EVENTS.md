@@ -1,5 +1,7 @@
 # Handlers, Listeners & Events Reference
 
+[Kromium Documentation](README.md) &bull; [Interactive Web Portal](https://kromium.daviante.dev/#/docs/dialogs-downloads)
+
 This document covers the event listener interfaces in Kromium: authentication challenges, JavaScript dialogs, file downloads, developer console messages, popup suppression, and load error handling.
 
 ---
@@ -290,3 +292,7 @@ state.enableContextMenus = false
 client.enableContextMenus = false
 ```
 When set to `false`, Kromium clears the menu model in `onBeforeContextMenu`, preventing the popup menu from appearing.
+
+---
+
+[← Return to Documentation Index](README.md) &bull; [Visit Online Documentation](https://kromium.daviante.dev/#/docs/dialogs-downloads)

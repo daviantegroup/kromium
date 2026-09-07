@@ -1,5 +1,7 @@
 # Network Interception & Security Reference
 
+[Kromium Documentation](README.md) &bull; [Interactive Web Portal](https://kromium.daviante.dev/#/docs/network-interception)
+
 This document covers Kromium's network layer, request and header interception, navigation override handlers, SSL certificate policies, proxy routing, and security sandboxing.
 
 ---
@@ -272,3 +274,7 @@ During `KromiumConfig.validate()`, Kromium inspects command-line arguments and l
 ```
 ⚠️ Dangerous command-line flag detected: --disable-web-security — This significantly reduces security.
 ```
+
+---
+
+[← Return to Documentation Index](README.md) &bull; [Visit Online Documentation](https://kromium.daviante.dev/#/docs/network-interception)

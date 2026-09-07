@@ -1,5 +1,7 @@
 # Compose Multiplatform Desktop Integration
 
+[Kromium Documentation](README.md) &bull; [Interactive Web Portal](https://kromium.daviante.dev/#/docs/compose-view)
+
 This guide details how to integrate Kromium into Compose Multiplatform Desktop applications using `KromiumView`, `rememberKromiumState`, and `KromiumViewState`.
 
 ---
@@ -353,3 +355,7 @@ fun FullBrowserApp() {
     }
 }
 ```
+
+---
+
+[← Return to Documentation Index](README.md) &bull; [Visit Online Documentation](https://kromium.daviante.dev/#/docs/compose-view)
