@@ -43,14 +43,14 @@ class PlatformDetectorTest {
     fun testMacOsDynamicFrameworkPaths() {
         val tempDir = java.nio.file.Files.createTempDirectory("macos_framework_test").toFile()
         try {
-            // 1. Fallback behavior (older JBR)
+            // 1. Fallback behavior (older JBR layout when cef_server.app is absent)
             val fallbackFramework = OperatingSystem.MacOS.getFrameworkPath(tempDir, inFrameworks = true)
             assertTrue(fallbackFramework.endsWith("Chromium Embedded Framework.framework"))
-            assertTrue(fallbackFramework.contains("Frameworks"))
+            assertTrue(fallbackFramework.replace('\\', '/').contains("Frameworks"))
 
-            // 2. JBR 25 / CEF 150 layout with cef_server.app
-            val cefServerFrameworks = java.io.File(tempDir, "Frameworks/cef_server.app/Contents/Frameworks")
-            cefServerFrameworks.mkdirs()
+            // 2. JBR 25 layout with cef_server.app takes precedence when present
+            val cefServerFrameworksDir = java.io.File(tempDir, "Frameworks/cef_server.app/Contents/Frameworks")
+            cefServerFrameworksDir.mkdirs()
 
             val resolvedFramework = OperatingSystem.MacOS.getFrameworkPath(tempDir, inFrameworks = true).replace('\\', '/')
             assertTrue(resolvedFramework.contains("cef_server.app/Contents/Frameworks"))
@@ -60,6 +60,60 @@ class PlatformDetectorTest {
 
             val resolvedBrowser = OperatingSystem.MacOS.getBrowserPath(tempDir).replace('\\', '/')
             assertTrue(resolvedBrowser.contains("cef_server.app/Contents/Frameworks/jcef Helper.app/Contents/MacOS/jcef Helper"))
+
+            // Verify fixed args ordering
+            val args = OperatingSystem.MacOS.getFixedArgs(tempDir, listOf("--custom-arg=1"))
+            assertEquals(4, args.size)
+            val argList = args.toList()
+            assertTrue(argList[0].startsWith("--framework-dir-path="))
+            assertTrue(argList[1].startsWith("--main-bundle-path="))
+            assertTrue(argList[2].startsWith("--browser-subprocess-path="))
+            assertEquals("--custom-arg=1", argList[3])
+        } finally {
+            tempDir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun testLinuxPathResolution() {
+        val tempDir = java.nio.file.Files.createTempDirectory("linux_path_test").toFile()
+        try {
+            // Check default browser fallback
+            val defaultHelper = OperatingSystem.Linux.getBrowserPath(tempDir)
+            assertTrue(defaultHelper.replace('\\', '/').endsWith("lib/jcef_helper"))
+
+            // Check existing candidate
+            val binHelper = java.io.File(tempDir, "bin/jcef_helper")
+            binHelper.parentFile?.mkdirs()
+            binHelper.createNewFile()
+            val resolvedHelper = OperatingSystem.Linux.getBrowserPath(tempDir)
+            assertEquals(binHelper.canonicalPath, resolvedHelper)
+
+            // Check resources path with pak
+            val libDir = java.io.File(tempDir, "lib")
+            libDir.mkdirs()
+            val pak = java.io.File(libDir, "resources.pak")
+            pak.createNewFile()
+            val resolvedResources = OperatingSystem.Linux.getResourcesPath(tempDir)
+            assertEquals(libDir.canonicalPath, resolvedResources)
+        } finally {
+            tempDir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun testWindowsPathResolution() {
+        val tempDir = java.nio.file.Files.createTempDirectory("windows_path_test").toFile()
+        try {
+            // Check default browser fallback
+            val defaultHelper = OperatingSystem.Windows.getBrowserPath(tempDir)
+            assertTrue(defaultHelper.replace('\\', '/').endsWith("bin/jcef_helper.exe"))
+
+            // Check root executable candidate
+            val rootHelper = java.io.File(tempDir, "jcef_helper.exe")
+            rootHelper.createNewFile()
+            val resolvedHelper = OperatingSystem.Windows.getBrowserPath(tempDir)
+            assertEquals(rootHelper.canonicalPath, resolvedHelper)
         } finally {
             tempDir.deleteRecursively()
         }

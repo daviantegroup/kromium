@@ -54,9 +54,23 @@ class EngineDownloader(
 
         KromiumLogger.d(TAG, "Fetching release info from: $endpoint")
 
-        val release: GitHubRelease = client.get(endpoint) {
+        val response = client.get(endpoint) {
             header(HttpHeaders.Accept, "application/vnd.github+json")
-        }.body()
+        }
+
+        if (response.status.value == 403) {
+            throw KromiumException.DownloadFailed(
+                endpoint,
+                IllegalStateException("GitHub API rate limit exceeded. Try again later or specify a custom releaseTag/URL.")
+            )
+        } else if (!response.status.isSuccess()) {
+            throw KromiumException.DownloadFailed(
+                endpoint,
+                IllegalStateException("Failed to fetch release info: HTTP ${response.status.value}")
+            )
+        }
+
+        val release: GitHubRelease = response.body()
 
         // 1. Scan release body markdown links for direct jcef package urls
         val urlRegex = "(https?://|www.)[-a-zA-Z0-9+&@#/%?=~_|!:.;]*[-a-zA-Z0-9+&@#/%=~_|]".toRegex()
@@ -95,7 +109,7 @@ class EngineDownloader(
         }
 
         // 2. Fallback to assets
-        val matchedAsset = release.assets.firstOrNull { asset ->
+        val matchedAssets = release.assets.filter { asset ->
             val name = asset.name.lowercase()
             name.contains("jcef") &&
                 osKeywords.any { kw -> name.contains(kw, ignoreCase = true) } &&
@@ -103,10 +117,17 @@ class EngineDownloader(
                 !name.endsWith(".checksum")
         }
 
-        if (matchedAsset != null && matchedAsset.downloadUrl.isNotBlank()) {
-            KromiumLogger.d(TAG, "Resolved package URL from assets: ${matchedAsset.downloadUrl}")
-            val checksumAsset = release.assets.firstOrNull { it.name.equals("${matchedAsset.name}.checksum", ignoreCase = true) }
-            return ResolvedPackage(matchedAsset.downloadUrl, checksumAsset?.downloadUrl)
+        if (matchedAssets.isNotEmpty()) {
+            val matchedAsset = matchedAssets.sortedWith(
+                compareBy<GitHubRelease.Asset> { if (it.name.contains("sdk", ignoreCase = true)) 1 else 0 }
+                    .thenBy { if (it.name.endsWith(".tar.gz", ignoreCase = true)) 0 else 1 }
+            ).first()
+
+            if (matchedAsset.downloadUrl.isNotBlank()) {
+                KromiumLogger.d(TAG, "Resolved package URL from assets: ${matchedAsset.downloadUrl}")
+                val checksumAsset = release.assets.firstOrNull { it.name.equals("${matchedAsset.name}.checksum", ignoreCase = true) }
+                return ResolvedPackage(matchedAsset.downloadUrl, checksumAsset?.downloadUrl)
+            }
         }
 
         throw KromiumException.NoBundleAvailable("${platform.os} ${platform.arch}", releaseTag)

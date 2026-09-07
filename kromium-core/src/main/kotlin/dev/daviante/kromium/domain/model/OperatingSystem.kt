@@ -23,9 +23,9 @@ sealed class OperatingSystem(val name: String, private vararg val aliases: Strin
 
     data object MacOS : OperatingSystem("mac", "mac", "darwin", "osx") {
         /**
-         * In JetBrains Runtime 25 (CEF 150), macOS bundles place frameworks inside
-         * Frameworks/cef_server.app/Contents/Frameworks/.
-         * Older JBR releases place them directly under Frameworks/.
+         * Resolves the actual directory where CEF frameworks and helper apps reside.
+         * In JBR 25, they live inside cef_server.app/Contents/Frameworks.
+         * In older JBR releases, they live directly under Frameworks.
          */
         private fun resolveCefFrameworksDir(installDir: File): File {
             val safeBase = FileUtils.sanitizeDirectory(installDir) ?: installDir.canonicalFile
@@ -53,7 +53,7 @@ sealed class OperatingSystem(val name: String, private vararg val aliases: Strin
         }
 
         override fun getResourcesPath(installDir: File): String {
-            return "${getFrameworkPath(installDir, inFrameworks = true)}/Resources"
+            return "${getFrameworkPath(installDir, true)}/Resources"
         }
 
         override fun getBrowserPath(installDir: File): String {
@@ -64,11 +64,11 @@ sealed class OperatingSystem(val name: String, private vararg val aliases: Strin
         }
 
         override fun getFixedArgs(installDir: File, args: Collection<String>): Collection<String> {
-            val list = args.toMutableList()
-            list.add(0, "--framework-dir-path=${getFrameworkPath(installDir, inFrameworks = true)}")
-            list.add(0, "--main-bundle-path=${getMainBundlePath(installDir)}")
-            list.add(0, "--browser-subprocess-path=${getBrowserPath(installDir)}")
-            return list
+            return (listOf(
+                "--framework-dir-path=${getFrameworkPath(installDir, true)}",
+                "--main-bundle-path=${getMainBundlePath(installDir)}",
+                "--browser-subprocess-path=${getBrowserPath(installDir)}"
+            ) + args)
         }
     }
 

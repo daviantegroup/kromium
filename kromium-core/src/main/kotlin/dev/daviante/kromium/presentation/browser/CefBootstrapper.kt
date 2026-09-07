@@ -38,11 +38,6 @@ object CefBootstrapper {
         // Force local in-process mode (JetBrains JCEF defaults to remote cef_server.exe)
         CefApp.setIsRemoteEnabled(false)
 
-        if (os.isMacOS) {
-            val macOs = os as OperatingSystem.MacOS
-            System.setProperty("java.home", macOs.getFrameworkPath(installDir))
-        }
-
         // Preload JAWT (Java AWT Native Library)
         loadNativeLibrary(installDir, "jawt", platform)
 
@@ -63,10 +58,7 @@ object CefBootstrapper {
         SystemBootstrap.setLoader { libName ->
             if (!loadNativeLibrary(installDir, libName, platform)) {
                 // Fallback to standard JVM library resolution
-                try {
-                    System.loadLibrary(libName)
-                } catch (_: UnsatisfiedLinkError) {
-                }
+                System.loadLibrary(libName)
             }
         }
 
@@ -156,11 +148,29 @@ object CefBootstrapper {
     private fun loadNativeLibrary(dir: File, baseName: String, platform: PlatformInfo): Boolean {
         val ext = platform.os.dynamicLibraryExtension
 
-        val searchDirs = listOfNotNull(
-            dir,
-            File(dir, "bin").takeIf { it.exists() },
-            File(dir, "lib").takeIf { it.exists() }
-        )
+        val searchDirs = mutableListOf<File>()
+        searchDirs.add(dir)
+        File(dir, "bin").takeIf { it.exists() }?.let { searchDirs.add(it) }
+        File(dir, "lib").takeIf { it.exists() }?.let { searchDirs.add(it) }
+
+        // Include JVM home lib/bin paths for reliable JAWT resolution across all OSes
+        val javaHome = System.getProperty("java.home")?.let { File(it) }
+        if (javaHome != null && javaHome.exists()) {
+            File(javaHome, "bin").takeIf { it.exists() }?.let { searchDirs.add(it) }
+            File(javaHome, "lib").takeIf { it.exists() }?.let { searchDirs.add(it) }
+        }
+
+        // On macOS, search Frameworks directories where native libraries may reside
+        if (platform.os.isMacOS) {
+            val frameworksDir = File(dir, "Frameworks")
+            if (frameworksDir.exists()) searchDirs.add(frameworksDir)
+            val cefServerFrameworks = File(dir, "Frameworks/cef_server.app/Contents/Frameworks")
+            if (cefServerFrameworks.exists()) searchDirs.add(cefServerFrameworks)
+            val cefFrameworkLibs = File(cefServerFrameworks, "Chromium Embedded Framework.framework/Libraries")
+            if (cefFrameworkLibs.exists()) searchDirs.add(cefFrameworkLibs)
+            val directCefFrameworkLibs = File(frameworksDir, "Chromium Embedded Framework.framework/Libraries")
+            if (directCefFrameworkLibs.exists()) searchDirs.add(directCefFrameworkLibs)
+        }
 
         for (searchDir in searchDirs) {
             val candidates = listOf(
@@ -174,7 +184,8 @@ object CefBootstrapper {
                     try {
                         System.load(file.canonicalPath)
                         return true
-                    } catch (_: Throwable) {
+                    } catch (e: Throwable) {
+                        KromiumLogger.d(TAG, "Failed loading candidate ${file.path}: ${e.message}")
                     }
                 }
             }
@@ -183,7 +194,8 @@ object CefBootstrapper {
         return try {
             System.loadLibrary(baseName)
             true
-        } catch (_: Throwable) {
+        } catch (e: Throwable) {
+            KromiumLogger.d(TAG, "System.loadLibrary($baseName) could not resolve library: ${e.message}")
             false
         }
     }

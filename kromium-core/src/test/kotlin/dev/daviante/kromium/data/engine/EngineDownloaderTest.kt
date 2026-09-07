@@ -2,6 +2,7 @@ package dev.daviante.kromium.data.engine
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlin.test.assertFailsWith
 import kotlinx.coroutines.test.runTest
 import io.ktor.client.*
@@ -157,5 +158,29 @@ class EngineDownloaderTest {
         assertFailsWith<KromiumException.NoBundleAvailable> {
             downloader.resolvePackageUrl(platform, "test", "test", "v1.0")
         }
+    }
+
+    @Test
+    fun testResolvePackageUrlRateLimitExceeded() = runTest {
+        val mockEngine = MockEngine { _ ->
+            respond(
+                content = """{"message":"API rate limit exceeded"}""",
+                status = HttpStatusCode.Forbidden,
+                headers = headersOf(HttpHeaders.ContentType, "application/vnd.github+json")
+            )
+        }
+        val client = HttpClient(mockEngine) {
+            install(ContentNegotiation) {
+                json(json)
+                json(json, ContentType("application", "vnd.github+json"))
+            }
+        }
+        val downloader = EngineDownloader(client)
+        val platform = PlatformInfo(OperatingSystem.Windows, Architecture.X64)
+
+        val ex = assertFailsWith<KromiumException.DownloadFailed> {
+            downloader.resolvePackageUrl(platform, "test", "test", "v1.0")
+        }
+        assertTrue(ex.cause?.message?.contains("rate limit", ignoreCase = true) == true)
     }
 }

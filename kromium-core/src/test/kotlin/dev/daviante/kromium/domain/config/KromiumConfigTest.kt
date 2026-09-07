@@ -54,4 +54,13 @@ class KromiumConfigTest {
         val settings = config.toCefSettings()
         assertTrue(settings.windowless_rendering_enabled)
     }
+
+    @Test
+    fun testCachePathTraversal() {
+        val config = KromiumConfig()
+        config.cachePath = "foo/../../bar"
+        kotlin.test.assertFailsWith<dev.daviante.kromium.domain.exception.KromiumException.InvalidConfig> {
+            config.validate()
+        }
+    }
 }

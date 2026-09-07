@@ -92,6 +92,11 @@ object Kromium {
                 KromiumLogger.i(TAG, "Install directory: ${installDir.absolutePath}")
 
                 if (!EngineRegistry.isInstalled(installDir)) {
+                    if (installDir.exists()) {
+                        KromiumLogger.i(TAG, "Cleaning incomplete engine directory before installation: ${installDir.absolutePath}")
+                        EngineRegistry.clearInstallation(installDir)
+                    }
+
                     if (!FileUtils.ensureDirectory(installDir)) {
                         throw KromiumException.InstallationFailed(installDir.absolutePath)
                     }
@@ -104,18 +109,18 @@ object Kromium {
                         val tempArchive = File.createTempFile("kromium_bundle_", ".tar.gz")
                         tempArchive.deleteOnExit()
 
-                        _state.value = KromiumState.Downloading(DownloadProgress.Initial)
-                        downloader.downloadToFile(resolvedPackage, tempArchive) { progress ->
-                            _state.value = KromiumState.Downloading(progress)
+                        try {
+                            _state.value = KromiumState.Downloading(DownloadProgress.Initial)
+                            downloader.downloadToFile(resolvedPackage, tempArchive) { progress ->
+                                _state.value = KromiumState.Downloading(progress)
+                            }
+
+                            KromiumLogger.i(TAG, "Download complete, extracting...")
+                            _state.value = KromiumState.Extracting
+                            EngineExtractor.extractTarGz(tempArchive, installDir)
+                        } finally {
+                            tempArchive.delete()
                         }
-
-                        KromiumLogger.i(TAG, "Download complete, extracting...")
-                        _state.value = KromiumState.Extracting
-                        EngineExtractor.extractTarGz(tempArchive, installDir)
-                        tempArchive.delete()
-
-                        EngineRegistry.markInstalled(installDir)
-                        KromiumLogger.i(TAG, "Engine installed successfully")
                     } finally {
                         downloader.close()
                     }
@@ -132,6 +137,10 @@ object Kromium {
                 )
                 cefApp = app
 
+                // Mark engine as installed only after native bootstrap succeeds
+                EngineRegistry.markInstalled(installDir)
+                KromiumLogger.i(TAG, "Engine installed and verified successfully")
+
                 Runtime.getRuntime().addShutdownHook(Thread {
                     disposeInternal()
                 })
@@ -140,10 +149,12 @@ object Kromium {
                 KromiumLogger.i(TAG, "Kromium is ready")
             } catch (e: KromiumException) {
                 KromiumLogger.e(TAG, "Initialization failed: ${e.message}", e)
+                FileUtils.resolveChild(config.installDir, "install.lock")?.delete()
                 _state.value = KromiumState.Error(e)
                 throw e
             } catch (e: Throwable) {
                 KromiumLogger.e(TAG, "Initialization failed unexpectedly: ${e.message}", e)
+                FileUtils.resolveChild(config.installDir, "install.lock")?.delete()
                 val wrapped = KromiumException.BootstrapFailed(e)
                 _state.value = KromiumState.Error(wrapped)
                 throw wrapped

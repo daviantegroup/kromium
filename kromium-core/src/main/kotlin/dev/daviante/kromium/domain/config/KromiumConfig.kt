@@ -106,6 +106,12 @@ class KromiumConfig {
             )
         }
 
+        cachePath?.let { path ->
+            if (path.contains("..")) {
+                throw KromiumException.InvalidConfig("cachePath contains path traversal sequence: $path")
+            }
+        }
+
         // Warn about dangerous flags
         val dangerousFlags = commandLineArgs.filter { arg ->
             val lower = arg.lowercase()
