@@ -175,7 +175,7 @@ jobs:
           echo "Creating GitHub Release for $TAG_NAME..."
           {
             echo "<div align=\"center\">"
-            echo "  <img src=\"https://raw.githubusercontent.com/daviantegroup/kromium/master/assets/logo.svg\" alt=\"Kromium Logo\" width=\"80\" height=\"80\" />"
+            echo "  <img src=\"https://kromium.daviante.dev/android-chrome-192x192.png\" alt=\"Kromium Logo\" width=\"80\" height=\"80\" />"
             echo "  <h2>Kromium $TAG_NAME</h2>"
             echo "  <p>"
             echo "    <img src=\"https://img.shields.io/badge/Channel-Stable-107c41?style=flat-square&logo=shield\" alt=\"Stable\" />"
