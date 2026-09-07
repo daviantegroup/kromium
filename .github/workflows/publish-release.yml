@@ -100,8 +100,11 @@ jobs:
           IS_DRY_RUN: ${{ inputs.dry_run || false }}
         run: |
           echo "=== 1. Checking Project Version ==="
-          PROJECT_VERSION=$(./gradlew properties --property version -q | awk '{print $2}')
-          echo "Gradle Project Version: $PROJECT_VERSION"
+          PROJECT_VERSION=$(grep -m1 'version = ' build.gradle.kts | sed -E 's/.*"([^"]+)".*/\1/' | tr -d '[:space:]')
+          if [ -z "$PROJECT_VERSION" ]; then
+            PROJECT_VERSION=$(./gradlew properties --property version -q | grep "^version:" | awk '{print $2}' | tr -d '[:space:]')
+          fi
+          echo "Project Version: '$PROJECT_VERSION'"
           echo "project_version=$PROJECT_VERSION" >> $GITHUB_OUTPUT
 
           if [ "${{ github.event_name }}" = "release" ]; then
@@ -115,7 +118,7 @@ jobs:
             echo "Release tag and Gradle version match perfectly ($PROJECT_VERSION)."
           fi
 
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
+          if [ "${{ github.event_name }}" = "pull_request" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             git fetch --tags
             if git rev-parse "v$PROJECT_VERSION" >/dev/null 2>&1; then
               echo "::warning::Tag v$PROJECT_VERSION already exists. Skipping duplicate publish."
@@ -153,7 +156,7 @@ jobs:
         run: ./gradlew test
 
       - name: Create Git Tag and GitHub Release
-        if: steps.check_trigger.outputs.proceed == 'true' && steps.preflight.outputs.proceed == 'true' && github.event_name == 'pull_request' && inputs.dry_run != true
+        if: steps.check_trigger.outputs.proceed == 'true' && steps.preflight.outputs.proceed == 'true' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch') && inputs.dry_run != true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
