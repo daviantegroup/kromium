@@ -44,6 +44,28 @@ class KromiumClient(
 
     var requestInterceptor: KromiumRequestInterceptor? = null
     var downloadListener: KromiumDownloadListener? = null
+    var downloadDirectory: java.io.File = java.io.File(System.getProperty("user.home"), "Downloads")
+    var onBeforeDownloadListener: ((item: KromiumDownloadItem, suggestedFileName: String) -> String?)? = null
+    private val downloadCallbacks = java.util.concurrent.ConcurrentHashMap<Int, CefDownloadItemCallback>()
+
+    fun cancelDownload(downloadId: Int): Boolean {
+        val cb = downloadCallbacks[downloadId] ?: return false
+        cb.cancel()
+        return true
+    }
+
+    fun pauseDownload(downloadId: Int): Boolean {
+        val cb = downloadCallbacks[downloadId] ?: return false
+        cb.pause()
+        return true
+    }
+
+    fun resumeDownload(downloadId: Int): Boolean {
+        val cb = downloadCallbacks[downloadId] ?: return false
+        cb.resume()
+        return true
+    }
+
     var jsDialogListener: KromiumJsDialogListener? = null
     var consoleMessageListener: ((KromiumConsoleMessage) -> Unit)? = null
     var authListener: KromiumAuthListener? = null
@@ -296,7 +318,51 @@ class KromiumClient(
                 suggestedName: String?,
                 callback: CefBeforeDownloadCallback?
             ): Boolean {
-                callback?.Continue(suggestedName ?: "download", true)
+                if (callback == null) return false
+
+                val rawName = suggestedName?.takeIf { it.isNotBlank() }
+                    ?: downloadItem?.suggestedFileName?.takeIf { it.isNotBlank() }
+                    ?: "download"
+                val cleanName = rawName.substringAfterLast('/').substringAfterLast('\\')
+                    .replace("[?%*:|\"<>]".toRegex(), "_")
+                    .ifBlank { "download" }
+
+                val targetDir = downloadDirectory.apply { if (!exists()) mkdirs() }
+                val targetFile = getNonConflictingDownloadFile(targetDir, cleanName)
+                val defaultTargetPath = targetFile.absolutePath
+
+                val item = downloadItem?.let {
+                    KromiumDownloadItem(
+                        id = it.id,
+                        url = it.url ?: "",
+                        suggestedFileName = cleanName,
+                        fullPath = defaultTargetPath,
+                        totalBytes = it.totalBytes,
+                        receivedBytes = it.receivedBytes,
+                        percentComplete = it.percentComplete,
+                        speed = it.currentSpeed,
+                        isInProgress = it.isInProgress,
+                        isComplete = it.isComplete,
+                        isCanceled = it.isCanceled
+                    )
+                }
+
+                val customPath = if (item != null) onBeforeDownloadListener?.invoke(item, cleanName) else null
+
+                when {
+                    customPath != null && customPath.isBlank() -> {
+                        KromiumLogger.i(TAG, "Download canceled: $cleanName")
+                        return true
+                    }
+                    customPath != null -> {
+                        KromiumLogger.i(TAG, "Downloading $cleanName to custom path: $customPath")
+                        callback.Continue(customPath, false)
+                    }
+                    else -> {
+                        KromiumLogger.i(TAG, "Downloading $cleanName to: $defaultTargetPath")
+                        callback.Continue(defaultTargetPath, false)
+                    }
+                }
                 return false
             }
 
@@ -305,13 +371,23 @@ class KromiumClient(
                 downloadItem: CefDownloadItem?,
                 callback: CefDownloadItemCallback?
             ) {
-                val listener = downloadListener ?: return
                 if (downloadItem == null) return
+
+                if (callback != null) {
+                    if (downloadItem.isComplete || downloadItem.isCanceled) {
+                        downloadCallbacks.remove(downloadItem.id)
+                    } else {
+                        downloadCallbacks[downloadItem.id] = callback
+                    }
+                }
+
+                val listener = downloadListener ?: return
 
                 val item = KromiumDownloadItem(
                     id = downloadItem.id,
                     url = downloadItem.url ?: "",
                     suggestedFileName = downloadItem.suggestedFileName ?: "",
+                    fullPath = downloadItem.fullPath ?: "",
                     totalBytes = downloadItem.totalBytes,
                     receivedBytes = downloadItem.receivedBytes,
                     percentComplete = downloadItem.percentComplete,
@@ -328,6 +404,21 @@ class KromiumClient(
                 }
             }
         })
+    }
+
+    private fun getNonConflictingDownloadFile(dir: java.io.File, fileName: String): java.io.File {
+        var file = java.io.File(dir, fileName)
+        if (!file.exists()) return file
+        val base = fileName.substringBeforeLast('.', "")
+        val ext = fileName.substringAfterLast('.', "")
+        val prefix = if (base.isEmpty()) fileName else base
+        val suffix = if (ext.isEmpty() || ext == fileName) "" else ".$ext"
+        var counter = 1
+        while (file.exists()) {
+            file = java.io.File(dir, "$prefix ($counter)$suffix")
+            counter++
+        }
+        return file
     }
 
     private fun setupDialogHandler() {

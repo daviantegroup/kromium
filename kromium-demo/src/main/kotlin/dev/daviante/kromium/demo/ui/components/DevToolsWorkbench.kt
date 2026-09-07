@@ -18,6 +18,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toComposeImageBitmap
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -576,6 +579,7 @@ private fun ConsoleEntryView(entry: dev.daviante.kromium.demo.model.ConsoleEntry
 private fun DownloadsTab(workspaceState: WorkspaceState) {
     val downloads = workspaceState.downloads
     val inProgressCount = downloads.count { it.isInProgress }
+    var inputDownloadUrl by remember { mutableStateOf("") }
 
     Column(modifier = Modifier.fillMaxSize()) {
         // Downloads header
@@ -611,31 +615,95 @@ private fun DownloadsTab(workspaceState: WorkspaceState) {
                 }
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                // Trigger Test Download button
-                Button(
-                    onClick = { workspaceState.triggerSampleDownload() },
-                    colors = ButtonDefaults.buttonColors(containerColor = KromiumColors.SurfaceElevated),
-                    shape = RoundedCornerShape(6.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                    modifier = Modifier.height(28.dp)
+            if (downloads.isNotEmpty()) {
+                IconButton(
+                    onClick = { workspaceState.clearDownloads() },
+                    modifier = Modifier.size(28.dp)
                 ) {
-                    Text("Test Download", fontSize = 10.sp, color = KromiumColors.Cyan)
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Clear downloads",
+                        tint = KromiumColors.TextMuted,
+                        modifier = Modifier.size(16.dp)
+                    )
                 }
+            }
+        }
 
-                if (downloads.isNotEmpty()) {
-                    IconButton(
-                        onClick = { workspaceState.clearDownloads() },
-                        modifier = Modifier.size(28.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "Clear downloads",
-                            tint = KromiumColors.TextMuted,
-                            modifier = Modifier.size(16.dp)
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Direct URL download input bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(KromiumColors.SurfaceElevated)
+                .border(1.dp, KromiumColors.Border, RoundedCornerShape(8.dp))
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.FileDownload,
+                contentDescription = null,
+                tint = KromiumColors.Cyan,
+                modifier = Modifier.size(16.dp)
+            )
+            BasicTextField(
+                value = inputDownloadUrl,
+                onValueChange = { inputDownloadUrl = it },
+                modifier = Modifier.weight(1f),
+                textStyle = TextStyle(color = KromiumColors.TextPrimary, fontSize = 12.sp),
+                singleLine = true,
+                cursorBrush = SolidColor(KromiumColors.Cyan),
+                decorationBox = { innerTextField ->
+                    if (inputDownloadUrl.isEmpty()) {
+                        Text(
+                            text = "Enter file or image URL to download...",
+                            fontSize = 11.sp,
+                            color = KromiumColors.TextMuted
                         )
                     }
+                    innerTextField()
                 }
+            )
+            Button(
+                onClick = {
+                    if (inputDownloadUrl.isNotBlank()) {
+                        workspaceState.downloadUrl(inputDownloadUrl)
+                        inputDownloadUrl = ""
+                    }
+                },
+                enabled = inputDownloadUrl.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = KromiumColors.CyanDark,
+                    disabledContainerColor = KromiumColors.Surface
+                ),
+                shape = RoundedCornerShape(6.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                modifier = Modifier.height(26.dp)
+            ) {
+                Text("Download", fontSize = 11.sp, color = Color.White)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Sample download pills
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Samples:", fontSize = 10.sp, color = KromiumColors.TextMuted)
+            SampleDownloadChip("Logo (SVG)") {
+                workspaceState.downloadUrl("https://raw.githubusercontent.com/daviantegroup/kromium/master/assets/logo.svg")
+            }
+            SampleDownloadChip("1MB File") {
+                workspaceState.downloadUrl("https://speed.hetzner.de/1MB.bin")
+            }
+            SampleDownloadChip("10MB File") {
+                workspaceState.downloadUrl("https://speed.hetzner.de/10MB.bin")
             }
         }
 
@@ -668,7 +736,7 @@ private fun DownloadsTab(workspaceState: WorkspaceState) {
                         color = KromiumColors.TextSecondary
                     )
                     Text(
-                        text = "Downloads started in Chromium will update here in real time with progress and status.",
+                        text = "Enter any URL above or click a download link in a webpage to download files to ~/Downloads.",
                         fontSize = 11.sp,
                         color = KromiumColors.TextMuted
                     )
@@ -676,9 +744,9 @@ private fun DownloadsTab(workspaceState: WorkspaceState) {
                         onClick = { workspaceState.triggerSampleDownload() },
                         colors = ButtonDefaults.buttonColors(containerColor = KromiumColors.CyanDark),
                         shape = RoundedCornerShape(6.dp),
-                        modifier = Modifier.padding(top = 6.dp)
+                        modifier = Modifier.padding(top = 4.dp)
                     ) {
-                        Text("Trigger Test Download", fontSize = 11.sp, color = Color.White)
+                        Text("Download Sample Asset", fontSize = 11.sp, color = Color.White)
                     }
                 }
             }
@@ -692,6 +760,7 @@ private fun DownloadsTab(workspaceState: WorkspaceState) {
                 downloads.forEach { item ->
                     DownloadCard(
                         item = item,
+                        workspaceState = workspaceState,
                         onRemove = { workspaceState.removeDownload(item.id) }
                     )
                 }
@@ -701,8 +770,26 @@ private fun DownloadsTab(workspaceState: WorkspaceState) {
 }
 
 @Composable
+private fun SampleDownloadChip(label: String, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(4.dp),
+        color = KromiumColors.SurfaceElevated,
+        modifier = Modifier.border(1.dp, KromiumColors.BorderSubtle, RoundedCornerShape(4.dp))
+    ) {
+        Text(
+            text = label,
+            fontSize = 10.sp,
+            color = KromiumColors.Cyan,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+        )
+    }
+}
+
+@Composable
 private fun DownloadCard(
     item: dev.daviante.kromium.presentation.handler.KromiumDownloadItem,
+    workspaceState: WorkspaceState,
     onRemove: () -> Unit
 ) {
     Surface(
@@ -747,11 +834,19 @@ private fun DownloadCard(
                             maxLines = 1
                         )
                         Text(
-                            text = item.url.take(36),
+                            text = item.url.take(38),
                             fontSize = 10.sp,
                             color = KromiumColors.TextMuted,
                             maxLines = 1
                         )
+                        if (item.fullPath.isNotBlank()) {
+                            Text(
+                                text = item.fullPath.takeLast(40),
+                                fontSize = 9.sp,
+                                color = KromiumColors.Cyan.copy(alpha = 0.8f),
+                                maxLines = 1
+                            )
+                        }
                     }
                 }
 
@@ -824,6 +919,35 @@ private fun DownloadCard(
                         else -> KromiumColors.Cyan
                     }
                 )
+            }
+
+            // Action row for completed downloads: Open File / Show in Folder
+            if (item.isComplete) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Button(
+                        onClick = { workspaceState.showInFolder(item) },
+                        colors = ButtonDefaults.buttonColors(containerColor = KromiumColors.Surface),
+                        shape = RoundedCornerShape(4.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                        modifier = Modifier.height(24.dp)
+                    ) {
+                        Text("Show in Folder", fontSize = 10.sp, color = KromiumColors.Cyan)
+                    }
+
+                    Button(
+                        onClick = { workspaceState.openDownloadedFile(item) },
+                        colors = ButtonDefaults.buttonColors(containerColor = KromiumColors.Surface),
+                        shape = RoundedCornerShape(4.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                        modifier = Modifier.height(24.dp)
+                    ) {
+                        Text("Open File", fontSize = 10.sp, color = KromiumColors.TextPrimary)
+                    }
+                }
             }
         }
     }

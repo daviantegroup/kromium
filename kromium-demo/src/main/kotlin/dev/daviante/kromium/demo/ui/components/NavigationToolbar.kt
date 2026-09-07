@@ -233,6 +233,26 @@ fun NavigationToolbar(
                             )
                         }
 
+                        // Quick Download Button for current/input URL
+                        IconButton(
+                            onClick = {
+                                val trimmed = inputUrl.trim()
+                                if (trimmed.isNotBlank()) {
+                                    workspaceState.downloadUrl(trimmed)
+                                    workspaceState.activeWorkbenchTab = dev.daviante.kromium.demo.model.WorkbenchTab.DOWNLOADS
+                                    workspaceState.isDevDrawerOpen = true
+                                }
+                            },
+                            modifier = Modifier.size(26.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.FileDownload,
+                                contentDescription = "Download URL",
+                                tint = KromiumColors.Cyan,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+
                         // Go / Navigate Button
                         IconButton(
                             onClick = {

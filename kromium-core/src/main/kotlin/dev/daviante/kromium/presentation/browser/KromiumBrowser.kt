@@ -53,6 +53,13 @@ class KromiumBrowser(
     fun canGoForward(): Boolean = browser.canGoForward()
     
     fun stopLoad() = browser.stopLoad()
+    
+    /**
+     * Programmatically initiates a file download from the specified URL using this browser session.
+     */
+    fun startDownload(url: String) {
+        browser.startDownload(url)
+    }
 
     fun find(
         searchText: String,

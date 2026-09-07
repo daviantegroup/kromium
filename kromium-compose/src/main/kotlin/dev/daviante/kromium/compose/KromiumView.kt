@@ -55,6 +55,8 @@ fun KromiumView(
         effectiveClient.customUserAgent = state.userAgent
         effectiveClient.requestInterceptor = state.requestInterceptor
         effectiveClient.downloadListener = state.onDownload?.let { cb -> KromiumDownloadListener { item -> cb(item) } }
+        state.downloadDirectory?.let { effectiveClient.downloadDirectory = it }
+        effectiveClient.onBeforeDownloadListener = state.onBeforeDownload
         effectiveClient.jsDialogListener = state.onJsDialog?.let { cb -> KromiumJsDialogListener { dialog -> cb(dialog) } }
         effectiveClient.consoleMessageListener = state.onConsoleMessage
         effectiveClient.authListener = state.onAuthRequired?.let { cb -> KromiumAuthListener { req -> cb(req) } }

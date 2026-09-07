@@ -42,6 +42,10 @@ class KromiumViewState(initialUrl: String) {
 
     var onDownload: ((KromiumDownloadItem) -> Unit)? by mutableStateOf(null)
 
+    var downloadDirectory: java.io.File? by mutableStateOf(null)
+
+    var onBeforeDownload: ((item: KromiumDownloadItem, suggestedFileName: String) -> String?)? by mutableStateOf(null)
+
     var onJsDialog: ((KromiumJsDialog) -> Boolean)? by mutableStateOf(null)
     
     var onConsoleMessage: ((KromiumConsoleMessage) -> Unit)? by mutableStateOf(null)
@@ -137,6 +141,13 @@ class KromiumViewState(initialUrl: String) {
 
     fun simulateClick(x: Int, y: Int) {
         browser?.simulateClick(x, y)
+    }
+
+    /**
+     * Programmatically initiates a file download from the given URL.
+     */
+    fun startDownload(url: String) {
+        browser?.startDownload(url)
     }
 }
 

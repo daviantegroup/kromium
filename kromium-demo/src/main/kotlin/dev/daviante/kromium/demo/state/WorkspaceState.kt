@@ -9,6 +9,7 @@ import dev.daviante.kromium.demo.model.ConsoleEntry
 import dev.daviante.kromium.demo.model.ConsoleEntryType
 import dev.daviante.kromium.demo.model.WorkbenchTab
 import dev.daviante.kromium.presentation.network.KromiumCookieManager
+import dev.daviante.kromium.core.logging.KromiumLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.net.URLEncoder
@@ -66,9 +67,63 @@ class WorkspaceState(
     }
 
     fun triggerSampleDownload() {
-        // Navigates active tab to a lightweight downloadable sample artifact
-        val sampleUrl = "https://raw.githubusercontent.com/daviantegroup/kromium/master/README.md"
-        navigate(sampleUrl)
+        // Initiates a live download of an actual sample artifact (Kromium Logo SVG)
+        val sampleUrl = "https://raw.githubusercontent.com/daviantegroup/kromium/master/assets/logo.svg"
+        downloadUrl(sampleUrl)
+    }
+
+    fun downloadUrl(rawUrl: String) {
+        val trimmed = rawUrl.trim()
+        if (trimmed.isBlank()) return
+        val target = resolveNavigationTarget(trimmed)
+
+        val active = activeTab
+        if (active?.viewState?.browser != null) {
+            active.viewState.startDownload(target)
+        } else if (active != null) {
+            active.viewState.loadUrl(target)
+        } else {
+            openTab(target)
+        }
+    }
+
+    fun showInFolder(item: dev.daviante.kromium.presentation.handler.KromiumDownloadItem) {
+        val path = item.fullPath.ifBlank {
+            java.io.File(System.getProperty("user.home"), "Downloads/${item.suggestedFileName}").absolutePath
+        }
+        val file = java.io.File(path)
+        try {
+            if (java.awt.Desktop.isDesktopSupported()) {
+                val desktop = java.awt.Desktop.getDesktop()
+                if (file.exists()) {
+                    desktop.open(file.parentFile ?: file)
+                } else {
+                    desktop.open(java.io.File(System.getProperty("user.home"), "Downloads"))
+                }
+            }
+        } catch (e: Exception) {
+            KromiumLogger.e("WorkspaceState", "Failed to open folder for download: $path", e)
+        }
+    }
+
+    fun openDownloadedFile(item: dev.daviante.kromium.presentation.handler.KromiumDownloadItem) {
+        val path = item.fullPath.ifBlank {
+            java.io.File(System.getProperty("user.home"), "Downloads/${item.suggestedFileName}").absolutePath
+        }
+        val file = java.io.File(path)
+        try {
+            if (java.awt.Desktop.isDesktopSupported() && file.exists()) {
+                java.awt.Desktop.getDesktop().open(file)
+            }
+        } catch (e: Exception) {
+            KromiumLogger.e("WorkspaceState", "Failed to open downloaded file: $path", e)
+        }
+    }
+
+    fun handlePopup(url: String): Boolean {
+        // Open the popup in a new tab so it integrates seamlessly with the tabbed UI
+        openTab(url)
+        return true
     }
 
     fun clearBrowsingData(
@@ -107,7 +162,8 @@ class WorkspaceState(
         // Initialize with default tab
         val defaultTab = BrowserTab(
             initialUrl = DEFAULT_HOME_URL,
-            onDownloadUpdated = ::onDownloadUpdated
+            onDownloadUpdated = ::onDownloadUpdated,
+            onPopupRequested = ::handlePopup
         )
         tabs.add(defaultTab)
         activeTabId = defaultTab.id
@@ -116,7 +172,8 @@ class WorkspaceState(
     fun openTab(url: String = DEFAULT_HOME_URL): BrowserTab {
         val newTab = BrowserTab(
             initialUrl = url,
-            onDownloadUpdated = ::onDownloadUpdated
+            onDownloadUpdated = ::onDownloadUpdated,
+            onPopupRequested = ::handlePopup
         )
         tabs.add(newTab)
         activeTabId = newTab.id
