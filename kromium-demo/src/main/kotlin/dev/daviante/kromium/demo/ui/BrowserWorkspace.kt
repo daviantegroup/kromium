@@ -33,10 +33,7 @@ fun BrowserWorkspace(
     val viewState = activeTab?.viewState
 
     Column(modifier = modifier.fillMaxSize()) {
-        // App Branded Header with logo.png
-        AppHeader()
-
-        // Tab Bar
+        // Chrome-style Integrated Tab Strip & Window Header
         TabBar(
             tabs = workspaceState.tabs,
             activeTabId = workspaceState.activeTabId,

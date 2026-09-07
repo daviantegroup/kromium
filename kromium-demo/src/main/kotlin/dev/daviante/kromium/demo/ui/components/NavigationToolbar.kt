@@ -7,6 +7,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -18,7 +19,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -35,43 +39,48 @@ fun NavigationToolbar(
     val viewState = activeTab?.viewState
     val currentUrl = viewState?.url ?: ""
     var inputUrl by remember(currentUrl) { mutableStateOf(currentUrl) }
+    var isFocused by remember { mutableStateOf(false) }
+    var isBookmarked by remember(currentUrl) { mutableStateOf(false) }
 
     Surface(
-        color = KromiumColors.Surface,
-        modifier = modifier
-            .fillMaxWidth()
-            .border(1.dp, KromiumColors.Border)
+        color = KromiumColors.SurfaceElevated,
+        modifier = modifier.fillMaxWidth()
     ) {
         Column {
-            // Main toolbar controls row
+            // Main Chrome Navigation Bar Row
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                    .height(48.dp)
+                    .padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 // Back Button
                 IconButton(
                     onClick = { viewState?.goBack() },
-                    enabled = viewState?.canGoBack == true
+                    enabled = viewState?.canGoBack == true,
+                    modifier = Modifier.size(34.dp)
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
-                        tint = if (viewState?.canGoBack == true) KromiumColors.TextPrimary else KromiumColors.TextMuted
+                        tint = if (viewState?.canGoBack == true) KromiumColors.TextPrimary else KromiumColors.TextMuted.copy(alpha = 0.5f),
+                        modifier = Modifier.size(18.dp)
                     )
                 }
 
                 // Forward Button
                 IconButton(
                     onClick = { viewState?.goForward() },
-                    enabled = viewState?.canGoForward == true
+                    enabled = viewState?.canGoForward == true,
+                    modifier = Modifier.size(34.dp)
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = "Forward",
-                        tint = if (viewState?.canGoForward == true) KromiumColors.TextPrimary else KromiumColors.TextMuted
+                        tint = if (viewState?.canGoForward == true) KromiumColors.TextPrimary else KromiumColors.TextMuted.copy(alpha = 0.5f),
+                        modifier = Modifier.size(18.dp)
                     )
                 }
 
@@ -83,12 +92,14 @@ fun NavigationToolbar(
                         } else {
                             viewState?.reload()
                         }
-                    }
+                    },
+                    modifier = Modifier.size(34.dp)
                 ) {
                     Icon(
                         imageVector = if (viewState?.isLoading == true) Icons.Default.Close else Icons.Default.Refresh,
                         contentDescription = if (viewState?.isLoading == true) "Stop" else "Reload",
-                        tint = KromiumColors.TextPrimary
+                        tint = KromiumColors.TextPrimary,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
 
@@ -98,70 +109,110 @@ fun NavigationToolbar(
                         val homeUrl = "https://duckduckgo.com"
                         inputUrl = homeUrl
                         workspaceState.navigate(homeUrl)
-                    }
+                    },
+                    modifier = Modifier.size(34.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Home,
                         contentDescription = "Home",
-                        tint = KromiumColors.TextPrimary
+                        tint = KromiumColors.TextSecondary,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
 
-                // Smart Omnibox URL Bar
+                // Chrome Pill Omnibox (Address Bar)
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .height(38.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(KromiumColors.SurfaceElevated)
-                        .border(1.dp, KromiumColors.Border, RoundedCornerShape(8.dp))
-                        .padding(horizontal = 10.dp),
+                        .height(36.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(if (isFocused) Color(0xFF131926) else Color(0xFF0C101A))
+                        .border(
+                            width = 1.dp,
+                            color = if (isFocused) KromiumColors.Cyan else Color(0xFF263248),
+                            shape = RoundedCornerShape(18.dp)
+                        )
+                        .padding(horizontal = 12.dp),
                     contentAlignment = Alignment.CenterStart
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxSize()
                     ) {
-                        // SSL Lock indicator
+                        // SSL Lock / Scheme indicator
                         val isHttps = inputUrl.startsWith("https://")
+                        val isCustomScheme = inputUrl.startsWith("kromium:") || inputUrl.startsWith("chrome:")
                         Icon(
-                            imageVector = if (isHttps) Icons.Default.Lock else Icons.Default.Language,
-                            contentDescription = "Security",
-                            tint = if (isHttps) KromiumColors.Emerald else KromiumColors.TextMuted,
-                            modifier = Modifier.size(16.dp)
+                            imageVector = when {
+                                isHttps -> Icons.Default.Lock
+                                isCustomScheme -> Icons.Default.Code
+                                else -> Icons.Default.Language
+                            },
+                            contentDescription = "Security Status",
+                            tint = when {
+                                isHttps -> KromiumColors.Emerald
+                                isCustomScheme -> KromiumColors.Cyan
+                                else -> KromiumColors.TextMuted
+                            },
+                            modifier = Modifier.size(15.dp)
                         )
 
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(10.dp))
 
-                        TextField(
+                        // URL Input using BasicTextField (No 56dp min height clipping!)
+                        BasicTextField(
                             value = inputUrl,
                             onValueChange = { inputUrl = it },
                             singleLine = true,
+                            textStyle = TextStyle(
+                                color = KromiumColors.TextPrimary,
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.Normal
+                            ),
+                            cursorBrush = SolidColor(KromiumColors.Cyan),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
                             keyboardActions = KeyboardActions(
-                                onGo = { workspaceState.navigate(inputUrl) }
+                                onGo = {
+                                    val trimmed = inputUrl.trim()
+                                    val target = if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("file://") || trimmed.startsWith("kromium:")) {
+                                        trimmed
+                                    } else if (trimmed.contains(".") && !trimmed.contains(" ")) {
+                                        "https://$trimmed"
+                                    } else {
+                                        "https://duckduckgo.com/?q=${trimmed.replace(" ", "+")}"
+                                    }
+                                    inputUrl = target
+                                    workspaceState.navigate(target)
+                                }
                             ),
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
-                                disabledContainerColor = Color.Transparent,
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent,
-                                focusedTextColor = KromiumColors.TextPrimary,
-                                unfocusedTextColor = KromiumColors.TextPrimary,
-                                cursorColor = KromiumColors.Cyan
-                            ),
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier
+                                .weight(1f)
+                                .onFocusChanged { isFocused = it.isFocused },
+                            decorationBox = { innerTextField ->
+                                Box(
+                                    contentAlignment = Alignment.CenterStart,
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    if (inputUrl.isEmpty()) {
+                                        Text(
+                                            text = "Search DuckDuckGo or enter URL",
+                                            color = KromiumColors.TextMuted,
+                                            fontSize = 13.5.sp
+                                        )
+                                    }
+                                    innerTextField()
+                                }
+                            }
                         )
 
-                        // Clear input button
+                        // Clear button when editing
                         if (inputUrl.isNotBlank() && inputUrl != currentUrl) {
                             IconButton(
                                 onClick = { inputUrl = "" },
                                 modifier = Modifier.size(24.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.Clear,
+                                    imageVector = Icons.Default.Close,
                                     contentDescription = "Clear",
                                     tint = KromiumColors.TextSecondary,
                                     modifier = Modifier.size(14.dp)
@@ -169,39 +220,64 @@ fun NavigationToolbar(
                             }
                         }
 
-                        // Go Button
+                        // Bookmark Star Button
                         IconButton(
-                            onClick = { workspaceState.navigate(inputUrl) },
-                            modifier = Modifier.size(28.dp)
+                            onClick = { isBookmarked = !isBookmarked },
+                            modifier = Modifier.size(26.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isBookmarked) Icons.Default.Star else Icons.Default.StarBorder,
+                                contentDescription = "Bookmark",
+                                tint = if (isBookmarked) KromiumColors.Warning else KromiumColors.TextMuted,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+
+                        // Go / Navigate Button
+                        IconButton(
+                            onClick = {
+                                val trimmed = inputUrl.trim()
+                                val target = if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("file://") || trimmed.startsWith("kromium:")) {
+                                    trimmed
+                                } else if (trimmed.contains(".") && !trimmed.contains(" ")) {
+                                    "https://$trimmed"
+                                } else {
+                                    "https://duckduckgo.com/?q=${trimmed.replace(" ", "+")}"
+                                }
+                                inputUrl = target
+                                workspaceState.navigate(target)
+                            },
+                            modifier = Modifier.size(26.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                                 contentDescription = "Go",
                                 tint = KromiumColors.Cyan,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(15.dp)
                             )
                         }
                     }
                 }
 
-                // Zoom Controls Segment
+                // Zoom Control Pill
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(KromiumColors.SurfaceElevated)
-                        .border(1.dp, KromiumColors.Border, RoundedCornerShape(8.dp))
+                        .height(32.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color(0xFF131926))
+                        .border(1.dp, Color(0xFF263248), RoundedCornerShape(16.dp))
                         .padding(horizontal = 4.dp)
                 ) {
                     IconButton(
                         onClick = { workspaceState.adjustZoom(-0.5) },
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(24.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Remove,
                             contentDescription = "Zoom Out",
-                            tint = KromiumColors.TextPrimary,
-                            modifier = Modifier.size(14.dp)
+                            tint = KromiumColors.TextSecondary,
+                            modifier = Modifier.size(13.dp)
                         )
                     }
 
@@ -209,81 +285,85 @@ fun NavigationToolbar(
                         text = "${((workspaceState.currentZoom + 1.0) * 100).toInt()}%",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
-                        color = KromiumColors.TextSecondary,
+                        color = KromiumColors.TextPrimary,
                         modifier = Modifier
                             .clickable { workspaceState.resetZoom() }
-                            .padding(horizontal = 6.dp)
+                            .padding(horizontal = 4.dp)
                     )
 
                     IconButton(
                         onClick = { workspaceState.adjustZoom(0.5) },
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(24.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Add,
                             contentDescription = "Zoom In",
-                            tint = KromiumColors.TextPrimary,
-                            modifier = Modifier.size(14.dp)
+                            tint = KromiumColors.TextSecondary,
+                            modifier = Modifier.size(13.dp)
                         )
                     }
                 }
 
-                // Native DevTools button (Chromium Inspect)
+                // Native DevTools Window Button
                 IconButton(
-                    onClick = { viewState?.openDevTools() }
+                    onClick = { viewState?.openDevTools() },
+                    modifier = Modifier.size(34.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Terminal,
-                        contentDescription = "Open Native DevTools",
-                        tint = KromiumColors.TextPrimary
+                        contentDescription = "Open Chromium Inspect DevTools",
+                        tint = KromiumColors.TextSecondary,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
 
-                // Developer Workbench Drawer Toggle
+                // Dev Workbench Drawer Toggle
                 IconButton(
-                    onClick = { workspaceState.isDevDrawerOpen = !workspaceState.isDevDrawerOpen }
+                    onClick = { workspaceState.isDevDrawerOpen = !workspaceState.isDevDrawerOpen },
+                    modifier = Modifier.size(34.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Code,
-                        contentDescription = "Toggle Dev Workbench",
-                        tint = if (workspaceState.isDevDrawerOpen) KromiumColors.Cyan else KromiumColors.TextPrimary
+                        contentDescription = "Toggle Developer Workbench",
+                        tint = if (workspaceState.isDevDrawerOpen) KromiumColors.Cyan else KromiumColors.TextSecondary,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
 
-            // Quick Preset Bar
+            // Chrome Bookmarks Bar Row
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .height(30.dp)
                     .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                    .padding(horizontal = 10.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Quick Launch:",
-                    fontSize = 11.sp,
-                    color = KromiumColors.TextMuted,
-                    fontWeight = FontWeight.SemiBold
-                )
-
-                PresetChip("DuckDuckGo", "https://duckduckgo.com") { workspaceState.navigate(it) }
-                PresetChip("Google", "https://google.com") { workspaceState.navigate(it) }
-                PresetChip("GitHub", "https://github.com") { workspaceState.navigate(it) }
-                PresetChip("YouTube", "https://youtube.com") { workspaceState.navigate(it) }
-                PresetChip("HTML5 Test", "https://html5test.co") { workspaceState.navigate(it) }
-                PresetChip("Speedometer 3.0", "https://browserbench.org/Speedometer3.0") { workspaceState.navigate(it) }
-                PresetChip("⚡ Live HTML Demo", "") { workspaceState.loadSampleShowcaseHtml() }
+                ChromeBookmarkItem("🦆 DuckDuckGo", "https://duckduckgo.com") { workspaceState.navigate(it) }
+                ChromeBookmarkItem("🔍 Google", "https://google.com") { workspaceState.navigate(it) }
+                ChromeBookmarkItem("🐙 GitHub", "https://github.com") { workspaceState.navigate(it) }
+                ChromeBookmarkItem("🚀 HTML5 Test", "https://html5test.co") { workspaceState.navigate(it) }
+                ChromeBookmarkItem("⏱ Speedometer", "https://browserbench.org/Speedometer3.0") { workspaceState.navigate(it) }
+                ChromeBookmarkItem("⚡ Live HTML Showcase", "") { workspaceState.loadSampleShowcaseHtml() }
             }
 
-            // Loading Bar
+            // Loading Progress Bar
             if (viewState?.isLoading == true) {
                 LinearProgressIndicator(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(2.dp),
+                        .height(2.5.dp),
                     color = KromiumColors.Cyan,
                     trackColor = Color.Transparent
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(KromiumColors.Border)
                 )
             }
         }
@@ -291,23 +371,23 @@ fun NavigationToolbar(
 }
 
 @Composable
-private fun PresetChip(
+private fun ChromeBookmarkItem(
     name: String,
     url: String,
     onClick: (String) -> Unit
 ) {
-    Surface(
-        color = KromiumColors.SurfaceElevated,
-        shape = RoundedCornerShape(6.dp),
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
-            .border(1.dp, KromiumColors.Border, RoundedCornerShape(6.dp))
+            .clip(RoundedCornerShape(4.dp))
             .clickable { onClick(url) }
+            .padding(horizontal = 7.dp, vertical = 3.dp)
     ) {
         Text(
             text = name,
-            fontSize = 11.sp,
+            fontSize = 11.5.sp,
             color = KromiumColors.TextSecondary,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+            fontWeight = FontWeight.Normal
         )
     }
 }

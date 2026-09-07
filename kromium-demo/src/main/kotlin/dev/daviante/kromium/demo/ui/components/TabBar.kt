@@ -1,6 +1,7 @@
 package dev.daviante.kromium.demo.ui.components
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -39,20 +40,42 @@ fun TabBar(
         color = KromiumColors.Surface,
         modifier = modifier
             .fillMaxWidth()
-            .height(40.dp)
-            .border(width = 1.dp, color = KromiumColors.BorderSubtle)
+            .height(42.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = 6.dp, end = 6.dp, top = 4.dp),
+                .padding(start = 12.dp, end = 12.dp, top = 6.dp),
             verticalAlignment = Alignment.Bottom
         ) {
+            // Brand Logo & Name (Chrome window header style)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(bottom = 6.dp, end = 12.dp)
+            ) {
+                Image(
+                    painter = LogoAsset.painter,
+                    contentDescription = "Kromium Logo",
+                    modifier = Modifier
+                        .size(20.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                )
+                Text(
+                    text = "KROMIUM",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = KromiumColors.TextPrimary,
+                    letterSpacing = 1.sp
+                )
+            }
+
+            // Tabs row
             Row(
                 modifier = Modifier
                     .weight(1f)
                     .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
                 verticalAlignment = Alignment.Bottom
             ) {
                 tabs.forEach { tab ->
@@ -64,20 +87,40 @@ fun TabBar(
                         onClose = { onCloseTab(tab.id) }
                     )
                 }
+
+                // New Tab Button (+)
+                IconButton(
+                    onClick = onNewTab,
+                    modifier = Modifier
+                        .padding(bottom = 3.dp, start = 2.dp)
+                        .size(28.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "New Tab",
+                        tint = KromiumColors.TextSecondary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
             }
 
-            // New Tab Button
-            IconButton(
-                onClick = onNewTab,
-                modifier = Modifier
-                    .size(32.dp)
-                    .padding(bottom = 2.dp)
+            // Right Engine Status Badge
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.padding(bottom = 8.dp, start = 8.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "New Tab",
-                    tint = KromiumColors.TextSecondary,
-                    modifier = Modifier.size(18.dp)
+                Box(
+                    modifier = Modifier
+                        .size(7.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(KromiumColors.Success)
+                )
+                Text(
+                    text = "CEF 150",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = KromiumColors.TextSecondary
                 )
             }
         }
@@ -101,13 +144,13 @@ private fun TabItemView(
 
     Box(
         modifier = Modifier
-            .widthIn(min = 120.dp, max = 220.dp)
-            .height(36.dp)
+            .widthIn(min = 130.dp, max = 220.dp)
+            .height(34.dp)
             .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
             .background(bgColor)
             .border(
                 width = 1.dp,
-                color = if (isActive) KromiumColors.Border else Color.Transparent,
+                color = if (isActive) KromiumColors.BorderSubtle else Color.Transparent,
                 shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)
             )
             .clickable { onSelect() }
@@ -121,7 +164,7 @@ private fun TabItemView(
         ) {
             if (tab.viewState.isLoading) {
                 CircularProgressIndicator(
-                    modifier = Modifier.size(14.dp),
+                    modifier = Modifier.size(13.dp),
                     strokeWidth = 2.dp,
                     color = KromiumColors.Cyan
                 )
@@ -130,7 +173,7 @@ private fun TabItemView(
                     imageVector = Icons.Default.Language,
                     contentDescription = "Tab Icon",
                     tint = if (isActive) KromiumColors.Cyan else KromiumColors.TextMuted,
-                    modifier = Modifier.size(14.dp)
+                    modifier = Modifier.size(13.dp)
                 )
             }
 
@@ -148,7 +191,7 @@ private fun TabItemView(
             Box(
                 modifier = Modifier
                     .size(18.dp)
-                    .clip(RoundedCornerShape(4.dp))
+                    .clip(RoundedCornerShape(9.dp))
                     .clickable { onClose() },
                 contentAlignment = Alignment.Center
             ) {
@@ -156,7 +199,7 @@ private fun TabItemView(
                     imageVector = Icons.Default.Close,
                     contentDescription = "Close tab",
                     tint = if (isActive) KromiumColors.TextSecondary else KromiumColors.TextMuted,
-                    modifier = Modifier.size(12.dp)
+                    modifier = Modifier.size(11.dp)
                 )
             }
         }
@@ -165,10 +208,10 @@ private fun TabItemView(
         if (isActive) {
             Box(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
+                    .align(Alignment.TopCenter)
                     .fillMaxWidth()
                     .height(2.dp)
-                    .background(KromiumColors.BrandGradient)
+                    .background(KromiumColors.Cyan)
             )
         }
     }
