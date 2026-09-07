@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.1.150-b11] - 2026-09-08
+
+Security release resolving all 26 GitHub CodeQL High-severity path-injection alerts (CWE-022 / CWE-073) and streamlining repository branding.
+
+### Security
+- **Path-Injection Remediation (CWE-022 / CWE-073)**:
+  - Sanitized engine install directory resolution, environment variable handling (`user.home`, `APPDATA`, `XDG_DATA_HOME`), and root prefix boundary validation in `EngineRegistry` and `Kromium`.
+  - Added traversal sequence checks (`..`) and prefix containment barriers to cache path derivation in `KromiumConfig`.
+  - Enforced canonical path boundary validation for macOS Framework symlinks and helper app resolution in `OperatingSystem.MacOS`.
+  - Hardened native library resolution in `CefBootstrapper` across JVM home and macOS framework candidate paths.
+  - Sanitized default and fallback download directory resolution in `KromiumClient`.
+
+### Changed
+- Refined and standardized project README and documentation structure.
+- Removed legacy promotional banner assets.
+
+---
+
 ## [2.0.150-b11] - 2026-09-08 [Major Release]
 
 Major release delivering enterprise security hardening, Windows Registry write suppression, comprehensive enterprise proxy infrastructure with dynamic runtime switching, and a redesigned Diátaxis documentation suite.

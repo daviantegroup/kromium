@@ -71,7 +71,7 @@ messageRouter.addHandler(object : CefMessageRouterHandlerAdapter() {
                 return true
             }
             request == "GET_APP_VERSION" -> {
-                callback?.success("2.0.150")
+                callback?.success("2.1.150")
                 return true
             }
             else -> {

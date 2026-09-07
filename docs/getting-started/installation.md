@@ -10,8 +10,8 @@ Kromium is published to Maven Central under the `dev.daviante` namespace.
 
 | Module | Description | Maven Central |
 |---|---|---|
-| **`dev.daviante:kromium-compose`** | Compose Multiplatform desktop UI bindings, `@Composable KromiumView`, and `KromiumViewState`. | [![Maven Central](https://img.shields.io/badge/Maven_Central-v2.0.150--b11-107c41?style=flat-square&logo=apachemaven)](https://central.sonatype.com/artifact/dev.daviante/kromium-compose) |
-| **`dev.daviante:kromium-core`** | Core engine bootstrap, JCEF lifecycle manager, `KromiumClient`, and headless automation. | [![Maven Central](https://img.shields.io/badge/Maven_Central-v2.0.150--b11-107c41?style=flat-square&logo=apachemaven)](https://central.sonatype.com/artifact/dev.daviante/kromium-core) |
+| **`dev.daviante:kromium-compose`** | Compose Multiplatform desktop UI bindings, `@Composable KromiumView`, and `KromiumViewState`. | [![Maven Central](https://img.shields.io/badge/Maven_Central-v2.1.150--b11-107c41?style=flat-square&logo=apachemaven)](https://central.sonatype.com/artifact/dev.daviante/kromium-compose) |
+| **`dev.daviante:kromium-core`** | Core engine bootstrap, JCEF lifecycle manager, `KromiumClient`, and headless automation. | [![Maven Central](https://img.shields.io/badge/Maven_Central-v2.1.150--b11-107c41?style=flat-square&logo=apachemaven)](https://central.sonatype.com/artifact/dev.daviante/kromium-core) |
 
 ---
 
@@ -36,7 +36,7 @@ kotlin {
             dependencies {
                 implementation(compose.desktop.currentOs)
                 // Kromium Compose Multiplatform bindings (includes kromium-core transitively)
-                implementation("dev.daviante:kromium-compose:2.0.150-b11")
+                implementation("dev.daviante:kromium-compose:2.1.150-b11")
                 
                 // Kotlin Coroutines
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
@@ -58,7 +58,7 @@ repositories {
 
 dependencies {
     // Core engine without Compose Desktop dependencies
-    implementation("dev.daviante:kromium-core:2.0.150-b11")
+    implementation("dev.daviante:kromium-core:2.1.150-b11")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
 }
 ```
