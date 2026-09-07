@@ -59,7 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Isolated native binary cache directory to \`jcef-${CACHE_TAG}\`.
 
 EOF
-    tail -n +8 CHANGELOG.md >> "$TEMP_CHANGELOG"
+    tail -n +10 CHANGELOG.md >> "$TEMP_CHANGELOG"
     mv "$TEMP_CHANGELOG" CHANGELOG.md
   fi
 

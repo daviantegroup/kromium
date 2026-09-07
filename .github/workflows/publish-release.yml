@@ -35,6 +35,7 @@ permissions:
 jobs:
   publish:
     name: Build, Sign & Publish to Maven Central
+    if: github.event_name != 'pull_request' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     timeout-minutes: 35
 
@@ -42,6 +43,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
           fetch-depth: 0
 
       - name: Check Trigger Condition (PR Merge & JAR Update)
@@ -117,6 +119,7 @@ jobs:
             git fetch --tags
             if git rev-parse "v$PROJECT_VERSION" >/dev/null 2>&1; then
               echo "::warning::Tag v$PROJECT_VERSION already exists. Skipping duplicate publish."
+              echo "proceed=false" >> $GITHUB_OUTPUT
               exit 0
             fi
           fi
@@ -142,14 +145,15 @@ jobs:
           if [ "$MISSING_SECRETS" -eq 1 ]; then
             exit 1
           fi
+          echo "proceed=true" >> $GITHUB_OUTPUT
           echo "Pre-flight validation passed successfully."
 
       - name: Run Test Suite
-        if: steps.check_trigger.outputs.proceed == 'true'
+        if: steps.check_trigger.outputs.proceed == 'true' && steps.preflight.outputs.proceed == 'true'
         run: ./gradlew test
 
       - name: Create Git Tag and GitHub Release
-        if: steps.check_trigger.outputs.proceed == 'true' && github.event_name == 'pull_request' && !(inputs.dry_run || false)
+        if: steps.check_trigger.outputs.proceed == 'true' && steps.preflight.outputs.proceed == 'true' && github.event_name == 'pull_request' && inputs.dry_run != true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -181,7 +185,7 @@ jobs:
             --notes-file release_notes.md
 
       - name: Build, Sign & Package Publications
-        if: steps.check_trigger.outputs.proceed == 'true'
+        if: steps.check_trigger.outputs.proceed == 'true' && steps.preflight.outputs.proceed == 'true'
         env:
           GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
           GPG_SIGNING_PASSWORD: ${{ secrets.GPG_SIGNING_PASSWORD }}
@@ -189,7 +193,7 @@ jobs:
           ./gradlew clean bundlePublishing --no-daemon
 
       - name: Verify Bundle Integrity
-        if: steps.check_trigger.outputs.proceed == 'true'
+        if: steps.check_trigger.outputs.proceed == 'true' && steps.preflight.outputs.proceed == 'true'
         id: verify-bundle
         env:
           IS_DRY_RUN: ${{ inputs.dry_run || false }}
@@ -235,7 +239,7 @@ jobs:
           fi
 
       - name: Archive Bundle as Workflow Artifact
-        if: steps.check_trigger.outputs.proceed == 'true'
+        if: steps.check_trigger.outputs.proceed == 'true' && steps.preflight.outputs.proceed == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: maven-central-bundle
@@ -243,7 +247,7 @@ jobs:
           retention-days: 14
 
       - name: Upload to Sonatype Central Portal
-        if: steps.check_trigger.outputs.proceed == 'true' && !(inputs.dry_run || false)
+        if: steps.check_trigger.outputs.proceed == 'true' && steps.preflight.outputs.proceed == 'true' && inputs.dry_run != true
         env:
           SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
           SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
