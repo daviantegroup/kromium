@@ -77,6 +77,8 @@ suspend fun setupBrowser() {
 | `shouldOverrideUrlLoading` | `((url: String) -> Boolean)?` | `null` | Invoked on `onBeforeBrowse`. Return `true` to cancel browser navigation (e.g. for custom URI schemes). |
 | `sslErrorPolicy` | `SslErrorPolicy` | `Strict` | Policy for handling SSL/TLS certificate errors (`Strict`, `AllowDomains`, `AllowAll`). |
 | `downloadListener` | `KromiumDownloadListener?` | `null` | Receives updates on file download progress and completion. |
+| `downloadDirectory` | `File` | OS Downloads | Destination folder for downloads. Falls back to temp directory if inaccessible. |
+| `onBeforeDownloadListener` | `((KromiumDownloadItem, String) -> String?)?` | `null` | Intercepts download creation to customize target file paths or filenames. |
 | `jsDialogListener` | `KromiumJsDialogListener?` | `null` | Intercepts JavaScript `alert()`, `confirm()`, and `prompt()` dialogs. |
 | `consoleMessageListener` | `((KromiumConsoleMessage) -> Unit)?` | `null` | Receives messages logged via JavaScript `console.log`, `console.warn`, etc. |
 | `authListener` | `KromiumAuthListener?` | `null` | Supplies credentials for HTTP Basic/Digest and proxy authentication challenges. |
@@ -123,6 +125,22 @@ client.addKeyboardHandler(handler: CefKeyboardHandler)
 client.removeKeyboardHandler()
 ```
 
+### Download Management & Controls
+
+```kotlin
+// Pause an active download
+client.pauseDownload(downloadId = 1)
+
+// Resume a paused download
+client.resumeDownload(downloadId = 1)
+
+// Cancel an ongoing download
+client.cancelDownload(downloadId = 1)
+
+// Programmatically start a download
+client.startDownload(browser.rawBrowser, "https://example.com/file.zip")
+```
+
 ### Disposal
 
 ```kotlin
@@ -138,15 +156,18 @@ Releases the underlying native `CefClient` and unregisters message routers.
 Exposes the native Java AWT component representing the browser canvas:
 
 ```kotlin
-val awtComponent: java.awt.Component = browser.uiComponent
+val swingComponent: java.awt.Component = browser.uiComponent
 ```
 This component can be added directly into any Swing or AWT layout (`BorderLayout`, `BoxLayout`, etc.).
 
-### Navigation Methods
+### Navigation & Download Methods
 
 ```kotlin
 // Load an address
 browser.loadUrl("https://news.ycombinator.com")
+
+// Programmatically initiate a file download
+browser.startDownload("https://example.com/archive.tar.gz")
 
 // Current URL
 val currentUrl: String? = browser.url

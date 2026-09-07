@@ -36,7 +36,7 @@ Add the Compose module dependency to your `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("dev.daviante:kromium-compose:1.1.150-b11")
+    implementation("dev.daviante:kromium-compose:1.2.150-b11")
 }
 ```
 
@@ -71,19 +71,21 @@ fun SimpleBrowserScreen() {
 fun KromiumView(
     state: KromiumViewState,
     modifier: Modifier = Modifier,
-    client: KromiumClient = remember(state) { Kromium.newClient() }
+    client: KromiumClient? = null,
+    loadingContent: @Composable (BoxScope.() -> Unit)? = null
 )
 ```
 
 ### How It Works Internally:
-1. **Client Provisioning**: Automatically acquires a fresh `KromiumClient` via `Kromium.newClient()` for the given state.
-2. **State Synchronization (`SideEffect`)**: On every composition, updates the `client` properties (User-Agent, request interceptor, listeners, SSL policy) to match the current `state`.
-3. **Pending URL Consumption (`LaunchedEffect`)**: If `state.loadUrl()` is called before the native browser instance is initialized, the URL is buffered as a pending URL and flushed as soon as the browser surface mounts.
-4. **CEF Event Bridges (`DisposableEffect`)**:
+1. **Client Provisioning**: Automatically acquires a fresh `KromiumClient` via `Kromium.newClient()` if not provided via the `client` parameter. User-supplied client instances are safely preserved without premature disposal across recompositions.
+2. **Loading Placeholder Slot**: If the CEF runtime is still bootstrapping or the client is not yet ready, `loadingContent` renders inside the given `modifier` bounds (e.g. progress bars, skeletons, or splash graphics).
+3. **State Synchronization (`SideEffect`)**: On every composition, updates the `client` properties (User-Agent, request interceptor, download listener, download directory, listeners, SSL policy) to match the current `state`.
+4. **Pending URL Consumption (`LaunchedEffect`)**: If `state.loadUrl()` is called before the native browser instance is initialized, the URL is buffered as a pending URL and flushed as soon as the browser surface mounts.
+5. **CEF Event Bridges (`DisposableEffect`)**:
    - Registers a `CefLoadHandler` to update `state.isLoading`, `state.canGoBack`, and `state.canGoForward`.
    - Registers a `CefDisplayHandler` to update `state.url` and `state.title`.
-   - Cleans up on disposal: shuts down the browser and disposes the native `CefClient`.
-5. **AWT Rendering Surface**: Bridges CEF's native rendering component (`CefBrowserWr`) directly into Compose using a Swing `JPanel(BorderLayout())` container inside `SwingPanel`, utilizing native windowed HWND/NSView/X11 rendering for 60+ FPS hardware-accelerated Direct3D / Metal / OpenGL output without requiring external OpenGL/JOGL dependencies.
+   - Cleans up on disposal: shuts down the browser and disposes the native `CefClient` (unless an external client was provided).
+6. **AWT Rendering Surface**: Bridges CEF's native rendering component (`CefBrowserWr`) directly into Compose using a Swing `JPanel(BorderLayout())` container inside `SwingPanel`, utilizing native windowed HWND/NSView/X11 rendering for 60+ FPS hardware-accelerated Direct3D / Metal / OpenGL output without requiring external OpenGL/JOGL dependencies.
 
 ---
 
@@ -106,6 +108,7 @@ All of the following properties are backed by Compose `mutableStateOf` and trigg
 | `canGoBack` | `Boolean` | Read-only | `true` if browser history allows navigating back. |
 | `canGoForward` | `Boolean` | Read-only | `true` if browser history allows navigating forward. |
 | `browser` | `KromiumBrowser?` | Read-only | Direct reference to the active underlying `KromiumBrowser` instance. |
+| `downloadDirectory` | `File?` | Read/Write | Custom download directory target. Defaults to standard OS Downloads folder. |
 
 ### Navigation & Control Functions
 
@@ -117,6 +120,7 @@ All of the following properties are backed by Compose `mutableStateOf` and trigg
 | `stopLoading` | `stopLoading()` | Stops ongoing page network requests. |
 | `goBack` | `goBack()` | Navigates back in history if `canGoBack == true`. |
 | `goForward` | `goForward()` | Navigates forward in history if `canGoForward == true`. |
+| `startDownload` | `startDownload(url: String)` | Programmatically triggers a file download from the given URL. |
 | `setZoom` | `setZoom(level: Double)` | Sets page zoom factor (`0.0` = 100%, `1.0` = ~120%, `-1.0` = ~80%). |
 | `getZoom` | `getZoom(): Double` | Returns the current zoom level. |
 | `openDevTools` | `openDevTools()` | Opens the Chromium Developer Tools inspection window. |

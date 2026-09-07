@@ -7,19 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.1.150-b11] - 2026-09-07
+## [1.2.150-b11] - 2026-09-08 [Stable]
+
+First official stable release of Kromium. Incorporates all production-tested features, cross-platform engine bootstrapping, enhanced download manager, dynamic Java 17/21+ module opening, CodeQL security hardening, and Chrome-styled demo application.
+
+### Added
+- **Dynamic macOS JBR 25 Path Resolution**: `OperatingSystem.MacOS` dynamically detects CEF frameworks and helper applications inside `Frameworks/cef_server.app/Contents/Frameworks/` for JetBrains Runtime 25 bundles while maintaining backward compatibility with legacy `Frameworks/` hierarchies.
+- **Universal Archive Symlink Support**: `EngineExtractor` handles tar symbolic links (`isSymbolicLink`) with Zip-Slip path traversal validation, native symbolic link creation via `Files.createSymbolicLink`, and automated copy fallback on Windows environments without developer mode.
+- **Automatic Binary Permission Enforcement**: Automatically restores executable flags and recursively enforces executable permissions across all helper executables (`jcef helper`, `jcef_helper`, `cef_server`), shared libraries (`.so`, `.dylib`), and shell scripts post-extraction.
+- **Dynamic JVM Module Opener (`JvmModuleOpener`)**: Dynamically opens required `java.desktop/sun.awt` internal packages on Java 17 and 21+ at runtime via Unsafe and Module reflection, enabling zero-config desktop startup without requiring external `--add-opens` JVM flags.
+- **Download Management Subsystem**:
+  - `KromiumClient`: Added configurable `downloadDirectory` (defaults to OS Downloads folder), `onBeforeDownloadListener`, `cancelDownload`, `pauseDownload`, and `resumeDownload`.
+  - `KromiumBrowser`: Added programmatic `startDownload(url)` to trigger downloads from any URL.
+  - `KromiumDownloadItem`: Added `fullPath` property resolving the on-disk destination path.
+  - Conforms to CEF specifications by returning `true` from `onBeforeDownload` when executing callbacks, ensuring Chromium proceeds with downloads reliably.
+- **Compose Multiplatform `KromiumView` Enhancements**:
+  - Added `loadingContent: @Composable (BoxScope.() -> Unit)?` slot for custom placeholder/loading indicators during engine bootstrap.
+  - Added support for passing external user-owned `KromiumClient` instances without premature disposal upon recomposition.
+  - Exposed download properties (`downloadDirectory`, `onBeforeDownload`, `startDownload`) directly on `KromiumViewState`.
+- **ProGuard / R8 Consumer Rules**: Added `kromium-core.pro` preserving JCEF native JNI bindings, callback interfaces, and JavaScript serialization models during desktop distribution packaging.
+- **Chrome-Style Demo Browser Showcase**:
+  - Redesigned demo UI to match modern browser styling with omnibox, security badges, responsive tab strips with close buttons, and home page set to `https://kromium.daviante.dev`.
+  - Real-time Downloader workbench tab displaying active/completed downloads with speed metrics and "Show in Folder" actions.
+  - Interactive "Clear Browsing Data" dialog with configurable cache and cookie eviction.
+  - Added complete platform icon suite (`.icns`, `.ico`, `.png`, `.svg`).
 
 ### Fixed
-- Fixed macOS runtime bundle resolution in `EngineDownloader`: JetBrains Runtime release tarballs use `osx` in their file naming (e.g. `jbr_jcef-*-osx-aarch64-*.tar.gz`), which caused candidate URL matching and asset fallback to fail when checking strictly for `mac`.
-- Expanded OS and architecture keyword matching to support `osx`, `darwin`, `arm64`, and `x86_64` aliases across both release body URLs and asset manifests.
+- **Engine Redownload Loop on macOS**: Fixed `EngineRegistry.isInstalled` to check for `Frameworks/cef_server.app/Contents/Frameworks/Chromium Embedded Framework.framework`, stopping redundant 250MB redownloads on subsequent launches.
+- **Bootstrap Idempotency & Failure Cleanup**: Moved `EngineRegistry.markInstalled` to execute strictly **after** `CefBootstrapper.bootstrap()` verifies successfully. Added automatic cleanup of `install.lock` and temporary archives on bootstrap failure so corrupted states do not prevent future launches.
+- **JVM Runtime Integrity**: Removed `System.setProperty("java.home", ...)` mutation in `CefBootstrapper` that corrupted JVM runtime lookups for `libjawt.dylib` and CA certificates on macOS.
+- **Cross-Platform JAWT Resolution**: Enhanced native JAWT library resolution to look up `${java.home}/lib` and `${java.home}/bin` across Windows, macOS, and Linux.
+- **Windows Native Graphics Preloading**: Preloaded `chrome_elf.dll`, `d3dcompiler_47.dll`, `libEGL.dll`, `libGLESv2.dll`, `vk_swiftshader.dll`, and `vulkan-1.dll` prior to CEF initialization on Windows.
+- **GitHub API Rate Limit Resilience**: `EngineDownloader` detects HTTP 403 rate limits and throws descriptive exception messages, and prioritizes `.tar.gz` and non-SDK bundles.
+- **Security & CodeQL Hardening**:
+  - Resolved path injection (CWE-022) in `FileUtils` and `KromiumConfig` by enforcing canonical path normalization and strict directory boundary validation on `cachePath`, `installDir`, and custom download directories.
+  - Resolved command-line argument injection (CWE-078/088) by separating process executable paths and argument arrays safely with `--`.
+  - Hardened JavaScript evaluator against script injection and Promise deadlocks using safe string literal escaping and universal `Function`/`eval` execution.
+- **macOS Bundle Asset Matching**: Expanded OS keyword matching in `EngineDownloader` to support `osx`, `darwin`, `arm64`, and `x86_64` aliases in release assets.
 
-## [1.0.150-b11] - 2026-09-07
+## [1.1.150-b11] - 2026-09-08 [Pre-Test]
+
+### Fixed
+- Early testing build for macOS osx bundle matching and initial download fixes.
+
+## [1.0.150-b11] - 2026-09-07 [Pre-Test]
 
 ### Changed
-- Upgraded underlying JCEF runtime to certified JetBrains release `150.0.14-g7c1aa68-chromium-150.0.7871.129-api-1.21-263-b11`.
+- Early testing build upgrading underlying JCEF runtime to JetBrains certified release `150.0.14-g7c1aa68-chromium-150.0.7871.129-api-1.21-263-b11`.
 - Isolated native runtime cache directory to `jcef-150-b11`.
 
-## [1.0.150] - 2026-09-07
+## [1.0.150] - 2026-09-07 [Pre-Test]
 
 ### Added
 - **Pure JCEF Integration**: Decoupled from third-party wrappers, compiling against official standard `jcef.jar`.

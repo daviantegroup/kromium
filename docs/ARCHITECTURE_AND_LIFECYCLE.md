@@ -90,7 +90,7 @@ Before downloading or bootstrapping binaries, `PlatformDetector` resolves the ho
 
 ### Supported Operating Systems (`OperatingSystem`)
 - **Windows**: Identified by `"win"` or `"windows"`. Native libraries: `jcef.dll`, `libcef.dll`. Executable helper: `jcef_helper.exe`.
-- **macOS**: Identified by `"mac"`, `"darwin"`, or `"osx"`. Native bundle: `Chromium Embedded Framework.framework` and `jcef Helper.app`. Dynamic library extension: `.dylib`.
+- **macOS**: Identified by `"mac"`, `"darwin"`, or `"osx"`. Dynamically detects `Chromium Embedded Framework.framework` and `jcef Helper.app` within `Frameworks/cef_server.app/Contents/Frameworks/` (JetBrains Runtime 25 layout) while falling back to legacy `Frameworks/`. Dynamic library extension: `.dylib`.
 - **Linux**: Identified by `"linux"`. Native libraries: `libcef.so`, `libjcef.so`. Executable helper: `jcef_helper`.
 
 ### Supported Architectures (`Architecture`)
@@ -116,6 +116,7 @@ If JCEF binaries are not present in the designated install directory, Kromium au
 `EngineDownloader` queries GitHub releases from `JetBrains/JetBrainsRuntime`:
 - Endpoint: `https://api.github.com/repos/JetBrains/JetBrainsRuntime/releases/latest` (or a specific tag configured in `KromiumConfig.releaseTag`).
 - URL resolution scans release markdown links and asset manifests for JCEF tarballs matching the current OS and architecture (preferring non-SDK runtime bundles and `.tar.gz` archives).
+- Gracefully detects GitHub API rate limits (HTTP 403) and surfaces informative diagnostic messages.
 
 ### 2. Checksum Verification
 When a matching package URL is discovered, `EngineDownloader` looks for a corresponding `.checksum` file.
@@ -123,11 +124,12 @@ When a matching package URL is discovered, `EngineDownloader` looks for a corres
 - Calculates the SHA-256 digest of the downloaded archive using a 256 KB memory buffer.
 - Compares expected vs actual hashes. If they do not match, the downloaded archive is immediately deleted and `KromiumException.ChecksumMismatch` is thrown.
 
-### 3. Zip-Slip Safe Extraction
+### 3. Zip-Slip Safe & Symlink Extraction
 `EngineExtractor` unpacks `.tar.gz` bundles using Apache Commons Compress:
 - **Directory Traversal Protection (Zip-Slip)**: Every entry's canonical path is validated against the destination directory. If an entry attempts to escape the root directory (e.g. `../../evil.sh`), extraction halts immediately with `KromiumException.MaliciousArchiveEntry`.
-- **POSIX Permission Preservation**: Archive file entry modes are inspected. Executable flags are restored, and binaries (`jcef_helper`, `.exe`) are explicitly marked executable via `FileUtils.makeExecutable()`.
-- **Subdirectory Flattening**: If the tarball contents are wrapped inside a single top-level folder, `EngineExtractor` automatically moves all children to the destination root and removes the redundant directory wrapper.
+- **Tar Symbolic Links**: Unpacks symbolic links (`isSymbolicLink`) with full path validation to ensure target destinations cannot escape the sandbox. Creates native links via `Files.createSymbolicLink` with automated copy fallback on Windows.
+- **Recursive Executable Permission Enforcement**: Archive file entry modes are inspected, and post-extraction permission enforcement (`ensureExecutablePermissions`) marks all helper executables (`jcef helper`, `jcef_helper`, `cef_server`), shared libraries (`.so`, `.dylib`), and shell scripts executable.
+- **Subdirectory Flattening**: If the tarball contents are wrapped inside a single top-level folder, `EngineExtractor` automatically moves all children to the destination root using atomic rename fallback (`StandardCopyOption.REPLACE_EXISTING`) and cleans up the wrapper folder.
 
 ### 4. macOS Quarantine Stripping
 On macOS, Gatekeeper applies the `com.apple.quarantine` extended attribute to downloaded archives and extracted bundles, preventing dynamic libraries from loading. `FileUtils.removeMacQuarantine()` executes:
@@ -142,18 +144,16 @@ This is executed automatically after extraction and before JCEF native bootstrap
 
 Bootstrapping is performed by `CefBootstrapper.bootstrap()`:
 
-1. **Thread-Safe Preinitialization**: Sets `System.setProperty("jcef_app_preinit_any", "true")` so native pre-initialization executes safely without blocking on the AWT Event Dispatch Thread (EDT).
-2. **Local In-Process Enforcement**: Sets `CefApp.setIsRemoteEnabled(false)` to ensure local in-process CEF execution instead of attempting to connect to a remote `cef_server.exe` process.
-3. **macOS Framework Binding**: On macOS, `java.home` is pointed to the embedded framework directory, and framework paths are prepended to launch arguments (`--framework-dir-path`, `--main-bundle-path`, `--browser-subprocess-path`).
-4. **Preloading JAWT**: Preloads the Java AWT native bridge library (`jawt`) from the runtime installation.
-5. **Preloading GPU / Rendering Libraries**: Unless `--disable-gpu` is specified in `commandLineArgs`, preloads:
-   - `EGL`
-   - `GLESv2`
-   - `vk_swiftshader`
-6. **Dynamic Library Loader**: Registers a native loader callback via `SystemBootstrap.setLoader` that resolves `.dll`, `.dylib`, or `.so` libraries directly from the installation path.
-7. **CefSettings Configuration**: Resolves and binds `locales_dir_path`, `resources_dir_path`, and `browser_subprocess_path` (`jcef_helper.exe` or OS equivalent), along with sandboxing settings.
-8. **CEF Process Startup**: Invokes `CefApp.startup(args)`. Loads `libcef` and instantiates `CefApp.getInstance(launchArgs, cefSettings, installDir)` with full settings.
-9. **Synchronous Initialization Awaiting**: Monitors `app.onInitialization` and latches until native CEF reaches `CefAppState.INITIALIZED`, guaranteeing that subsequent `createBrowser()` calls succeed immediately.
+1. **Runtime Module Opening (`JvmModuleOpener`)**: On Java 17 and 21+, dynamically opens `java.desktop/sun.awt` internal packages via Unsafe and Module reflection so AWT integration functions out of the box without requiring manual `--add-opens` flags.
+2. **Thread-Safe Preinitialization**: Sets `System.setProperty("jcef_app_preinit_any", "true")` so native pre-initialization executes safely without blocking on the AWT Event Dispatch Thread (EDT).
+3. **Local In-Process Enforcement**: Sets `CefApp.setIsRemoteEnabled(false)` to ensure local in-process CEF execution instead of attempting to connect to a remote `cef_server.exe` process.
+4. **macOS Dynamic Framework Binding**: Resolves framework and helper bundles dynamically via `OperatingSystem.MacOS.resolveCefFrameworksDir(installDir)`. Passes `--framework-dir-path`, `--main-bundle-path`, and `--browser-subprocess-path` cleanly via launch arguments without mutating the JVM's `java.home`.
+5. **Preloading JAWT**: Resolves and preloads Java AWT native bridge library (`jawt`) from the active JVM installation (`${java.home}/lib` and `${java.home}/bin`) across Windows, macOS, and Linux.
+6. **Preloading GPU / Rendering Libraries**: On Windows, preloads graphics libraries (`chrome_elf.dll`, `d3dcompiler_47.dll`, `libEGL.dll`, `libGLESv2.dll`, `vk_swiftshader.dll`, `vulkan-1.dll`). On other platforms, preloads `EGL`, `GLESv2`, and `vk_swiftshader` unless `--disable-gpu` is configured.
+7. **Dynamic Library Loader**: Registers a native loader callback via `SystemBootstrap.setLoader` that resolves `.dll`, `.dylib`, or `.so` libraries directly from the installation path.
+8. **CefSettings Configuration**: Resolves and binds `locales_dir_path`, `resources_dir_path`, and `browser_subprocess_path` (`jcef_helper.exe` or OS equivalent), along with sandboxing settings.
+9. **CEF Process Startup & Synchronization**: Invokes `CefApp.startup(args)`, loads `libcef`, instantiates `CefApp.getInstance(launchArgs, cefSettings, installDir)`, and synchronously latches until native CEF reaches `CefAppState.INITIALIZED`.
+10. **Deferred Installation Marking**: In `Kromium.initialize()`, `EngineRegistry.markInstalled(installDir)` is executed strictly after bootstrap completes successfully. If any error occurs during extraction or bootstrap, `install.lock` and temporary files are cleaned up immediately.
 
 ---
 

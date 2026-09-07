@@ -19,7 +19,7 @@ The documentation is organized into 8 functional categories, available both in t
 
 | Category | Guides | Online Portal Deep Link |
 |:---|:---|:---|
-| **1. Overview & Release** | • [Architecture & Engine Lifecycle](ARCHITECTURE_AND_LIFECYCLE.md)<br>• [Migration & Release Notes](MIGRATION_AND_RELEASE_NOTES.md) | [Portal Overview](https://kromium.daviante.dev/#/docs/overview)<br>[What's New in v1.0.150](https://kromium.daviante.dev/#/docs/whats-new) |
+| **1. Overview & Release** | • [Architecture & Engine Lifecycle](ARCHITECTURE_AND_LIFECYCLE.md)<br>• [Migration & Release Notes](MIGRATION_AND_RELEASE_NOTES.md) | [Portal Overview](https://kromium.daviante.dev/#/docs/overview)<br>[What's New in v1.2.150-b11](https://kromium.daviante.dev/#/docs/whats-new) |
 | **2. Get Started** | • [Prerequisites & System Requirements](ARCHITECTURE_AND_LIFECYCLE.md#platform-detection)<br>• [Installation & Gradle Setup](COMPOSE_DESKTOP_GUIDE.md#quickstart) | [Installation Guide](https://kromium.daviante.dev/#/docs/installation)<br>[First Browser Tutorial](https://kromium.daviante.dev/#/docs/first-browser) |
 | **3. Compose Multiplatform** | • [Compose Desktop Integration Guide](COMPOSE_DESKTOP_GUIDE.md) | [KromiumView Reference](https://kromium.daviante.dev/#/docs/compose-view)<br>[Browser State & Lifecycle](https://kromium.daviante.dev/#/docs/compose-state) |
 | **4. Core Web Capabilities** | • [JavaScript Bridge & DOM Inspection](JAVASCRIPT_BRIDGE.md)<br>• [Cookie Management Reference](COOKIE_MANAGEMENT.md)<br>• [Network Interception & Security](NETWORK_AND_SECURITY.md) | [JavaScript Bridge](https://kromium.daviante.dev/#/docs/js-bridge)<br>[Cookie Management](https://kromium.daviante.dev/#/docs/cookie-management)<br>[Network Interception](https://kromium.daviante.dev/#/docs/network-interception) |
@@ -37,10 +37,10 @@ The documentation is organized into 8 functional categories, available both in t
 // build.gradle.kts
 dependencies {
     // For Compose Multiplatform Desktop applications
-    implementation("dev.daviante:kromium-compose:1.1.150-b11")
+    implementation("dev.daviante:kromium-compose:1.2.150-b11")
 
     // Or for standalone Kotlin JVM / Swing / Headless applications
-    // implementation("dev.daviante:kromium-core:1.1.150-b11")
+    // implementation("dev.daviante:kromium-core:1.2.150-b11")
 }
 ```
 

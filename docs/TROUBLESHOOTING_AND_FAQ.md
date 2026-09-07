@@ -171,6 +171,45 @@ vc_redist.x64.exe /install /passive /norestart
 
 ---
 
+### Java 17/21+ Module Opening (`java.desktop/sun.awt`)
+
+**Symptom**: `InaccessibleObjectException: Unable to make field accessible` on newer JDK versions.
+
+**How Kromium Handles This**:
+Kromium automatically executes `JvmModuleOpener` at startup. Using low-level Unsafe and Module reflection, it opens `java.desktop/sun.awt` to all unnamed modules dynamically without requiring command-line flags.
+
+If your runtime environment prohibits dynamic module mutation via a custom SecurityManager:
+```kotlin
+// In build.gradle.kts or launcher scripts, add:
+application {
+    applicationDefaultJvmArgs += listOf(
+        "--add-opens=java.desktop/sun.awt=ALL-UNNAMED",
+        "--add-opens=java.desktop/sun.awt.windows=ALL-UNNAMED", // On Windows
+        "--add-opens=java.desktop/sun.lwawt=ALL-UNNAMED",       // On macOS
+        "--add-opens=java.desktop/sun.awt.X11=ALL-UNNAMED"      // On Linux
+    )
+}
+```
+
+---
+
+### GitHub API Rate Limiting (HTTP 403)
+
+**Symptom**: `KromiumException.DownloadFailed: GitHub API rate limit exceeded (HTTP 403)`.
+
+**Root Cause**: GitHub limits unauthenticated REST API requests to 60 per hour per IP. On shared CI runners or offices with shared public IPs, querying the latest release can trigger rate limits.
+
+**Fixes**:
+1. **Pin Release Tag**: Explicitly configure `releaseTag` in `KromiumConfig` so `EngineDownloader` can resolve assets directly from known release tags:
+   ```kotlin
+   Kromium.initialize {
+       releaseTag = "150.0.14-g7c1aa68-chromium-150.0.7871.129-api-1.21-263-b11"
+   }
+   ```
+2. **Pre-populate Cache**: Pre-download the matching JBR bundle during CI setup into the cache directory so engine downloading is skipped entirely.
+
+---
+
 ## Packaging & Distribution
 
 ### Packaging with Compose Desktop Gradle Plugin
@@ -195,7 +234,7 @@ compose.desktop {
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Deb
             )
             packageName = "KromiumBrowser"
-            packageVersion = "1.1.150"
+            packageVersion = "1.2.150"
 
             windows {
                 menuGroup = "Kromium"
@@ -234,7 +273,7 @@ For production cross-compilation (building Windows, macOS, and Linux packages fr
 app {
   display-name = "Kromium Browser"
   fsname = "kromium-browser"
-  version = 1.1.150
+  version = 1.2.150
   rdns-name = dev.daviante.kromium
 
   jvm {

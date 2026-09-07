@@ -158,7 +158,7 @@ state.onJsDialog = { dialog ->
 
 ## File Downloads (`KromiumDownloadListener`)
 
-Tracks files downloaded from the browser:
+Tracks and controls files downloaded from the browser:
 
 ```kotlin
 fun interface KromiumDownloadListener {
@@ -166,13 +166,14 @@ fun interface KromiumDownloadListener {
 }
 ```
 
-### Download Progress Tracking (`KromiumDownloadItem`)
+### Download Metadata (`KromiumDownloadItem`)
 
 | Property | Type | Description |
 |---|---|---|
 | `id` | `Int` | Unique download task ID. |
 | `url` | `String` | Source URL of the downloaded file. |
 | `suggestedFileName` | `String` | Suggested filename extracted from `Content-Disposition` or URL path. |
+| `fullPath` | `String` | Resolved target file path on disk. |
 | `totalBytes` | `Long` | Total expected byte count (-1 if unknown). |
 | `receivedBytes` | `Long` | Number of bytes downloaded so far. |
 | `percentComplete` | `Int` | Integer percentage (0 to 100). |
@@ -181,19 +182,40 @@ fun interface KromiumDownloadListener {
 | `isComplete` | `Boolean` | `true` when download has finished successfully. |
 | `isCanceled` | `Boolean` | `true` if the download was aborted. |
 
-### Example
+### Configuring Download Directory & Path Overrides
+
+```kotlin
+// Set custom target folder:
+state.downloadDirectory = File(System.getProperty("user.home"), "Downloads")
+
+// Dynamically rewrite filename or redirect to specific directory:
+state.onBeforeDownload = { item, suggestedFileName ->
+    val destinationFile = File(state.downloadDirectory ?: File("."), "prefix_$suggestedFileName")
+    destinationFile.absolutePath // Returning a path directs CEF where to save the file
+}
+```
+
+### Tracking & Controlling Downloads
 
 ```kotlin
 state.onDownload = { item ->
     val speedKb = item.speed / 1024
-    println("Downloading ${item.suggestedFileName}: ${item.percentComplete}% ($speedKb KB/s)")
+    println("Downloading ${item.suggestedFileName}: ${item.percentComplete}% ($speedKb KB/s) -> ${item.fullPath}")
 
     if (item.isComplete) {
-        println("Download complete: ${item.suggestedFileName}")
+        println("Download complete: ${item.fullPath}")
     } else if (item.isCanceled) {
         println("Download cancelled: ${item.suggestedFileName}")
     }
 }
+
+// In raw JVM / KromiumClient:
+client.pauseDownload(item.id)
+client.resumeDownload(item.id)
+client.cancelDownload(item.id)
+
+// Programmatically trigger a download:
+state.startDownload("https://example.com/latest-release.zip")
 ```
 
 ---

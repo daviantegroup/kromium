@@ -73,31 +73,52 @@ println("Window width: $screenWidth px, Dark mode: $isDarkMode")
 ### Query ID Sequencing & Message Framing
 When `evaluateJavaScript("...")` is called:
 1. `KromiumJsHandler.nextQueryId()` generates a unique atomic ID: `"q_1"`, `"q_2"`, etc.
-2. `JsEvaluator.wrapExpression()` wraps the user expression inside an Immediately Invoked Function Expression (IIFE):
+2. `JsEvaluator.wrapExpression()` validates the query ID and converts the code into a safe JavaScript string literal via `toJsStringLiteral()`.
+3. It executes the script using a universal `Function(...)()` / `eval(...)` dual strategy:
 
 ```javascript
 (function() {
+    var fn = (typeof window.kromiumQuery === 'function') ? window.kromiumQuery : null;
+    if (!fn) return;
+    function __send(payload) {
+        try {
+            fn({
+                request: 'q_42:::' + payload,
+                onSuccess: function() {},
+                onFailure: function() {}
+            });
+        } catch (_) {}
+    }
     try {
-        var __result = (function() { /* your code here */ })();
-        var __str = (__result === undefined || __result === null) ? '' : String(__result);
-        window.kromiumQuery({
-            request: 'q_42:::' + __str,
-            onSuccess: function(response) {},
-            onFailure: function(error_code, error_message) {}
-        });
+        var __raw;
+        try {
+            __raw = (new Function("/* escaped user code */"))();
+        } catch (_) {
+            __raw = eval("/* escaped user code */");
+        }
+        // Automatically await Promises / thenables
+        if (__raw && typeof __raw.then === 'function') {
+            __raw.then(function(val) {
+                var str = (val === undefined || val === null) ? '' :
+                          (typeof val === 'object' ? JSON.stringify(val) : String(val));
+                __send(str);
+            }).catch(function(err) {
+                __send('ERROR: ' + ((err && err.message) ? err.message : String(err)));
+            });
+        } else {
+            var str = (__raw === undefined || __raw === null) ? '' :
+                      (typeof __raw === 'object' ? JSON.stringify(__raw) : String(__raw));
+            __send(str);
+        }
     } catch(e) {
-        window.kromiumQuery({
-            request: 'q_42:::ERROR: ' + e.message,
-            onSuccess: function(response) {},
-            onFailure: function(error_code, error_message) {}
-        });
+        __send('ERROR: ' + ((e && e.message) ? e.message : String(e)));
     }
 })();
 ```
 
-3. `CefBrowser.executeJavaScript()` delivers the script to the Chromium V8 execution context.
-4. When executed, `window.kromiumQuery` dispatches IPC back to the Java process.
-5. `KromiumJsHandler.onQuery()` parses the `queryId:::payload` message framing, matches the ID in its `pendingCallbacks` map, and resumes the suspended coroutine.
+4. `CefBrowser.executeJavaScript()` delivers the script to the Chromium V8 execution context.
+5. When executed, `window.kromiumQuery` dispatches IPC back to the Java process.
+6. `KromiumJsHandler.onQuery()` parses the `queryId:::payload` message framing, matches the ID in its `pendingCallbacks` map, and resumes the suspended coroutine.
 
 ### Cancellation & Coroutine Cleanup
 If the calling coroutine is cancelled while waiting for the script to execute:

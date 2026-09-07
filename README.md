@@ -9,7 +9,7 @@
   <p><strong>Embed Modern Web Capabilities in Compose Multiplatform Desktop &amp; Kotlin JVM</strong></p>
 
   <p>
-    <a href="https://central.sonatype.com/artifact/dev.daviante/kromium-compose"><img src="https://img.shields.io/badge/Maven_Central-v1.1.150--b11-107c41?style=flat-square&logo=apachemaven" alt="Maven Central" /></a>
+    <a href="https://central.sonatype.com/artifact/dev.daviante/kromium-compose"><img src="https://img.shields.io/badge/Maven_Central-v1.2.150--b11-107c41?style=flat-square&logo=apachemaven" alt="Maven Central" /></a>
     <a href="https://kromium.daviante.dev"><img src="https://img.shields.io/badge/Docs_Portal-kromium.daviante.dev-0078d4?style=flat-square" alt="Documentation Portal" /></a>
     <a href="https://kotlinlang.org"><img src="https://img.shields.io/badge/Kotlin-2.1.10-7F52FF?style=flat-square&logo=kotlin" alt="Kotlin" /></a>
     <a href="https://www.jetbrains.com/lp/compose-multiplatform/"><img src="https://img.shields.io/badge/Compose_Desktop-1.7.3-4285F4?style=flat-square&logo=jetpackcompose" alt="Compose Multiplatform" /></a>
@@ -45,7 +45,7 @@ Detailed guides covering every subsystem are available in the **[`docs/`](docs/)
 | **[Handlers, Listeners & Events](docs/HANDLERS_AND_EVENTS.md)** | Callbacks for HTTP authentication, JS modal dialogs (`alert`/`confirm`/`prompt`), downloads, console logs, and errors. |
 | **[Error Handling & Logging](docs/ERROR_HANDLING_AND_LOGGING.md)** | Sealed `KromiumException` catalog, recovery strategies, and pluggable `KromiumLogger` interface. |
 | **[Troubleshooting, Distribution & FAQ](docs/TROUBLESHOOTING_AND_FAQ.md)** | Black screen fixes, Linux package dependencies, macOS Gatekeeper handling, packaging with Conveyor / Gradle, and ProGuard rules. |
-| **[Migration & Release Notes](docs/MIGRATION_AND_RELEASE_NOTES.md)** | What's new in v1.0.150, compatibility matrices, and migration guides from JavaFX WebView and raw JCEF. |
+| **[Migration & Release Notes](docs/MIGRATION_AND_RELEASE_NOTES.md)** | What's new in v1.2.150-b11 (Stable), compatibility matrices, and migration guides from JavaFX WebView and raw JCEF. |
 
 ---
 
@@ -116,10 +116,10 @@ repositories {
 
 dependencies {
     // For Compose Multiplatform Desktop applications:
-    implementation("dev.daviante:kromium-compose:1.1.150-b11")
+    implementation("dev.daviante:kromium-compose:1.2.150-b11")
 
     // Or for standalone Kotlin JVM / Swing / Headless applications:
-    // implementation("dev.daviante:kromium-core:1.1.150-b11")
+    // implementation("dev.daviante:kromium-core:1.2.150-b11")
 }
 ```
 
@@ -236,6 +236,20 @@ state.shouldOverrideUrlLoading = { url ->
         false // Let browser navigate normally
     }
 }
+```
+
+### 📥 File Downloads & Manager
+```kotlin
+// Set download target directory
+state.downloadDirectory = File(System.getProperty("user.home"), "Downloads")
+
+// Listen for download progress updates
+state.onDownload = { item ->
+    println("Downloading ${item.suggestedFileName}: ${item.percentComplete}% (${item.speed / 1024} KB/s)")
+}
+
+// Programmatically trigger downloads
+state.startDownload("https://example.com/latest-release.zip")
 ```
 
 ### 📄 Extracting DOM & Executing JavaScript

@@ -275,6 +275,13 @@ During `KromiumConfig.validate()`, Kromium inspects command-line arguments and l
 ⚠️ Dangerous command-line flag detected: --disable-web-security — This significantly reduces security.
 ```
 
+### Input Validation & Path Traversal Protections (CWE-022 & CWE-078/088)
+
+Kromium incorporates defensive programming across file I/O and process spawning:
+- **Directory Traversal Validation**: `FileUtils.sanitizeDirectory()` and `FileUtils.resolveChild()` resolve real canonical paths and guarantee that operations on `installDir`, `cachePath`, and `downloadDirectory` remain strictly confined to their intended root boundaries, preventing CWE-022 path injection.
+- **Archive Extraction & Symlink Sandboxing**: `EngineExtractor` validates canonical target paths for every entry and symbolic link during tarball extraction. Any entry attempting to navigate outside the extraction root (e.g. `../../bin/sh`) triggers `KromiumException.MaliciousArchiveEntry`.
+- **Command-Line Injection Isolation**: Helper process invocations pass arguments as discrete, separate elements in `ProcessBuilder` without shell interpolation, guarding against CWE-078/088 argument injection attacks.
+
 ---
 
 [← Return to Documentation Index](README.md) &bull; [Visit Online Documentation](https://kromium.daviante.dev/#/docs/network-interception)

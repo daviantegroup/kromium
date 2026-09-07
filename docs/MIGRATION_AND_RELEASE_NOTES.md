@@ -2,13 +2,13 @@
 
 [Kromium Documentation](README.md) &bull; [Interactive Web Portal](https://kromium.daviante.dev/#/docs/whats-new)
 
-This document provides release notes for **v1.0.150**, compatibility matrices, and step-by-step guides for migrating from JavaFX WebView or legacy JCEF wrappers.
+This document provides release notes for **v1.2.150-b11 (Stable)**, compatibility matrices, and step-by-step guides for migrating from JavaFX WebView or legacy JCEF wrappers.
 
 ---
 
 ## Table of Contents
 
-1. [What's New in Kromium v1.0.150](#whats-new-in-kromium-v10150)
+1. [What's New in Kromium v1.2.150-b11 (Stable)](#whats-new-in-kromium-v12150-b11-stable)
 2. [Platform & Runtime Compatibility](#platform--runtime-compatibility)
 3. [Migrating from JavaFX WebView](#migrating-from-javafx-webview)
 4. [Migrating from Raw JCEF](#migrating-from-raw-jcef)
@@ -18,22 +18,50 @@ This document provides release notes for **v1.0.150**, compatibility matrices, a
 
 ## Release History
 
-### Kromium v1.1.150-b11 (2026-09-07)
-- **Engine Downloader Fix**: Resolved macOS runtime bundle resolution failure where JetBrains Runtime releases name tarballs with `osx` (e.g. `jbr_jcef-*-osx-aarch64-*.tar.gz`) rather than `mac`. Added `osx` and `darwin` aliases, alongside architecture aliases `arm64` and `x86_64` for URLs and release asset matching.
+### Kromium v1.2.150-b11 (2026-09-08) [Stable]
+First official stable production release of Kromium!
+- **Dynamic macOS JBR 25 Path Resolution**: `OperatingSystem.MacOS` dynamically resolves the layout of JetBrains Runtime 25 bundles (`Frameworks/cef_server.app/Contents/Frameworks/`) while preserving compatibility with legacy structures, preventing `Browser subprocess executable not found` errors.
+- **Engine Redownload Loop Elimination**: Fixed `EngineRegistry.isInstalled` to detect JBR 25 macOS bundles, preventing unnecessary 250MB downloads on subsequent application launches.
+- **Installation Lifecycle & Failure Recovery**: `Kromium.initialize()` defers marking the engine as installed until `CefBootstrapper.bootstrap()` verifies successfully. Automatically cleans `install.lock` and temporary archives on failure to avoid wedged states.
+- **Universal Archive Symlink Support**: `EngineExtractor` handles tar symbolic links with Zip-Slip path traversal validation, native symbolic link creation, and automated copy fallback on Windows.
+- **Executable Permission Enforcement**: Automatically restores executable permissions across helper binaries (`jcef helper`, `jcef_helper`, `cef_server`), shared libraries (`.so`, `.dylib`), and shell scripts.
+- **Dynamic JVM Module Opener (`JvmModuleOpener`)**: Dynamically opens `java.desktop/sun.awt` internal packages on Java 17 and 21+ at runtime via Unsafe and Module reflection, enabling zero-config desktop startup without requiring external `--add-opens` JVM flags.
+- **JVM Runtime Integrity & Multi-Platform JAWT Resolution**: Removed `System.setProperty("java.home", ...)` mutation and expanded JAWT library lookup across `${java.home}/lib` and `${java.home}/bin` for Windows, macOS, and Linux.
+- **Native Graphics Preloading on Windows**: Preloads `chrome_elf.dll`, `d3dcompiler_47.dll`, `libEGL.dll`, `libGLESv2.dll`, `vk_swiftshader.dll`, and `vulkan-1.dll` before CEF initialization.
+- **Download Management Subsystem**:
+  - Configurable `downloadDirectory`, `onBeforeDownloadListener`, `cancelDownload`, `pauseDownload`, and `resumeDownload` on `KromiumClient`.
+  - Direct `browser.startDownload(url)` on `KromiumBrowser`.
+  - Added `fullPath` on `KromiumDownloadItem` and fixed `onBeforeDownload` callback return handling per CEF specifications.
+- **Compose Multiplatform `KromiumView` Enhancements**:
+  - Added `loadingContent` Composable slot for custom loading UI during bootstrap.
+  - Safe retention of user-provided `KromiumClient` instances without premature disposal.
+  - Exposed download properties (`downloadDirectory`, `onBeforeDownload`, `startDownload`) on `KromiumViewState`.
+- **ProGuard / R8 Consumer Rules**: Bundled `kromium-core.pro` to automatically protect JCEF JNI bindings and JS serialization models in release builds.
+- **Security & CodeQL Hardening**: Resolved CWE-022 path injection in `FileUtils` and `KromiumConfig`, resolved CWE-078/088 command-line argument injection, and secured JavaScript expression evaluation against syntax and deadlock vulnerabilities.
+- **GitHub API Rate Limit Resilience**: Added explicit HTTP 403 handling with actionable exception messages and prioritized `.tar.gz` and non-SDK bundles.
+- **Coordinates**:
+  - Compose: `dev.daviante:kromium-compose:1.2.150-b11`
+  - Core JVM: `dev.daviante:kromium-core:1.2.150-b11`
+
+### Kromium v1.1.150-b11 (2026-09-08) [Pre-Test]
+- Early testing build for macOS osx bundle matching and initial download fixes.
 - **Coordinates**:
   - Compose: `dev.daviante:kromium-compose:1.1.150-b11`
   - Core JVM: `dev.daviante:kromium-core:1.1.150-b11`
 
-### Kromium v1.0.150-b11 (2026-09-07)
-- **Engine Runtime**: Upgraded underlying JCEF runtime to JetBrains certified release `150.0.14-g7c1aa68-chromium-150.0.7871.129-api-1.21-263-b11`.
-- **Runtime Cache Isolation**: Native bundle directory isolated to `jcef-150-b11` to eliminate conflicts with earlier engine binaries.
+### Kromium v1.0.150-b11 (2026-09-07) [Pre-Test]
+- Early testing build upgrading underlying JCEF runtime to JetBrains certified release `150.0.14-g7c1aa68-chromium-150.0.7871.129-api-1.21-263-b11`.
+- Runtime cache isolation to `jcef-150-b11`.
 - **Coordinates**:
   - Compose: `dev.daviante:kromium-compose:1.0.150-b11`
   - Core JVM: `dev.daviante:kromium-core:1.0.150-b11`
 
+### Kromium v1.0.150 (2026-09-07) [Pre-Test]
+- Initial pre-test release introducing pure standard JCEF integration, automated runtime downloader, and Compose Multiplatform support.
+
 ---
 
-## What's New in Kromium v1.0.150
+## What's New in Kromium v1.2.150-b11 (Stable)
 
 Kromium v1.0.150 represents a milestone release, delivering an enterprise-ready Chromium Embedded Framework engine for Compose Multiplatform Desktop and Kotlin JVM:
 
@@ -80,7 +108,7 @@ dependencies {
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("dev.daviante:kromium-compose:1.1.150-b11")
+    implementation("dev.daviante:kromium-compose:1.2.150-b11")
 }
 ```
 
