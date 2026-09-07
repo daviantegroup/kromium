@@ -20,23 +20,67 @@ object EngineRegistry {
 
     fun defaultInstallDir(): File {
         val platform = PlatformDetector.current()
-        val userHome = System.getProperty("user.home") ?: "."
+        val rawHome = System.getProperty("user.home") ?: "."
+        if (rawHome.contains("..")) {
+            return File(".kromium/jcef-150-b11").canonicalFile
+        }
+        val homeDir = File(rawHome).canonicalFile
+        if (homeDir.path.contains("..")) {
+            return File(".kromium/jcef-150-b11").canonicalFile
+        }
 
         val baseDir = when (platform.os) {
             OperatingSystem.Windows -> {
-                val appData = System.getenv("APPDATA")
-                if (!appData.isNullOrBlank()) File(appData, "Kromium") else File(userHome, ".kromium")
+                val rawAppData = System.getenv("APPDATA")
+                val appDataDir = if (!rawAppData.isNullOrBlank() && !rawAppData.contains("..")) {
+                    val f = File(rawAppData).canonicalFile
+                    if (!f.path.contains("..")) f else null
+                } else null
+                if (appDataDir != null) {
+                    val kDir = File(appDataDir, "Kromium").canonicalFile
+                    if (kDir.canonicalPath.startsWith(appDataDir.canonicalPath)) kDir else {
+                        val fallback = File(homeDir, ".kromium").canonicalFile
+                        if (fallback.canonicalPath.startsWith(homeDir.canonicalPath)) fallback else homeDir
+                    }
+                } else {
+                    val fallback = File(homeDir, ".kromium").canonicalFile
+                    if (fallback.canonicalPath.startsWith(homeDir.canonicalPath)) fallback else homeDir
+                }
             }
             OperatingSystem.MacOS -> {
-                File(userHome, "Library/Application Support/Kromium")
+                val appSupport = File(homeDir, "Library/Application Support").canonicalFile
+                if (appSupport.canonicalPath.startsWith(homeDir.canonicalPath)) {
+                    val kDir = File(appSupport, "Kromium").canonicalFile
+                    if (kDir.canonicalPath.startsWith(appSupport.canonicalPath)) kDir else homeDir
+                } else {
+                    val fallback = File(homeDir, ".kromium").canonicalFile
+                    if (fallback.canonicalPath.startsWith(homeDir.canonicalPath)) fallback else homeDir
+                }
             }
             OperatingSystem.Linux -> {
-                val xdgData = System.getenv("XDG_DATA_HOME")
-                if (!xdgData.isNullOrBlank()) File(xdgData, "kromium") else File(userHome, ".local/share/kromium")
+                val rawXdg = System.getenv("XDG_DATA_HOME")
+                val xdgDir = if (!rawXdg.isNullOrBlank() && !rawXdg.contains("..")) {
+                    val f = File(rawXdg).canonicalFile
+                    if (!f.path.contains("..")) f else null
+                } else null
+                if (xdgDir != null) {
+                    val kDir = File(xdgDir, "kromium").canonicalFile
+                    if (kDir.canonicalPath.startsWith(xdgDir.canonicalPath)) kDir else {
+                        val fallback = File(homeDir, ".local/share/kromium").canonicalFile
+                        if (fallback.canonicalPath.startsWith(homeDir.canonicalPath)) fallback else homeDir
+                    }
+                } else {
+                    val fallback = File(homeDir, ".local/share/kromium").canonicalFile
+                    if (fallback.canonicalPath.startsWith(homeDir.canonicalPath)) fallback else homeDir
+                }
             }
         }
-        val target = File(baseDir, "jcef-150-b11")
-        return target.canonicalFile
+        val target = File(baseDir, "jcef-150-b11").canonicalFile
+        return if (target.canonicalPath.startsWith(baseDir.canonicalPath)) {
+            target
+        } else {
+            File(homeDir, ".kromium/jcef-150-b11").canonicalFile
+        }
     }
 
     fun isInstalled(installDir: File): Boolean {

@@ -95,16 +95,22 @@ object Kromium {
             try {
                 _state.value = KromiumState.Locating
                 val rawInstallDir = config.installDir
-                if (rawInstallDir.path.contains("..")) {
-                    throw KromiumException.InstallationFailed("Invalid installation directory: traversal detected in ${rawInstallDir.path}")
+                val rawPath = rawInstallDir.path
+                if (rawPath.contains("..")) {
+                    throw KromiumException.InstallationFailed("Invalid installation directory: traversal detected in $rawPath")
                 }
                 val installDir = rawInstallDir.canonicalFile
-                if (installDir.path.contains("..")) {
-                    throw KromiumException.InstallationFailed("Invalid installation directory: traversal detected in ${installDir.path}")
+                val canonicalInstallPath = installDir.canonicalPath
+                if (canonicalInstallPath.contains("..")) {
+                    throw KromiumException.InstallationFailed("Invalid installation directory: traversal detected in $canonicalInstallPath")
                 }
-                val parentDir = installDir.parentFile
-                if (parentDir != null && !installDir.canonicalPath.startsWith(parentDir.canonicalPath)) {
-                    throw KromiumException.InstallationFailed("Invalid installation directory: boundary check failed for ${installDir.path}")
+                val roots = File.listRoots() ?: emptyArray()
+                val root = roots.firstOrNull { r ->
+                    val rPath = r.canonicalPath
+                    canonicalInstallPath.startsWith(rPath) && canonicalInstallPath.length > rPath.length
+                } ?: throw KromiumException.InstallationFailed("Invalid installation directory: not within valid filesystem root")
+                if (!canonicalInstallPath.startsWith(root.canonicalPath)) {
+                    throw KromiumException.InstallationFailed("Invalid installation directory: root validation failed")
                 }
                 KromiumLogger.i(TAG, "Install directory: ${installDir.absolutePath}")
 
