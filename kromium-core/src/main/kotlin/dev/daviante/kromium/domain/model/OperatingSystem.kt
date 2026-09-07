@@ -22,13 +22,34 @@ import java.util.Locale
 sealed class OperatingSystem(val name: String, private vararg val aliases: String) {
 
     data object MacOS : OperatingSystem("mac", "mac", "darwin", "osx") {
+        /**
+         * In JetBrains Runtime 25 (CEF 150), macOS bundles place frameworks inside
+         * Frameworks/cef_server.app/Contents/Frameworks/.
+         * Older JBR releases place them directly under Frameworks/.
+         */
+        private fun resolveCefFrameworksDir(installDir: File): File {
+            val safeBase = FileUtils.sanitizeDirectory(installDir) ?: installDir.canonicalFile
+            val cefServerDir = FileUtils.resolveChild(safeBase, "Frameworks/cef_server.app/Contents/Frameworks")
+            return if (cefServerDir != null && cefServerDir.exists()) {
+                cefServerDir
+            } else {
+                FileUtils.resolveChild(safeBase, "Frameworks") ?: File(safeBase, "Frameworks")
+            }
+        }
+
         fun getFrameworkPath(installDir: File, inFrameworks: Boolean = false): String {
-            val prefix = if (inFrameworks) "Frameworks/" else ""
-            return "${installDir.canonicalPath}/$prefix" + "Chromium Embedded Framework.framework"
+            val safeBase = FileUtils.sanitizeDirectory(installDir) ?: installDir.canonicalFile
+            val baseDir = if (inFrameworks) resolveCefFrameworksDir(safeBase) else safeBase
+            val frameworkFile = FileUtils.resolveChild(baseDir, "Chromium Embedded Framework.framework")
+                ?: File(baseDir, "Chromium Embedded Framework.framework")
+            return frameworkFile.canonicalPath
         }
 
         fun getMainBundlePath(installDir: File): String {
-            return "${installDir.canonicalPath}/Frameworks/jcef Helper.app"
+            val frameworksDir = resolveCefFrameworksDir(installDir)
+            val bundleFile = FileUtils.resolveChild(frameworksDir, "jcef Helper.app")
+                ?: File(frameworksDir, "jcef Helper.app")
+            return bundleFile.canonicalPath
         }
 
         override fun getResourcesPath(installDir: File): String {
@@ -36,7 +57,10 @@ sealed class OperatingSystem(val name: String, private vararg val aliases: Strin
         }
 
         override fun getBrowserPath(installDir: File): String {
-            return "${installDir.canonicalPath}/Frameworks/jcef Helper.app/Contents/MacOS/jcef Helper"
+            val frameworksDir = resolveCefFrameworksDir(installDir)
+            val helperFile = FileUtils.resolveChild(frameworksDir, "jcef Helper.app/Contents/MacOS/jcef Helper")
+                ?: File(frameworksDir, "jcef Helper.app/Contents/MacOS/jcef Helper")
+            return helperFile.canonicalPath
         }
 
         override fun getFixedArgs(installDir: File, args: Collection<String>): Collection<String> {

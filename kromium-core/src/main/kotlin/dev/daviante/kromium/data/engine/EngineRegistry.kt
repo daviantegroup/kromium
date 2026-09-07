@@ -60,7 +60,8 @@ object EngineRegistry {
             }
             OperatingSystem.MacOS -> {
                 checkFile("Chromium Embedded Framework.framework") ||
-                    checkFile("Frameworks/Chromium Embedded Framework.framework")
+                    checkFile("Frameworks/Chromium Embedded Framework.framework") ||
+                    checkFile("Frameworks/cef_server.app/Contents/Frameworks/Chromium Embedded Framework.framework")
             }
             OperatingSystem.Linux -> {
                 checkFile("libcef.so") ||

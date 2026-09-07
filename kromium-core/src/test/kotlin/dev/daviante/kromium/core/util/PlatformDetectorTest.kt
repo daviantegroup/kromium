@@ -38,4 +38,30 @@ class PlatformDetectorTest {
         assertTrue(OperatingSystem.Windows.isWindows)
         assertTrue(OperatingSystem.Linux.isLinux)
     }
+
+    @Test
+    fun testMacOsDynamicFrameworkPaths() {
+        val tempDir = java.nio.file.Files.createTempDirectory("macos_framework_test").toFile()
+        try {
+            // 1. Fallback behavior (older JBR)
+            val fallbackFramework = OperatingSystem.MacOS.getFrameworkPath(tempDir, inFrameworks = true)
+            assertTrue(fallbackFramework.endsWith("Chromium Embedded Framework.framework"))
+            assertTrue(fallbackFramework.contains("Frameworks"))
+
+            // 2. JBR 25 / CEF 150 layout with cef_server.app
+            val cefServerFrameworks = java.io.File(tempDir, "Frameworks/cef_server.app/Contents/Frameworks")
+            cefServerFrameworks.mkdirs()
+
+            val resolvedFramework = OperatingSystem.MacOS.getFrameworkPath(tempDir, inFrameworks = true).replace('\\', '/')
+            assertTrue(resolvedFramework.contains("cef_server.app/Contents/Frameworks"))
+
+            val resolvedBundle = OperatingSystem.MacOS.getMainBundlePath(tempDir).replace('\\', '/')
+            assertTrue(resolvedBundle.contains("cef_server.app/Contents/Frameworks/jcef Helper.app"))
+
+            val resolvedBrowser = OperatingSystem.MacOS.getBrowserPath(tempDir).replace('\\', '/')
+            assertTrue(resolvedBrowser.contains("cef_server.app/Contents/Frameworks/jcef Helper.app/Contents/MacOS/jcef Helper"))
+        } finally {
+            tempDir.deleteRecursively()
+        }
+    }
 }
