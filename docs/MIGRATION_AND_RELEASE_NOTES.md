@@ -18,6 +18,12 @@ This document provides release notes for **v1.0.150**, compatibility matrices, a
 
 ## Release History
 
+### Kromium v1.1.150-b11 (2026-09-07)
+- **Engine Downloader Fix**: Resolved macOS runtime bundle resolution failure where JetBrains Runtime releases name tarballs with `osx` (e.g. `jbr_jcef-*-osx-aarch64-*.tar.gz`) rather than `mac`. Added `osx` and `darwin` aliases, alongside architecture aliases `arm64` and `x86_64` for URLs and release asset matching.
+- **Coordinates**:
+  - Compose: `dev.daviante:kromium-compose:1.1.150-b11`
+  - Core JVM: `dev.daviante:kromium-core:1.1.150-b11`
+
 ### Kromium v1.0.150-b11 (2026-09-07)
 - **Engine Runtime**: Upgraded underlying JCEF runtime to JetBrains certified release `150.0.14-g7c1aa68-chromium-150.0.7871.129-api-1.21-263-b11`.
 - **Runtime Cache Isolation**: Native bundle directory isolated to `jcef-150-b11` to eliminate conflicts with earlier engine binaries.
@@ -74,7 +80,7 @@ dependencies {
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("dev.daviante:kromium-compose:1.0.150-b11")
+    implementation("dev.daviante:kromium-compose:1.1.150-b11")
 }
 ```
 

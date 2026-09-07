@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.150-b11] - 2026-09-07
+
+### Fixed
+- Fixed macOS runtime bundle resolution in `EngineDownloader`: JetBrains Runtime release tarballs use `osx` in their file naming (e.g. `jbr_jcef-*-osx-aarch64-*.tar.gz`), which caused candidate URL matching and asset fallback to fail when checking strictly for `mac`.
+- Expanded OS and architecture keyword matching to support `osx`, `darwin`, `arm64`, and `x86_64` aliases across both release body URLs and asset manifests.
+
 ## [1.0.150-b11] - 2026-09-07
 
 ### Changed

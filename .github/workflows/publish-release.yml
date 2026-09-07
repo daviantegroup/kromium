@@ -7,6 +7,9 @@ on:
       - master
   release:
     types: [published]
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       dry_run:
@@ -118,6 +121,17 @@ jobs:
             echo "Release tag and Gradle version match perfectly ($PROJECT_VERSION)."
           fi
 
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TAG_NAME="${{ github.ref_name }}"
+            STRIPPED_TAG="${TAG_NAME#v}"
+            echo "Git Pushed Tag: $TAG_NAME (normalized: $STRIPPED_TAG)"
+            if [ "$STRIPPED_TAG" != "$PROJECT_VERSION" ]; then
+              echo "::error::Pushed tag '$TAG_NAME' does not match Gradle project version '$PROJECT_VERSION'! Aborting release."
+              exit 1
+            fi
+            echo "Pushed tag and Gradle version match perfectly ($PROJECT_VERSION)."
+          fi
+
           if [ "${{ github.event_name }}" = "pull_request" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             git fetch --tags
             if git rev-parse "v$PROJECT_VERSION" >/dev/null 2>&1; then
@@ -156,19 +170,20 @@ jobs:
         run: ./gradlew test
 
       - name: Create Git Tag and GitHub Release
-        if: steps.check_trigger.outputs.proceed == 'true' && steps.preflight.outputs.proceed == 'true' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch') && inputs.dry_run != true
+        if: steps.check_trigger.outputs.proceed == 'true' && steps.preflight.outputs.proceed == 'true' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.event_name == 'push') && inputs.dry_run != true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           PROJECT_VERSION="${{ steps.preflight.outputs.project_version }}"
           TAG_NAME="v$PROJECT_VERSION"
-          echo "Creating Git Tag: $TAG_NAME"
 
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          git tag -a "$TAG_NAME" -m "Release $TAG_NAME"
-          git push origin "$TAG_NAME"
+          if [ "${{ github.event_name }}" != "push" ]; then
+            echo "Creating Git Tag: $TAG_NAME"
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag -a "$TAG_NAME" -m "Release $TAG_NAME"
+            git push origin "$TAG_NAME"
+          fi
 
           UPSTREAM_VER=$(cat jcef-version.txt 2>/dev/null || echo "")
 
@@ -200,14 +215,14 @@ jobs:
             echo ""
             echo "#### ⚙️ Engine Details"
             echo "- **Upstream JCEF Runtime**: \`$UPSTREAM_VER\`"
-            echo "- **Native Cache Directory**: \`jcef-$(echo "$PROJECT_VERSION" | sed 's/^1\.0\.//')\`"
+            echo "- **Native Cache Directory**: \`jcef-$(echo "$PROJECT_VERSION" | sed -E 's/^[0-9]+\.[0-9]+\.//')\`"
             echo ""
             echo "📖 **Documentation**: [kromium.daviante.dev](https://kromium.daviante.dev) &bull; **Changelog**: [CHANGELOG.md](CHANGELOG.md)"
           } > release_notes.md
 
           gh release create "$TAG_NAME" \
             --title "Kromium $TAG_NAME" \
-            --notes-file release_notes.md
+            --notes-file release_notes.md || echo "GitHub release $TAG_NAME already created or exists."
 
       - name: Build, Sign & Package Publications
         if: steps.check_trigger.outputs.proceed == 'true' && steps.preflight.outputs.proceed == 'true'

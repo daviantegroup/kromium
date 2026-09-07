@@ -36,7 +36,7 @@ Add the Compose module dependency to your `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("dev.daviante:kromium-compose:1.0.150-b11")
+    implementation("dev.daviante:kromium-compose:1.1.150-b11")
 }
 ```
 

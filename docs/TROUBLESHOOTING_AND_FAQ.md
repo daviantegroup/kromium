@@ -195,7 +195,7 @@ compose.desktop {
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Deb
             )
             packageName = "KromiumBrowser"
-            packageVersion = "1.0.150"
+            packageVersion = "1.1.150"
 
             windows {
                 menuGroup = "Kromium"
@@ -234,7 +234,7 @@ For production cross-compilation (building Windows, macOS, and Linux packages fr
 app {
   display-name = "Kromium Browser"
   fsname = "kromium-browser"
-  version = 1.0.150
+  version = 1.1.150
   rdns-name = dev.daviante.kromium
 
   jvm {
