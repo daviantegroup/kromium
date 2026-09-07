@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.0.150-b11] - 2026-09-08 [Major Release]
+
+Major release delivering enterprise security hardening, Windows Registry write suppression, comprehensive enterprise proxy infrastructure with dynamic runtime switching, and a redesigned Diátaxis documentation suite.
+
+### Added
+- **Windows Registry Write & Telemetry Suppression**:
+  - Added `blockRegistryAndTelemetry = true` (default) on `KromiumConfig` to suppress background telemetry, crash reporting (`crashpad`/`breakpad`), Omaha component update state, shell integration, autorun hooks, and Windows Action Center toasts.
+  - Enforced complete cache and profile quarantining via `--root-cache-path` and `--user-data-dir`, preventing Chromium from polluting `%LOCALAPPDATA%\Chromium` or user registry hives.
+- **Enterprise & SMB Proxy Architecture**:
+  - Full proxy strategy hierarchy: `KromiumProxy.System`, `Direct`, `AutoDetect` (WPAD DHCP/DNS), `Pac`, `Http`/`Https` (with bypass rules and TLS tunnels), `Socks5` (with remote DNS leak protection), and `MultiProtocol` split routing.
+  - **Dynamic Runtime Proxy Switching**: Added `Kromium.setProxy(proxy)` and `KromiumClient.setProxy(proxy)` to update proxy configurations dynamically across all active browser windows without restarting the engine.
+  - **Integrated Windows Authentication (SSO)**: Added `authServerAllowlist` and `authNegotiateDelegateAllowlist` for seamless NTLM and Kerberos SPNEGO enterprise authentication.
+  - **Automatic HTTP 407 Challenge Resolution**: Automatically supplies proxy credentials when challenged.
+- **Network Resilience & Asset Filtering**:
+  - Enhanced `KromiumCookieManager` with timeout protection (`timeoutMs`) and fast-path handling for non-HTTP/blank URLs.
+  - Added typed `KromiumAssetFilter` with `ALL_BLOCKED` and `MEDIA_ONLY` presets.
+- **Comprehensive Diátaxis Documentation Suite**:
+  - 22 structured documentation guides organized across Getting Started, Core Concepts, Guides, Reference, and Deployment with 100% verified executable code signatures and zero broken links.
+
+---
+
 ## [1.2.150-b11] - 2026-09-08 [Stable]
 
 First official stable release of Kromium. Incorporates all production-tested features, cross-platform engine bootstrapping, enhanced download manager, dynamic Java 17/21+ module opening, CodeQL security hardening, and Chrome-styled demo application.
