@@ -11,7 +11,8 @@ import java.util.UUID
 
 class BrowserTab(
     val id: String = UUID.randomUUID().toString(),
-    initialUrl: String = "about:blank"
+    initialUrl: String = "about:blank",
+    onDownloadUpdated: ((dev.daviante.kromium.presentation.handler.KromiumDownloadItem) -> Unit)? = null
 ) {
     val viewState: KromiumViewState = KromiumViewState(initialUrl)
     val consoleLogs = mutableStateListOf<ConsoleEntry>()
@@ -26,6 +27,7 @@ class BrowserTab(
         }
 
     init {
+        viewState.onDownload = onDownloadUpdated
         viewState.onConsoleMessage = { msg ->
             val type = when (msg.level) {
                 KromiumConsoleMessageLevel.ERROR -> ConsoleEntryType.ERROR

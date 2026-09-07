@@ -31,6 +31,13 @@ class WorkspaceState(
     var cookiesMap by mutableStateOf<Map<String, String>>(emptyMap())
     var isLoadingCookies by mutableStateOf(false)
 
+    // Downloads state
+    val downloads = mutableStateListOf<dev.daviante.kromium.presentation.handler.KromiumDownloadItem>()
+
+    // Clear Browsing Data state
+    var isClearingData by mutableStateOf(false)
+    var clearDataStatusMessage by mutableStateOf<String?>(null)
+
     // Page text state
     var extractedPageText by mutableStateOf("")
     var isExtractingText by mutableStateOf(false)
@@ -41,15 +48,76 @@ class WorkspaceState(
     val activeTab: BrowserTab?
         get() = tabs.find { it.id == activeTabId } ?: tabs.firstOrNull()
 
+    fun onDownloadUpdated(item: dev.daviante.kromium.presentation.handler.KromiumDownloadItem) {
+        val index = downloads.indexOfFirst { it.id == item.id }
+        if (index != -1) {
+            downloads[index] = item
+        } else {
+            downloads.add(0, item)
+        }
+    }
+
+    fun clearDownloads() {
+        downloads.clear()
+    }
+
+    fun removeDownload(id: Int) {
+        downloads.removeAll { it.id == id }
+    }
+
+    fun triggerSampleDownload() {
+        // Navigates active tab to a lightweight downloadable sample artifact
+        val sampleUrl = "https://raw.githubusercontent.com/daviantegroup/kromium/master/README.md"
+        navigate(sampleUrl)
+    }
+
+    fun clearBrowsingData(
+        clearCookies: Boolean = true,
+        clearCache: Boolean = true,
+        clearDownloadHistory: Boolean = true,
+        clearLogs: Boolean = true
+    ) {
+        scope.launch {
+            isClearingData = true
+            clearDataStatusMessage = null
+            try {
+                if (clearCookies) {
+                    KromiumCookieManager.clearCookies()
+                    KromiumCookieManager.flush()
+                    cookiesMap = emptyMap()
+                }
+                if (clearDownloadHistory) {
+                    downloads.clear()
+                }
+                if (clearLogs) {
+                    tabs.forEach { it.consoleLogs.clear() }
+                }
+                clearDataStatusMessage = "Browsing data cleared successfully!"
+                kotlinx.coroutines.delay(3500)
+                clearDataStatusMessage = null
+            } catch (e: Exception) {
+                clearDataStatusMessage = "Error clearing data: ${e.message}"
+            } finally {
+                isClearingData = false
+            }
+        }
+    }
+
     init {
         // Initialize with default tab
-        val defaultTab = BrowserTab(initialUrl = "https://duckduckgo.com")
+        val defaultTab = BrowserTab(
+            initialUrl = "https://duckduckgo.com",
+            onDownloadUpdated = ::onDownloadUpdated
+        )
         tabs.add(defaultTab)
         activeTabId = defaultTab.id
     }
 
     fun openTab(url: String = "https://duckduckgo.com"): BrowserTab {
-        val newTab = BrowserTab(initialUrl = url)
+        val newTab = BrowserTab(
+            initialUrl = url,
+            onDownloadUpdated = ::onDownloadUpdated
+        )
         tabs.add(newTab)
         activeTabId = newTab.id
         return newTab

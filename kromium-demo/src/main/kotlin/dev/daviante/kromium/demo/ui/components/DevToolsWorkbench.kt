@@ -125,6 +125,8 @@ fun DevToolsWorkbench(
                     .padding(12.dp)
             ) {
                 when (workspaceState.activeWorkbenchTab) {
+                    WorkbenchTab.DOWNLOADS -> DownloadsTab(workspaceState)
+                    WorkbenchTab.CLEAR_DATA -> ClearDataTab(workspaceState)
                     WorkbenchTab.JS_REPL -> JsReplTab(workspaceState)
                     WorkbenchTab.CONSOLE -> ConsoleLogsTab(workspaceState)
                     WorkbenchTab.PAGE_INFO -> PageInfoTab(workspaceState)
@@ -566,6 +568,438 @@ private fun ConsoleEntryView(entry: dev.daviante.kromium.demo.model.ConsoleEntry
                     fontSize = 9.sp
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun DownloadsTab(workspaceState: WorkspaceState) {
+    val downloads = workspaceState.downloads
+    val inProgressCount = downloads.count { it.isInProgress }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Downloads header
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = "Downloads",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = KromiumColors.TextPrimary
+                )
+                if (downloads.isNotEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (inProgressCount > 0) KromiumColors.Cyan.copy(alpha = 0.2f) else KromiumColors.SurfaceElevated)
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "${downloads.size}",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (inProgressCount > 0) KromiumColors.Cyan else KromiumColors.TextSecondary
+                        )
+                    }
+                }
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                // Trigger Test Download button
+                Button(
+                    onClick = { workspaceState.triggerSampleDownload() },
+                    colors = ButtonDefaults.buttonColors(containerColor = KromiumColors.SurfaceElevated),
+                    shape = RoundedCornerShape(6.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                    modifier = Modifier.height(28.dp)
+                ) {
+                    Text("Test Download", fontSize = 10.sp, color = KromiumColors.Cyan)
+                }
+
+                if (downloads.isNotEmpty()) {
+                    IconButton(
+                        onClick = { workspaceState.clearDownloads() },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Clear downloads",
+                            tint = KromiumColors.TextMuted,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        if (downloads.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(KromiumColors.SurfaceElevated)
+                    .border(1.dp, KromiumColors.BorderSubtle, RoundedCornerShape(8.dp))
+                    .padding(20.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.FileDownload,
+                        contentDescription = null,
+                        tint = KromiumColors.TextMuted,
+                        modifier = Modifier.size(36.dp)
+                    )
+                    Text(
+                        text = "No Downloads Yet",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = KromiumColors.TextSecondary
+                    )
+                    Text(
+                        text = "Downloads started in Chromium will update here in real time with progress and status.",
+                        fontSize = 11.sp,
+                        color = KromiumColors.TextMuted
+                    )
+                    Button(
+                        onClick = { workspaceState.triggerSampleDownload() },
+                        colors = ButtonDefaults.buttonColors(containerColor = KromiumColors.CyanDark),
+                        shape = RoundedCornerShape(6.dp),
+                        modifier = Modifier.padding(top = 6.dp)
+                    ) {
+                        Text("Trigger Test Download", fontSize = 11.sp, color = Color.White)
+                    }
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                downloads.forEach { item ->
+                    DownloadCard(
+                        item = item,
+                        onRemove = { workspaceState.removeDownload(item.id) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DownloadCard(
+    item: dev.daviante.kromium.presentation.handler.KromiumDownloadItem,
+    onRemove: () -> Unit
+) {
+    Surface(
+        color = KromiumColors.SurfaceElevated,
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, KromiumColors.Border, RoundedCornerShape(8.dp))
+    ) {
+        Column(modifier = Modifier.padding(10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(
+                        imageVector = when {
+                            item.isComplete -> Icons.Default.CheckCircle
+                            item.isCanceled -> Icons.Default.Cancel
+                            else -> Icons.Default.FileDownload
+                        },
+                        contentDescription = null,
+                        tint = when {
+                            item.isComplete -> KromiumColors.Success
+                            item.isCanceled -> KromiumColors.Error
+                            else -> KromiumColors.Cyan
+                        },
+                        modifier = Modifier.size(18.dp)
+                    )
+
+                    Column {
+                        Text(
+                            text = item.suggestedFileName.ifBlank { "download" },
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = KromiumColors.TextPrimary,
+                            maxLines = 1
+                        )
+                        Text(
+                            text = item.url.take(36),
+                            fontSize = 10.sp,
+                            color = KromiumColors.TextMuted,
+                            maxLines = 1
+                        )
+                    }
+                }
+
+                IconButton(
+                    onClick = onRemove,
+                    modifier = Modifier.size(22.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Remove",
+                        tint = KromiumColors.TextMuted,
+                        modifier = Modifier.size(13.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Progress Bar
+            if (item.isInProgress) {
+                LinearProgressIndicator(
+                    progress = { if (item.totalBytes > 0) (item.receivedBytes.toFloat() / item.totalBytes.toFloat()).coerceIn(0f, 1f) else 0f },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp)),
+                    color = KromiumColors.Cyan,
+                    trackColor = KromiumColors.BorderSubtle
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+            }
+
+            // Meta row: received / total, speed, status
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val sizeText = if (item.totalBytes > 0) {
+                    "${formatDownloadBytes(item.receivedBytes)} / ${formatDownloadBytes(item.totalBytes)}"
+                } else {
+                    formatDownloadBytes(item.receivedBytes)
+                }
+                Text(
+                    text = sizeText,
+                    fontSize = 10.sp,
+                    color = KromiumColors.TextSecondary
+                )
+
+                if (item.isInProgress && item.speed > 0) {
+                    Text(
+                        text = "${formatDownloadBytes(item.speed)}/s",
+                        fontSize = 10.sp,
+                        color = KromiumColors.Cyan
+                    )
+                }
+
+                Text(
+                    text = when {
+                        item.isComplete -> "Completed"
+                        item.isCanceled -> "Canceled"
+                        item.isInProgress -> "${item.percentComplete}%"
+                        else -> "Pending"
+                    },
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = when {
+                        item.isComplete -> KromiumColors.Success
+                        item.isCanceled -> KromiumColors.Error
+                        else -> KromiumColors.Cyan
+                    }
+                )
+            }
+        }
+    }
+}
+
+private fun formatDownloadBytes(bytes: Long): String {
+    if (bytes < 1024) return "$bytes B"
+    val kb = bytes / 1024.0
+    if (kb < 1024) return "${kb.toInt()} KB"
+    val mb = kb / 1024.0
+    return "${(mb * 10).toInt() / 10.0} MB"
+}
+
+@Composable
+private fun ClearDataTab(workspaceState: WorkspaceState) {
+    var clearCookies by remember { mutableStateOf(true) }
+    var clearCache by remember { mutableStateOf(true) }
+    var clearDownloads by remember { mutableStateOf(true) }
+    var clearLogs by remember { mutableStateOf(true) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Delete,
+                contentDescription = null,
+                tint = KromiumColors.Cyan,
+                modifier = Modifier.size(20.dp)
+            )
+            Text(
+                text = "Clear Browsing Data",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = KromiumColors.TextPrimary
+            )
+        }
+
+        Text(
+            text = "Select data types to remove from Chromium engine storage and current session memory.",
+            fontSize = 11.5.sp,
+            color = KromiumColors.TextSecondary,
+            lineHeight = 16.sp
+        )
+
+        Surface(
+            color = KromiumColors.SurfaceElevated,
+            shape = RoundedCornerShape(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, KromiumColors.Border, RoundedCornerShape(8.dp))
+        ) {
+            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                ClearDataCheckbox(
+                    title = "Cookies and Site Data",
+                    subtitle = "Signs you out of sites and clears stored cookie credentials",
+                    checked = clearCookies,
+                    onCheckedChange = { clearCookies = it }
+                )
+
+                HorizontalDivider(color = KromiumColors.BorderSubtle)
+
+                ClearDataCheckbox(
+                    title = "Cached Images and Files",
+                    subtitle = "Frees disk cache and forces fresh network loads on next visit",
+                    checked = clearCache,
+                    onCheckedChange = { clearCache = it }
+                )
+
+                HorizontalDivider(color = KromiumColors.BorderSubtle)
+
+                ClearDataCheckbox(
+                    title = "Download History",
+                    subtitle = "Clears records of downloaded files (${workspaceState.downloads.size} items)",
+                    checked = clearDownloads,
+                    onCheckedChange = { clearDownloads = it }
+                )
+
+                HorizontalDivider(color = KromiumColors.BorderSubtle)
+
+                ClearDataCheckbox(
+                    title = "Console & Developer Logs",
+                    subtitle = "Clears JavaScript execution and inspection logs across tabs",
+                    checked = clearLogs,
+                    onCheckedChange = { clearLogs = it }
+                )
+            }
+        }
+
+        if (workspaceState.clearDataStatusMessage != null) {
+            Surface(
+                color = KromiumColors.Success.copy(alpha = 0.15f),
+                shape = RoundedCornerShape(6.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, KromiumColors.Success.copy(alpha = 0.4f), RoundedCornerShape(6.dp))
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.CheckCircle, null, tint = KromiumColors.Success, modifier = Modifier.size(16.dp))
+                    Text(
+                        text = workspaceState.clearDataStatusMessage ?: "",
+                        fontSize = 12.sp,
+                        color = KromiumColors.Success,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+
+        Button(
+            onClick = {
+                workspaceState.clearBrowsingData(
+                    clearCookies = clearCookies,
+                    clearCache = clearCache,
+                    clearDownloadHistory = clearDownloads,
+                    clearLogs = clearLogs
+                )
+            },
+            enabled = !workspaceState.isClearingData,
+            colors = ButtonDefaults.buttonColors(containerColor = KromiumColors.CyanDark),
+            shape = RoundedCornerShape(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(40.dp)
+        ) {
+            if (workspaceState.isClearingData) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = Color.White
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Clearing...", fontSize = 12.5.sp, color = Color.White)
+            } else {
+                Text("Clear Selected Data", fontSize = 12.5.sp, color = Color.White, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ClearDataCheckbox(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) },
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Checkbox(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = CheckboxDefaults.colors(
+                checkedColor = KromiumColors.Cyan,
+                uncheckedColor = KromiumColors.TextMuted,
+                checkmarkColor = KromiumColors.Background
+            )
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = KromiumColors.TextPrimary)
+            Text(text = subtitle, fontSize = 10.5.sp, color = KromiumColors.TextMuted)
         }
     }
 }

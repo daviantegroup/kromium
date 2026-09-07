@@ -304,6 +304,49 @@ fun NavigationToolbar(
                     }
                 }
 
+                // Chrome Downloads Manager Button with Live Progress Badge
+                val inProgressCount = workspaceState.downloads.count { it.isInProgress }
+                IconButton(
+                    onClick = {
+                        workspaceState.activeWorkbenchTab = dev.daviante.kromium.demo.model.WorkbenchTab.DOWNLOADS
+                        workspaceState.isDevDrawerOpen = true
+                    },
+                    modifier = Modifier.size(34.dp)
+                ) {
+                    BadgedBox(
+                        badge = {
+                            if (inProgressCount > 0) {
+                                Badge(containerColor = KromiumColors.Cyan) {
+                                    Text(inProgressCount.toString(), fontSize = 9.sp, color = KromiumColors.Background)
+                                }
+                            }
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.FileDownload,
+                            contentDescription = "Downloads Manager",
+                            tint = if (inProgressCount > 0) KromiumColors.Cyan else KromiumColors.TextSecondary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                // Clear Browsing Data Quick Button
+                IconButton(
+                    onClick = {
+                        workspaceState.activeWorkbenchTab = dev.daviante.kromium.demo.model.WorkbenchTab.CLEAR_DATA
+                        workspaceState.isDevDrawerOpen = true
+                    },
+                    modifier = Modifier.size(34.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Clear Browsing Data",
+                        tint = KromiumColors.TextSecondary,
+                        modifier = Modifier.size(17.dp)
+                    )
+                }
+
                 // Native DevTools Window Button
                 IconButton(
                     onClick = { viewState?.openDevTools() },
