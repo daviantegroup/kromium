@@ -35,7 +35,7 @@ To use Kromium without Compose Desktop dependencies, import `kromium-core`:
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("dev.daviante:kromium-core:1.0.150")
+    implementation("dev.daviante:kromium-core:1.0.150-b11")
 }
 ```
 

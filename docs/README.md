@@ -37,10 +37,10 @@ The documentation is organized into 8 functional categories, available both in t
 // build.gradle.kts
 dependencies {
     // For Compose Multiplatform Desktop applications
-    implementation("dev.daviante:kromium-compose:1.0.150")
+    implementation("dev.daviante:kromium-compose:1.0.150-b11")
 
     // Or for standalone Kotlin JVM / Swing / Headless applications
-    // implementation("dev.daviante:kromium-core:1.0.150")
+    // implementation("dev.daviante:kromium-core:1.0.150-b11")
 }
 ```
 

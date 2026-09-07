@@ -16,6 +16,17 @@ This document provides release notes for **v1.0.150**, compatibility matrices, a
 
 ---
 
+## Release History
+
+### Kromium v1.0.150-b11 (2026-09-07)
+- **Engine Runtime**: Upgraded underlying JCEF runtime to JetBrains certified release `150.0.14-g7c1aa68-chromium-150.0.7871.129-api-1.21-263-b11`.
+- **Runtime Cache Isolation**: Native bundle directory isolated to `jcef-150-b11` to eliminate conflicts with earlier engine binaries.
+- **Coordinates**:
+  - Compose: `dev.daviante:kromium-compose:1.0.150-b11`
+  - Core JVM: `dev.daviante:kromium-core:1.0.150-b11`
+
+---
+
 ## What's New in Kromium v1.0.150
 
 Kromium v1.0.150 represents a milestone release, delivering an enterprise-ready Chromium Embedded Framework engine for Compose Multiplatform Desktop and Kotlin JVM:
@@ -63,7 +74,7 @@ dependencies {
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("dev.daviante:kromium-compose:1.0.150")
+    implementation("dev.daviante:kromium-compose:1.0.150-b11")
 }
 ```
 
