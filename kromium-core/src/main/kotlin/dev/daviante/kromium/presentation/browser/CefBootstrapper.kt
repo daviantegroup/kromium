@@ -29,8 +29,60 @@ object CefBootstrapper {
         cefArgs: List<String>,
         cefSettings: CefSettings
     ): CefApp {
+        // Ensure required JDK module packages are dynamically open to ALL-UNNAMED
+        JvmModuleOpener.ensureModulesOpened()
+
         val platform = PlatformDetector.current()
         val os = platform.os
+        val safeInstallDir = FileUtils.sanitizeDirectory(installDir) ?: installDir.canonicalFile
+
+        // Configure JCEF System properties for org.cef.Startup
+        if (os.isMacOS) {
+            val macOs = os as OperatingSystem.MacOS
+            val frameworkPath = macOs.getFrameworkPath(safeInstallDir, inFrameworks = true)
+            val helperPath = macOs.getMainBundlePath(safeInstallDir)
+            val jcefLibDir = File(safeInstallDir, "Home/lib").takeIf { it.exists() }
+                ?: File(safeInstallDir, "lib")
+
+            System.setProperty("ALT_CEF_FRAMEWORK_DIR", frameworkPath)
+            System.setProperty("ALT_CEF_HELPER_APP_DIR", helperPath)
+            System.setProperty("ALT_JCEF_LIB_DIR", jcefLibDir.canonicalPath)
+        } else if (os.isLinux) {
+            val cefDir = listOf(
+                File(safeInstallDir, "lib/libcef.so"),
+                File(safeInstallDir, "libcef.so")
+            ).firstOrNull { it.exists() }?.parentFile ?: File(safeInstallDir, "lib")
+            val jcefDir = listOf(
+                File(safeInstallDir, "lib/libjcef.so"),
+                File(safeInstallDir, "libjcef.so")
+            ).firstOrNull { it.exists() }?.parentFile ?: cefDir
+            val helperDir = listOf(
+                File(safeInstallDir, "lib/jcef_helper"),
+                File(safeInstallDir, "bin/jcef_helper"),
+                File(safeInstallDir, "jcef_helper")
+            ).firstOrNull { it.exists() }?.parentFile ?: cefDir
+
+            System.setProperty("ALT_CEF_FRAMEWORK_DIR", cefDir.canonicalPath)
+            System.setProperty("ALT_JCEF_LIB_DIR", jcefDir.canonicalPath)
+            System.setProperty("ALT_CEF_HELPER_APP_DIR", helperDir.canonicalPath)
+        } else if (os.isWindows) {
+            val cefDir = listOf(
+                File(safeInstallDir, "bin/libcef.dll"),
+                File(safeInstallDir, "libcef.dll")
+            ).firstOrNull { it.exists() }?.parentFile ?: File(safeInstallDir, "bin")
+            val jcefDir = listOf(
+                File(safeInstallDir, "bin/jcef.dll"),
+                File(safeInstallDir, "jcef.dll")
+            ).firstOrNull { it.exists() }?.parentFile ?: cefDir
+            val helperDir = listOf(
+                File(safeInstallDir, "bin/jcef_helper.exe"),
+                File(safeInstallDir, "jcef_helper.exe")
+            ).firstOrNull { it.exists() }?.parentFile ?: cefDir
+
+            System.setProperty("ALT_CEF_FRAMEWORK_DIR", cefDir.canonicalPath)
+            System.setProperty("ALT_JCEF_LIB_DIR", jcefDir.canonicalPath)
+            System.setProperty("ALT_CEF_HELPER_APP_DIR", helperDir.canonicalPath)
+        }
 
         // Enable preinit on any thread to avoid EDT deadlock during headless/background bootstrap
         System.setProperty("jcef_app_preinit_any", "true")
@@ -63,8 +115,6 @@ object CefBootstrapper {
         }
 
         // Configure default paths if not explicitly overridden
-        val safeInstallDir = FileUtils.sanitizeDirectory(installDir) ?: installDir.canonicalFile
-
         if (cefSettings.locales_dir_path.isNullOrEmpty() && !os.isMacOS) {
             val binLocales = FileUtils.resolveChild(safeInstallDir, "bin/locales")
             val libLocales = FileUtils.resolveChild(safeInstallDir, "lib/locales")
@@ -119,16 +169,40 @@ object CefBootstrapper {
             )
         }
 
-        // Load core Chromium binary
-        loadNativeLibrary(installDir, "libcef", platform)
+        // Load core Chromium binaries
+        if (os.isWindows) {
+            loadNativeLibrary(installDir, "chrome_elf", platform)
+        }
+        if (!os.isMacOS) {
+            loadNativeLibrary(installDir, "libcef", platform)
+        }
 
-        val app = runCatching { CefApp.getInstance(launchArgs.toTypedArray(), cefSettings, installDir) }.getOrNull()
-            ?: CefApp.getInstance()
+        val app = try {
+            CefApp.getInstance(launchArgs.toTypedArray(), cefSettings, safeInstallDir)
+        } catch (e: NoSuchMethodError) {
+            CefApp.getInstance()
+        } catch (t: Throwable) {
+            KromiumLogger.e(TAG, "Failed to instantiate CefApp", t)
+            throw KromiumException.BootstrapFailed(t)
+        }
+
+        // Attach listener to internal startup future for diagnostic logging
+        try {
+            val futureField = CefApp::class.java.getDeclaredField("ourStartupFeature")
+            futureField.isAccessible = true
+            val future = futureField.get(null) as? java.util.concurrent.CompletableFuture<*>
+            future?.whenComplete { _, ex ->
+                if (ex != null) {
+                    KromiumLogger.e(TAG, "Native CEF startup future completed exceptionally", ex)
+                }
+            }
+        } catch (_: Throwable) {}
 
         // Synchronously await native engine INITIALIZED state before returning to caller
         if (CefApp.getState() != CefApp.CefAppState.INITIALIZED) {
             val latch = CountDownLatch(1)
             app.onInitialization { state ->
+                KromiumLogger.d(TAG, "CEF initialization state: $state")
                 if (state == CefApp.CefAppState.INITIALIZED) {
                     latch.countDown()
                 }
@@ -136,9 +210,11 @@ object CefBootstrapper {
             if (CefApp.getState() == CefApp.CefAppState.INITIALIZED) {
                 latch.countDown()
             }
-            val reached = latch.await(15, TimeUnit.SECONDS)
+            val reached = latch.await(30, TimeUnit.SECONDS)
             if (!reached && CefApp.getState() != CefApp.CefAppState.INITIALIZED) {
-                KromiumLogger.w(TAG, "Chromium engine initialization in progress (state: ${CefApp.getState()})")
+                throw KromiumException.BootstrapFailed(
+                    IllegalStateException("Chromium engine failed to reach INITIALIZED state within 30s (state: ${CefApp.getState()})")
+                )
             }
         }
 
@@ -152,6 +228,13 @@ object CefBootstrapper {
         searchDirs.add(dir)
         File(dir, "bin").takeIf { it.exists() }?.let { searchDirs.add(it) }
         File(dir, "lib").takeIf { it.exists() }?.let { searchDirs.add(it) }
+        File(dir, "Home/lib").takeIf { it.exists() }?.let { searchDirs.add(it) }
+
+        // Also check sibling bin/lib if dir points to a subfolder
+        dir.parentFile?.let { parent ->
+            File(parent, "bin").takeIf { it.exists() && !searchDirs.contains(it) }?.let { searchDirs.add(it) }
+            File(parent, "lib").takeIf { it.exists() && !searchDirs.contains(it) }?.let { searchDirs.add(it) }
+        }
 
         // Include JVM home lib/bin paths for reliable JAWT resolution across all OSes
         val javaHome = System.getProperty("java.home")?.let { File(it) }

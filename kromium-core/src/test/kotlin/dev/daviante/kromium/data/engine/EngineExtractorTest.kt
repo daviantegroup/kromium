@@ -10,7 +10,10 @@ import java.io.BufferedOutputStream
 import java.nio.file.Files
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry
+import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream
+import dev.daviante.kromium.core.util.JvmModuleOpener
 import dev.daviante.kromium.domain.exception.KromiumException
 
 class EngineExtractorTest {
@@ -33,24 +36,37 @@ class EngineExtractorTest {
         }
     }
 
+    private fun createSampleZip(archiveFile: File, entries: List<Pair<String, ByteArray>>) {
+        FileOutputStream(archiveFile).use { fos ->
+            BufferedOutputStream(fos).use { bos ->
+                ZipArchiveOutputStream(bos).use { zipOut ->
+                    for ((name, content) in entries) {
+                        val entry = ZipArchiveEntry(name)
+                        zipOut.putArchiveEntry(entry)
+                        zipOut.write(content)
+                        zipOut.closeArchiveEntry()
+                    }
+                }
+            }
+        }
+    }
+
     @Test
-    fun testExtractAndFlattenArchive() {
-        val tempDir = Files.createTempDirectory("extractor_test").toFile()
+    fun testExtractAndFlattenTarGzArchive() {
+        val tempDir = Files.createTempDirectory("extractor_targz_test").toFile()
         val archiveFile = File(tempDir, "sample.tar.gz")
         val extractDir = File(tempDir, "extracted")
         extractDir.mkdirs()
 
         try {
-            // Nested inside single root dir: root/bin/jcef_helper.exe and root/lib/libcef.so
             val entries = listOf(
                 "jbr_bundle/bin/jcef_helper.exe" to "binary-content".toByteArray(),
                 "jbr_bundle/lib/libcef.so" to "cef-content".toByteArray()
             )
             createSampleTarGz(archiveFile, entries)
 
-            EngineExtractor.extractTarGz(archiveFile, extractDir)
+            EngineExtractor.extractArchive(archiveFile, extractDir)
 
-            // Verify single root folder was flattened
             val helper = File(extractDir, "bin/jcef_helper.exe")
             val libcef = File(extractDir, "lib/libcef.so")
 
@@ -58,8 +74,6 @@ class EngineExtractorTest {
             assertTrue(libcef.exists(), "libcef should exist after flattening")
             assertEquals("binary-content", helper.readText())
             assertEquals("cef-content", libcef.readText())
-
-            // Executable permissions should be enabled
             assertTrue(helper.canExecute(), "Binary should be marked executable")
         } finally {
             tempDir.deleteRecursively()
@@ -67,8 +81,36 @@ class EngineExtractorTest {
     }
 
     @Test
-    fun testRejectZipSlipEntry() {
-        val tempDir = Files.createTempDirectory("extractor_zipslip_test").toFile()
+    fun testExtractAndFlattenZipArchive() {
+        val tempDir = Files.createTempDirectory("extractor_zip_test").toFile()
+        val archiveFile = File(tempDir, "sample.zip")
+        val extractDir = File(tempDir, "extracted")
+        extractDir.mkdirs()
+
+        try {
+            val entries = listOf(
+                "windows_bundle/bin/jcef_helper.exe" to "windows-helper".toByteArray(),
+                "windows_bundle/bin/libcef.dll" to "windows-libcef".toByteArray()
+            )
+            createSampleZip(archiveFile, entries)
+
+            EngineExtractor.extractArchive(archiveFile, extractDir)
+
+            val helper = File(extractDir, "bin/jcef_helper.exe")
+            val libcef = File(extractDir, "bin/libcef.dll")
+
+            assertTrue(helper.exists(), "Helper executable should exist after zip flattening")
+            assertTrue(libcef.exists(), "libcef.dll should exist after zip flattening")
+            assertEquals("windows-helper", helper.readText())
+            assertEquals("windows-libcef", libcef.readText())
+        } finally {
+            tempDir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun testRejectZipSlipEntryInTarGz() {
+        val tempDir = Files.createTempDirectory("extractor_zipslip_targz").toFile()
         val archiveFile = File(tempDir, "malicious.tar.gz")
         val extractDir = File(tempDir, "extracted")
         extractDir.mkdirs()
@@ -80,10 +122,38 @@ class EngineExtractorTest {
             createSampleTarGz(archiveFile, entries)
 
             assertFailsWith<KromiumException.MaliciousArchiveEntry> {
-                EngineExtractor.extractTarGz(archiveFile, extractDir)
+                EngineExtractor.extractArchive(archiveFile, extractDir)
             }
         } finally {
             tempDir.deleteRecursively()
         }
+    }
+
+    @Test
+    fun testRejectZipSlipEntryInZip() {
+        val tempDir = Files.createTempDirectory("extractor_zipslip_zip").toFile()
+        val archiveFile = File(tempDir, "malicious.zip")
+        val extractDir = File(tempDir, "extracted")
+        extractDir.mkdirs()
+
+        try {
+            val entries = listOf(
+                "../../evil.txt" to "malicious".toByteArray()
+            )
+            createSampleZip(archiveFile, entries)
+
+            assertFailsWith<KromiumException.MaliciousArchiveEntry> {
+                EngineExtractor.extractArchive(archiveFile, extractDir)
+            }
+        } finally {
+            tempDir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun testJvmModuleOpenerRunsCleanly() {
+        // Should execute idempotently without throwing any exceptions
+        JvmModuleOpener.ensureModulesOpened()
+        JvmModuleOpener.ensureModulesOpened()
     }
 }

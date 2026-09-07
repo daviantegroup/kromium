@@ -42,8 +42,6 @@ object EngineRegistry {
     fun isInstalled(installDir: File): Boolean {
         val safeDir = FileUtils.sanitizeDirectory(installDir) ?: return false
         if (!safeDir.exists() || !safeDir.isDirectory) return false
-        val lock = FileUtils.resolveChild(safeDir, LOCK_FILE_NAME) ?: return false
-        if (!lock.exists()) return false
 
         val platform = PlatformDetector.current()
         fun checkFile(relative: String): Boolean {
@@ -51,7 +49,7 @@ object EngineRegistry {
             return file.exists()
         }
 
-        return when (platform.os) {
+        val hasBinaries = when (platform.os) {
             OperatingSystem.Windows -> {
                 checkFile("jcef.dll") ||
                     checkFile("libcef.dll") ||
@@ -70,6 +68,17 @@ object EngineRegistry {
                     checkFile("lib/libjcef.so")
             }
         }
+        if (!hasBinaries) return false
+
+        val lock = FileUtils.resolveChild(safeDir, LOCK_FILE_NAME)
+        if (lock == null || !lock.exists()) {
+            // Framework binaries are present on disk; self-heal install.lock to prevent unnecessary re-download
+            try {
+                markInstalled(safeDir)
+            } catch (_: Throwable) {}
+        }
+
+        return true
     }
 
     fun markInstalled(installDir: File) {

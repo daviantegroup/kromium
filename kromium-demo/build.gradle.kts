@@ -2,7 +2,6 @@ plugins {
     kotlin("jvm")
     id("org.jetbrains.compose")
     id("org.jetbrains.kotlin.plugin.compose")
-    application
 }
 
 dependencies {
@@ -20,22 +19,35 @@ kotlin {
     jvmToolchain(21)
 }
 
-application {
-    mainClass.set("dev.daviante.kromium.demo.MainKt")
-    applicationDefaultJvmArgs = listOf(
-        "--add-opens=java.desktop/sun.awt=ALL-UNNAMED",
-        "--add-opens=java.desktop/sun.awt.windows=ALL-UNNAMED",
-        "--add-opens=java.desktop/java.awt=ALL-UNNAMED",
-        "--add-opens=java.desktop/java.awt.event=ALL-UNNAMED"
-    )
+val osName = System.getProperty("os.name")?.lowercase() ?: ""
+val iconIcns = file("src/main/resources/icon.icns")
+val jvmOpens = buildList {
+    if (osName.contains("mac")) {
+        add("-Xdock:name=Kromium")
+        if (iconIcns.exists()) {
+            add("-Xdock:icon=${iconIcns.absolutePath}")
+        }
+        add("-Dapple.awt.application.name=Kromium")
+    }
 }
 
-tasks.named<JavaExec>("run") {
-    jvmArgs(
-        "--add-opens=java.desktop/sun.awt=ALL-UNNAMED",
-        "--add-opens=java.desktop/sun.awt.windows=ALL-UNNAMED",
-        "--add-opens=java.desktop/java.awt=ALL-UNNAMED",
-        "--add-opens=java.desktop/java.awt.event=ALL-UNNAMED"
-    )
+compose.desktop {
+    application {
+        mainClass = "dev.daviante.kromium.demo.MainKt"
+        jvmArgs += jvmOpens
+        nativeDistributions {
+            packageName = "Kromium Demo"
+            packageVersion = "1.0.0"
+            macOS {
+                iconFile.set(project.file("src/main/resources/icon.icns"))
+            }
+            windows {
+                iconFile.set(project.file("src/main/resources/icon.ico"))
+            }
+            linux {
+                iconFile.set(project.file("src/main/resources/icon.png"))
+            }
+        }
+    }
 }
 

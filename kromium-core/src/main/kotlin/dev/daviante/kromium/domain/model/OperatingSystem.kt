@@ -85,12 +85,12 @@ sealed class OperatingSystem(val name: String, private vararg val aliases: Strin
 
         override fun getResourcesPath(installDir: File): String {
             val safeBase = FileUtils.sanitizeDirectory(installDir) ?: installDir.canonicalFile
-            val libDir = FileUtils.resolveChild(safeBase, "lib")
-            val pak = libDir?.let { FileUtils.resolveChild(it, "resources.pak") }
-            if (libDir != null && pak != null && pak.exists()) {
-                return libDir.canonicalPath
-            }
-            return safeBase.canonicalPath
+            val candidates = listOf(
+                FileUtils.resolveChild(safeBase, "lib/resources.pak")?.parentFile,
+                FileUtils.resolveChild(safeBase, "resources.pak")?.parentFile,
+                FileUtils.resolveChild(safeBase, "bin/resources.pak")?.parentFile
+            ).filterNotNull()
+            return (candidates.firstOrNull { it.exists() } ?: File(safeBase, "lib")).canonicalPath
         }
     }
 
@@ -108,12 +108,12 @@ sealed class OperatingSystem(val name: String, private vararg val aliases: Strin
 
         override fun getResourcesPath(installDir: File): String {
             val safeBase = FileUtils.sanitizeDirectory(installDir) ?: installDir.canonicalFile
-            val binDir = FileUtils.resolveChild(safeBase, "bin")
-            val pak = binDir?.let { FileUtils.resolveChild(it, "resources.pak") }
-            if (binDir != null && pak != null && pak.exists()) {
-                return binDir.canonicalPath
-            }
-            return safeBase.canonicalPath
+            val candidates = listOf(
+                FileUtils.resolveChild(safeBase, "bin/resources.pak")?.parentFile,
+                FileUtils.resolveChild(safeBase, "resources.pak")?.parentFile,
+                FileUtils.resolveChild(safeBase, "lib/resources.pak")?.parentFile
+            ).filterNotNull()
+            return (candidates.firstOrNull { it.exists() } ?: File(safeBase, "bin")).canonicalPath
         }
     }
 

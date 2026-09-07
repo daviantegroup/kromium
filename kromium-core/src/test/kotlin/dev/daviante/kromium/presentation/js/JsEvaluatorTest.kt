@@ -61,4 +61,46 @@ class JsEvaluatorTest {
         assertNull(result, "Result should be null on timeout")
         assertEquals(0, handler.pendingCount, "Handler should be cleaned up after timeout")
     }
+
+    @Test
+    fun testComplexExpressionWrappingWithQuotesAndNewlines() {
+        val complexScript = """
+            var str = "Hello \"World\"";
+            var multiline = 'line1\nline2';
+            return str + multiline;
+        """.trimIndent()
+        val queryId = "complex_query_99"
+
+        val wrapped = JsEvaluator.wrapExpression(complexScript, queryId)
+        assertTrue(wrapped.contains(queryId), "Wrapped expression must contain query ID")
+        assertTrue(wrapped.contains("eval"), "Wrapped expression must use eval for expression execution")
+        assertTrue(wrapped.contains("new Function"), "Wrapped expression must handle top-level returns")
+        assertTrue(wrapped.contains("Promise"), "Wrapped expression must handle Promises")
+    }
+
+    @Test
+    fun testInvalidQueryIdRejected() {
+        var failed = false
+        try {
+            JsEvaluator.wrapExpression("1 + 1", "unsafe query; drop table")
+        } catch (e: IllegalArgumentException) {
+            failed = true
+        }
+        assertTrue(failed, "Unsafe query ID must throw IllegalArgumentException")
+    }
+
+    @Test
+    fun testEvaluateThrowsOnTimeoutWhenRequested() = runTest {
+        val mockBrowser = mockk<CefBrowser>(relaxed = true)
+        val handler = KromiumJsHandler()
+        every { mockBrowser.executeJavaScript(any(), any(), any()) } returns Unit
+
+        var thrown = false
+        try {
+            JsEvaluator.evaluate(mockBrowser, handler, "while(true);", timeoutMs = 20L, throwOnTimeout = true)
+        } catch (e: dev.daviante.kromium.domain.exception.KromiumException.JsEvaluationTimeout) {
+            thrown = true
+        }
+        assertTrue(thrown, "Expected JsEvaluationTimeout to be thrown when throwOnTimeout is true")
+    }
 }

@@ -176,7 +176,18 @@ class KromiumBrowser(
     fun takeScreenshot(): BufferedImage? {
         val component = browser.uiComponent ?: return null
         if (component.width <= 0 || component.height <= 0) return null
-        
+
+        // In windowed mode on screen, Robot captures actual hardware/GPU composited surface
+        if (component.isShowing) {
+            try {
+                val loc = component.locationOnScreen
+                val rect = java.awt.Rectangle(loc.x, loc.y, component.width, component.height)
+                return java.awt.Robot().createScreenCapture(rect)
+            } catch (_: Throwable) {
+                // Fallback to component painting if Robot capture is not permitted or headless
+            }
+        }
+
         val image = BufferedImage(component.width, component.height, BufferedImage.TYPE_INT_ARGB)
         val graphics: Graphics2D = image.createGraphics()
         component.paint(graphics)

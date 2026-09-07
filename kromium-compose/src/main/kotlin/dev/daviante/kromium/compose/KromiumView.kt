@@ -14,6 +14,7 @@ import dev.daviante.kromium.core.util.*
 
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -32,22 +33,37 @@ import javax.swing.JPanel
 fun KromiumView(
     state: KromiumViewState,
     modifier: Modifier = Modifier,
-    client: KromiumClient = remember(state) { Kromium.newClient() }
+    client: KromiumClient? = null,
+    loadingContent: @Composable (BoxScope.() -> Unit)? = null
 ) {
+    val engineState by Kromium.state.collectAsState()
+    val effectiveClient = remember(state, client, engineState is KromiumState.Ready) {
+        client ?: if (Kromium.isReady) {
+            try { Kromium.newClient() } catch (_: Exception) { null }
+        } else null
+    }
+
+    if (effectiveClient == null) {
+        Box(modifier = modifier) {
+            loadingContent?.invoke(this)
+        }
+        return
+    }
+
     // Synchronize state configuration to the client on every successful composition
     SideEffect {
-        client.customUserAgent = state.userAgent
-        client.requestInterceptor = state.requestInterceptor
-        client.downloadListener = state.onDownload?.let { cb -> KromiumDownloadListener { item -> cb(item) } }
-        client.jsDialogListener = state.onJsDialog?.let { cb -> KromiumJsDialogListener { dialog -> cb(dialog) } }
-        client.consoleMessageListener = state.onConsoleMessage
-        client.authListener = state.onAuthRequired?.let { cb -> KromiumAuthListener { req -> cb(req) } }
-        client.onPopupListener = state.onPopup
-        client.onPermissionRequest = state.onPermissionRequest
-        client.enableContextMenus = state.enableContextMenus
-        client.loadErrorListener = state.onLoadError
-        client.shouldOverrideUrlLoading = state.shouldOverrideUrlLoading
-        client.sslErrorPolicy = state.sslErrorPolicy
+        effectiveClient.customUserAgent = state.userAgent
+        effectiveClient.requestInterceptor = state.requestInterceptor
+        effectiveClient.downloadListener = state.onDownload?.let { cb -> KromiumDownloadListener { item -> cb(item) } }
+        effectiveClient.jsDialogListener = state.onJsDialog?.let { cb -> KromiumJsDialogListener { dialog -> cb(dialog) } }
+        effectiveClient.consoleMessageListener = state.onConsoleMessage
+        effectiveClient.authListener = state.onAuthRequired?.let { cb -> KromiumAuthListener { req -> cb(req) } }
+        effectiveClient.onPopupListener = state.onPopup
+        effectiveClient.onPermissionRequest = state.onPermissionRequest
+        effectiveClient.enableContextMenus = state.enableContextMenus
+        effectiveClient.loadErrorListener = state.onLoadError
+        effectiveClient.shouldOverrideUrlLoading = state.shouldOverrideUrlLoading
+        effectiveClient.sslErrorPolicy = state.sslErrorPolicy
     }
 
     // Reactively handle URL loading (if loadUrl was called when browser was not ready)
@@ -60,9 +76,9 @@ fun KromiumView(
             }
     }
 
-    key(state, client) {
-        DisposableEffect(state, client) {
-            client.addLoadHandler(object : CefLoadHandlerAdapter() {
+    key(state, effectiveClient) {
+        DisposableEffect(state, effectiveClient) {
+            effectiveClient.addLoadHandler(object : CefLoadHandlerAdapter() {
                 override fun onLoadingStateChange(
                     cefBrowser: CefBrowser?,
                     isLoading: Boolean,
@@ -79,7 +95,7 @@ fun KromiumView(
                 }
             })
 
-            client.addDisplayHandler(object : CefDisplayHandlerAdapter() {
+            effectiveClient.addDisplayHandler(object : CefDisplayHandlerAdapter() {
                 override fun onAddressChange(cefBrowser: CefBrowser?, frame: CefFrame?, url: String?) {
                     url?.let { state.url = it }
                 }
@@ -92,7 +108,9 @@ fun KromiumView(
             onDispose {
                 state.browser?.dispose()
                 state.browser = null
-                client.dispose()
+                if (client == null) {
+                    effectiveClient.dispose()
+                }
             }
         }
 
@@ -101,7 +119,7 @@ fun KromiumView(
                 modifier = Modifier.fillMaxSize(),
                 factory = {
                     JPanel(BorderLayout()).apply {
-                        val browser = client.createBrowser(state.url)
+                        val browser = effectiveClient.createBrowser(state.url)
                         state.browser = browser
 
                         val pending = state.consumePendingUrl()

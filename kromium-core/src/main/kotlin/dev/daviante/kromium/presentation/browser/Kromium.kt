@@ -50,6 +50,9 @@ object Kromium {
      * @throws KromiumException on any initialization failure
      */
     suspend fun initialize(configure: KromiumConfig.() -> Unit = {}): Unit = withContext(Dispatchers.IO) {
+        // Automatically open required java.desktop packages dynamically (Java 17/21+)
+        JvmModuleOpener.ensureModulesOpened()
+
         val config = KromiumConfig().apply(configure)
 
         // Validate configuration before acquiring the mutex
@@ -103,10 +106,14 @@ object Kromium {
 
                     val downloader = EngineDownloader()
                     try {
-                        val resolvedPackage = downloader.resolvePackageUrl(releaseTag = config.releaseTag)
+                        val resolvedPackage = if (!config.customBundleUrl.isNullOrBlank()) {
+                            EngineDownloader.ResolvedPackage(config.customBundleUrl!!, config.customChecksumUrl)
+                        } else {
+                            downloader.resolvePackageUrl(releaseTag = config.releaseTag)
+                        }
                         KromiumLogger.i(TAG, "Downloading engine bundle: ${resolvedPackage.bundleUrl}")
 
-                        val tempArchive = File.createTempFile("kromium_bundle_", ".tar.gz")
+                        val tempArchive = File.createTempFile("kromium_bundle_", resolvedPackage.archiveExtension)
                         tempArchive.deleteOnExit()
 
                         try {
@@ -117,7 +124,7 @@ object Kromium {
 
                             KromiumLogger.i(TAG, "Download complete, extracting...")
                             _state.value = KromiumState.Extracting
-                            EngineExtractor.extractTarGz(tempArchive, installDir)
+                            EngineExtractor.extractArchive(tempArchive, installDir)
                         } finally {
                             tempArchive.delete()
                         }
@@ -149,12 +156,10 @@ object Kromium {
                 KromiumLogger.i(TAG, "Kromium is ready")
             } catch (e: KromiumException) {
                 KromiumLogger.e(TAG, "Initialization failed: ${e.message}", e)
-                FileUtils.resolveChild(config.installDir, "install.lock")?.delete()
                 _state.value = KromiumState.Error(e)
                 throw e
             } catch (e: Throwable) {
                 KromiumLogger.e(TAG, "Initialization failed unexpectedly: ${e.message}", e)
-                FileUtils.resolveChild(config.installDir, "install.lock")?.delete()
                 val wrapped = KromiumException.BootstrapFailed(e)
                 _state.value = KromiumState.Error(wrapped)
                 throw wrapped

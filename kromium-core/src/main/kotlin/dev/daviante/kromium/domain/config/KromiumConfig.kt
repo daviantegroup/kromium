@@ -56,6 +56,15 @@ class KromiumConfig {
     /** Specific JetBrains Runtime release tag to download. Null = latest. */
     var releaseTag: String? = null
 
+    /**
+     * Optional custom download URL for the JCEF engine bundle.
+     * Useful for enterprise, air-gapped, or internal mirror environments to avoid GitHub API rate limits.
+     */
+    var customBundleUrl: String? = null
+
+    /** Optional checksum URL for verifying a custom bundle. */
+    var customChecksumUrl: String? = null
+
     /** CEF log severity level. */
     var logSeverity: CefSettings.LogSeverity = CefSettings.LogSeverity.LOGSEVERITY_DEFAULT
 
@@ -136,7 +145,22 @@ class KromiumConfig {
         val settings = CefSettings()
         settings.windowless_rendering_enabled = windowlessRendering
         settings.log_severity = logSeverity
-        cachePath?.let { settings.cache_path = it }
+        val requestedCache = cachePath
+        val effectiveCachePath = if (requestedCache != null) {
+            if (requestedCache.isEmpty()) null else requestedCache
+        } else {
+            try {
+                File(installDir.parentFile, "cache").apply { mkdirs() }.canonicalPath
+            } catch (_: Exception) { null }
+        }
+
+        effectiveCachePath?.let { path ->
+            settings.cache_path = path
+            if (commandLineArgs.none { it.startsWith("--root-cache-path=") }) {
+                commandLineArgs.add("--root-cache-path=$path")
+            }
+        }
+
         userAgent?.let { settings.user_agent = it }
         if (remoteDebuggingPort > 0) {
             settings.remote_debugging_port = remoteDebuggingPort

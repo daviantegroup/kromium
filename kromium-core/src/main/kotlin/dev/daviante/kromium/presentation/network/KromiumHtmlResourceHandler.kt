@@ -47,6 +47,8 @@ class KromiumHtmlResourceHandler(
     ) {
         response?.mimeType = mimeType
         response?.status = 200
+        response?.setHeaderByName("Content-Type", "$mimeType; charset=utf-8", true)
+        response?.setHeaderByName("Cache-Control", "no-cache, no-store, must-revalidate", true)
         responseLength?.set(bytes.size)
     }
 

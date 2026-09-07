@@ -102,8 +102,16 @@ object FileUtils {
 
         try {
             // Use '--' argument delimiter to prevent command line argument injection (CWE-88)
-            val process = ProcessBuilder("xattr", "-d", "-r", "com.apple.quarantine", "--", canonicalPath).start()
-            process.waitFor()
+            // Discard stdout/stderr to avoid OS pipe buffer saturation and deadlock
+            val process = ProcessBuilder("xattr", "-d", "-r", "com.apple.quarantine", "--", canonicalPath)
+                .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                .redirectError(ProcessBuilder.Redirect.DISCARD)
+                .start()
+            val finished = process.waitFor(15, java.util.concurrent.TimeUnit.SECONDS)
+            if (!finished) {
+                process.destroyForcibly()
+                KromiumLogger.w(TAG, "Timed out removing macOS quarantine attribute on: $canonicalPath")
+            }
         } catch (e: Exception) {
             KromiumLogger.d(TAG, "Could not remove macOS quarantine flag (expected on non-macOS): ${e.message}")
         }

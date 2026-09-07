@@ -31,7 +31,7 @@ private const val TAG = "KromiumCookieManager"
 object KromiumCookieManager {
 
     /** Timeout for cookie retrieval operations in milliseconds. */
-    var timeoutMs: Long = 5_000L
+    var timeoutMs: Long = 2_000L
 
     private val rawManager: CefCookieManager
         get() = CefCookieManager.getGlobalManager()

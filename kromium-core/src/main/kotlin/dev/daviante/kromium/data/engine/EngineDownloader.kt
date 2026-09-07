@@ -33,7 +33,10 @@ class EngineDownloader(
     private val client: HttpClient = defaultHttpClient()
 ) {
 
-    data class ResolvedPackage(val bundleUrl: String, val checksumUrl: String?)
+    data class ResolvedPackage(val bundleUrl: String, val checksumUrl: String?) {
+        val isZip: Boolean get() = bundleUrl.endsWith(".zip", ignoreCase = true)
+        val archiveExtension: String get() = if (isZip) ".zip" else ".tar.gz"
+    }
 
     /**
      * Resolves the download URL for the JCEF engine bundle matching the current platform.

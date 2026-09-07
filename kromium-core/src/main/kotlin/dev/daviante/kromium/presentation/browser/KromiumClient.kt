@@ -185,7 +185,7 @@ class KromiumClient(
                 request: CefRequest?
             ): CefResourceHandler? {
                 val url = request?.url ?: return null
-                val payload = htmlPayloads.remove(url)
+                val payload = htmlPayloads[url]
                 if (payload != null) {
                     return KromiumHtmlResourceHandler(payload)
                 }
