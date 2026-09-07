@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.150-b11] - 2026-09-07
+
+### Changed
+- Upgraded underlying JCEF runtime to certified JetBrains release `150.0.14-g7c1aa68-chromium-150.0.7871.129-api-1.21-263-b11`.
+- Isolated native runtime cache directory to `jcef-150-b11`.
+
 ## [1.0.150] - 2026-09-07
 
 ### Added

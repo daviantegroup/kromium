@@ -36,7 +36,7 @@ object EngineRegistry {
                 if (!xdgData.isNullOrBlank()) File(xdgData, "kromium") else File(userHome, ".local/share/kromium")
             }
         }
-        return File(baseDir, "jcef-bundle")
+        return File(baseDir, "jcef-150-b11")
     }
 
     fun isInstalled(installDir: File): Boolean {
