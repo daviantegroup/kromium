@@ -56,6 +56,91 @@ class EngineDownloaderTest {
     }
 
     @Test
+    fun testResolvePackageUrlMacOsArm64() = runTest {
+        val mockResponse = """
+            {
+                "tag_name": "v1.0",
+                "body": "MacOS ARM64: https://cache-redirector.jetbrains.com/intellij-jbr/jbr_jcef-25.0.4.1-osx-aarch64-b583.48.tar.gz\nMacOS x64: https://cache-redirector.jetbrains.com/intellij-jbr/jbr_jcef-25.0.4.1-osx-x64-b583.48.tar.gz",
+                "assets": []
+            }
+        """.trimIndent()
+
+        val downloader = EngineDownloader(mockClient(mockResponse))
+        val platform = PlatformInfo(OperatingSystem.MacOS, Architecture.Arm64)
+        val result = downloader.resolvePackageUrl(platform, "test", "test", "v1.0")
+
+        assertEquals(
+            "https://cache-redirector.jetbrains.com/intellij-jbr/jbr_jcef-25.0.4.1-osx-aarch64-b583.48.tar.gz",
+            result.bundleUrl
+        )
+    }
+
+    @Test
+    fun testResolvePackageUrlMacOsX64() = runTest {
+        val mockResponse = """
+            {
+                "tag_name": "v1.0",
+                "body": "MacOS ARM64: https://cache-redirector.jetbrains.com/intellij-jbr/jbr_jcef-25.0.4.1-osx-aarch64-b583.48.tar.gz\nMacOS x64: https://cache-redirector.jetbrains.com/intellij-jbr/jbr_jcef-25.0.4.1-osx-x64-b583.48.tar.gz",
+                "assets": []
+            }
+        """.trimIndent()
+
+        val downloader = EngineDownloader(mockClient(mockResponse))
+        val platform = PlatformInfo(OperatingSystem.MacOS, Architecture.X64)
+        val result = downloader.resolvePackageUrl(platform, "test", "test", "v1.0")
+
+        assertEquals(
+            "https://cache-redirector.jetbrains.com/intellij-jbr/jbr_jcef-25.0.4.1-osx-x64-b583.48.tar.gz",
+            result.bundleUrl
+        )
+    }
+
+    @Test
+    fun testResolvePackageUrlMacOsAssetFallback() = runTest {
+        val mockResponse = """
+            {
+                "tag_name": "v1.0",
+                "body": "No direct links in markdown body",
+                "assets": [
+                    {
+                        "name": "jbr_jcef-25.0.4.1-osx-aarch64-b583.48.tar.gz",
+                        "browser_download_url": "https://example.com/download/jbr_jcef-osx-aarch64.tar.gz"
+                    }
+                ]
+            }
+        """.trimIndent()
+
+        val downloader = EngineDownloader(mockClient(mockResponse))
+        val platform = PlatformInfo(OperatingSystem.MacOS, Architecture.Arm64)
+        val result = downloader.resolvePackageUrl(platform, "test", "test", "v1.0")
+
+        assertEquals(
+            "https://example.com/download/jbr_jcef-osx-aarch64.tar.gz",
+            result.bundleUrl
+        )
+    }
+
+    @Test
+    fun testResolvePackageUrlLinuxArm64() = runTest {
+        val mockResponse = """
+            {
+                "tag_name": "v1.0",
+                "body": "Linux aarch64: https://cache-redirector.jetbrains.com/intellij-jbr/jbr_jcef-25.0.4.1-linux-aarch64-b583.48.tar.gz",
+                "assets": []
+            }
+        """.trimIndent()
+
+        val downloader = EngineDownloader(mockClient(mockResponse))
+        val platform = PlatformInfo(OperatingSystem.Linux, Architecture.Arm64)
+        val result = downloader.resolvePackageUrl(platform, "test", "test", "v1.0")
+
+        assertEquals(
+            "https://cache-redirector.jetbrains.com/intellij-jbr/jbr_jcef-25.0.4.1-linux-aarch64-b583.48.tar.gz",
+            result.bundleUrl
+        )
+    }
+
+    @Test
     fun testResolvePackageUrlNoBundle() = runTest {
         // Mock a release with NO matching bundle
         val mockResponse = """

@@ -66,20 +66,20 @@ class EngineDownloader(
             .filterNot { it.isBlank() || it.endsWith(".checksum", ignoreCase = true) }
             .filter { it.contains("jcef", ignoreCase = true) }
 
-        // Filter candidate list matching OS
-        val osKeyword = when (platform.os) {
-            OperatingSystem.Windows -> "win"
-            OperatingSystem.MacOS -> "mac"
-            OperatingSystem.Linux -> "linux"
+        // Filter candidate list matching OS and Architecture
+        val osKeywords = when (platform.os) {
+            OperatingSystem.Windows -> listOf("win", "windows")
+            OperatingSystem.MacOS -> listOf("osx", "mac", "darwin")
+            OperatingSystem.Linux -> listOf("linux")
         }
-        val archKeyword = when (platform.arch) {
-            Architecture.X64 -> "x64"
-            Architecture.Arm64 -> "aarch64"
+        val archKeywords = when (platform.arch) {
+            Architecture.X64 -> listOf("x64", "x86_64")
+            Architecture.Arm64 -> listOf("aarch64", "arm64")
         }
 
         val matchedUrls = bundleUrls.filter { url ->
-            url.contains(osKeyword, ignoreCase = true) &&
-                (url.contains(archKeyword, ignoreCase = true) || (platform.arch == Architecture.Arm64 && url.contains("arm64", ignoreCase = true)))
+            osKeywords.any { kw -> url.contains(kw, ignoreCase = true) } &&
+                archKeywords.any { kw -> url.contains(kw, ignoreCase = true) }
         }
 
         if (matchedUrls.isNotEmpty()) {
@@ -98,8 +98,8 @@ class EngineDownloader(
         val matchedAsset = release.assets.firstOrNull { asset ->
             val name = asset.name.lowercase()
             name.contains("jcef") &&
-                name.contains(osKeyword) &&
-                (name.contains(archKeyword) || (platform.arch == Architecture.Arm64 && name.contains("arm64"))) &&
+                osKeywords.any { kw -> name.contains(kw, ignoreCase = true) } &&
+                archKeywords.any { kw -> name.contains(kw, ignoreCase = true) } &&
                 !name.endsWith(".checksum")
         }
 
