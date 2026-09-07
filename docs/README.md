@@ -1,133 +1,90 @@
-<div align="center">
-  <img src="../assets/logo.svg" alt="Kromium Logo" width="72" height="72" />
-  <h1>Kromium Documentation Hub</h1>
-  <p><strong>Comprehensive developer guides, API specifications, and architecture references for Kromium</strong></p>
+# Kromium Documentation Hub
 
-  <p>
-    <a href="https://kromium.daviante.dev"><img src="https://img.shields.io/badge/Interactive_Portal-kromium.daviante.dev-0078d4?style=flat-square" alt="Web Portal" /></a>
-    <a href="https://central.sonatype.com/artifact/dev.daviante/kromium-compose"><img src="https://img.shields.io/badge/Maven_Central-dev.daviante-107c41?style=flat-square" alt="Maven Central" /></a>
-    <a href="https://github.com/daviantegroup/kromium"><img src="https://img.shields.io/badge/GitHub-kromium-242424?style=flat-square&logo=github" alt="GitHub" /></a>
-    <a href="https://github.com/daviantegroup/kromium/blob/master/LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-5c2d91?style=flat-square" alt="License" /></a>
-  </p>
-</div>
+Welcome to the official documentation for **Kromium**, the modern, production-grade Chromium Embedded Framework (CEF) library for **Compose Multiplatform Desktop** and **Kotlin JVM**.
 
 ---
 
-## 📖 Documentation Directory
+## 🗺️ Documentation Architecture
 
-The documentation is organized into 8 functional categories, available both in this repository and interactively with live code simulators on the **[Official Kromium Portal](https://kromium.daviante.dev)**.
+Our documentation is structured into five distinct sections designed for different stages of development:
 
-| Category | Guides | Online Portal Deep Link |
-|:---|:---|:---|
-| **1. Overview & Release** | • [Architecture & Engine Lifecycle](ARCHITECTURE_AND_LIFECYCLE.md)<br>• [Migration & Release Notes](MIGRATION_AND_RELEASE_NOTES.md) | [Portal Overview](https://kromium.daviante.dev/#/docs/overview)<br>[What's New in v1.2.150-b11](https://kromium.daviante.dev/#/docs/whats-new) |
-| **2. Get Started** | • [Prerequisites & System Requirements](ARCHITECTURE_AND_LIFECYCLE.md#platform-detection)<br>• [Installation & Gradle Setup](COMPOSE_DESKTOP_GUIDE.md#quickstart) | [Installation Guide](https://kromium.daviante.dev/#/docs/installation)<br>[First Browser Tutorial](https://kromium.daviante.dev/#/docs/first-browser) |
-| **3. Compose Multiplatform** | • [Compose Desktop Integration Guide](COMPOSE_DESKTOP_GUIDE.md) | [KromiumView Reference](https://kromium.daviante.dev/#/docs/compose-view)<br>[Browser State & Lifecycle](https://kromium.daviante.dev/#/docs/compose-state) |
-| **4. Core Web Capabilities** | • [JavaScript Bridge & DOM Inspection](JAVASCRIPT_BRIDGE.md)<br>• [Cookie Management Reference](COOKIE_MANAGEMENT.md)<br>• [Network Interception & Security](NETWORK_AND_SECURITY.md) | [JavaScript Bridge](https://kromium.daviante.dev/#/docs/js-bridge)<br>[Cookie Management](https://kromium.daviante.dev/#/docs/cookie-management)<br>[Network Interception](https://kromium.daviante.dev/#/docs/network-interception) |
-| **5. JVM & Swing Integration** | • [Core JVM & Swing Integration Guide](SWING_AND_JVM_GUIDE.md)<br>• [Browser & Client API Reference](BROWSER_AND_CLIENT_API.md) | [Swing Embedding Guide](https://kromium.daviante.dev/#/docs/swing-embedding)<br>[Swing Lifecycle](https://kromium.daviante.dev/#/docs/swing-lifecycle) |
-| **6. Handlers & Diagnostics** | • [Handlers, Listeners & Events](HANDLERS_AND_EVENTS.md)<br>• [Error Handling & Logging Guide](ERROR_HANDLING_AND_LOGGING.md) | [DevTools & Console](https://kromium.daviante.dev/#/docs/devtools-console)<br>[Dialogs & Downloads](https://kromium.daviante.dev/#/docs/dialogs-downloads) |
-| **7. Production & Troubleshooting** | • [Troubleshooting, Distribution & FAQ](TROUBLESHOOTING_AND_FAQ.md) | [Troubleshooting Guide](https://kromium.daviante.dev/#/docs/troubleshooting)<br>[Frequently Asked Questions](https://kromium.daviante.dev/#/docs/faq) |
-| **8. Policies & Contributing** | • [Contributing Guidelines](../CONTRIBUTING.md)<br>• [Security Policy](../SECURITY.md)<br>• [Code of Conduct](../CODE_OF_CONDUCT.md)<br>• [Changelog](../CHANGELOG.md) | [Privacy Policy](https://kromium.daviante.dev/#/docs/privacy-policy)<br>[Terms of Use](https://kromium.daviante.dev/#/docs/terms-of-use) |
-
----
-
-## ⚡ Quick Start Reference
-
-### 1. Add Gradle Dependency
-```kotlin
-// build.gradle.kts
-dependencies {
-    // For Compose Multiplatform Desktop applications
-    implementation("dev.daviante:kromium-compose:1.2.150-b11")
-
-    // Or for standalone Kotlin JVM / Swing / Headless applications
-    // implementation("dev.daviante:kromium-core:1.2.150-b11")
-}
 ```
-
-### 2. Initialize Engine
-```kotlin
-import dev.daviante.kromium.presentation.browser.Kromium
-
-suspend fun main() {
-    Kromium.initialize {
-        windowlessRendering = false
-        remoteDebuggingPort = 9222
-    }
-}
-```
-
-### 3. Render Declarative Browser in Compose
-```kotlin
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import dev.daviante.kromium.compose.KromiumView
-import dev.daviante.kromium.compose.rememberKromiumState
-
-@Composable
-fun App() {
-    val state = rememberKromiumState(initialUrl = "https://github.com/daviantegroup/kromium")
-    KromiumView(
-        state = state,
-        modifier = Modifier.fillMaxSize()
-    )
-}
+docs/
+├── getting-started/      <- Onboarding, installation, and first application
+├── core-concepts/        <- Architecture, state machine, and security foundation
+├── guides/               <- Practical, task-oriented tutorials and how-tos
+├── reference/            <- Exhaustive API signatures, configurations, and errors
+└── deployment/           <- Packaging, platform nuances, and troubleshooting
 ```
 
 ---
 
-## 🏗️ Architecture Overview
+## 🚀 Getting Started
+Everything you need to install Kromium and launch your first embedded browser.
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                       Your Application                          │
-│        (Compose Multiplatform Desktop / Kotlin JVM)             │
-└────────────────────────────────┬────────────────────────────────┘
-                                 │
-                 ┌───────────────┴───────────────┐
-                 ▼                               ▼
-       ┌──────────────────┐            ┌──────────────────┐
-       │  kromium-compose │            │   kromium-core   │
-       │  (KromiumView)   │            │ (KromiumClient,  │
-       │(KromiumViewState)│            │  KromiumBrowser) │
-       └─────────┬────────┘            └─────────┬────────┘
-                 │                               │
-                 └───────────────┬───────────────┘
-                                 ▼
-                     ┌───────────────────────┐
-                     │   Kromium Singleton   │
-                     │  (StateFlow lifecycle,│
-                     │   Mutex-safe startup) │
-                     └───────────┬───────────┘
-                                 ▼
-                     ┌───────────────────────┐
-                     │    CefBootstrapper    │
-                     │  (Native lib loading, │
-                     │   JAWT, SwiftShader)  │
-                     └───────────┬───────────┘
-                                 ▼
-                     ┌───────────────────────┐
-                     │   Pure JCEF Runtime   │
-                     │      (jcef.jar)       │
-                     └───────────┬───────────┘
-                                 ▼
-         ┌───────────────────────────────────────────────┐
-         │          Platform Native Binaries             │
-         │  Windows (jcef.dll, libcef.dll)               │
-         │  macOS (Chromium Embedded Framework.framework)│
-         │  Linux (libcef.so, libjcef.so)                │
-         └───────────────────────────────────────────────┘
-```
+* [**Installation & Requirements**](getting-started/installation.md)  
+  Gradle Kotlin DSL setup for Multiplatform & JVM, Maven Central coordinates, JVM 17/21+ module opening, and platform prerequisites.
+* [**Quickstart with Compose Desktop**](getting-started/quickstart-compose.md)  
+  Step-by-step tutorial: initializing Kromium, managing `rememberKromiumState`, and embedding `@Composable KromiumView`.
+* [**Quickstart with Pure Kotlin JVM & Swing**](getting-started/quickstart-jvm.md)  
+  Building traditional desktop applications using `JFrame`, `JPanel`, and Swing EDT threading.
 
 ---
 
-## 🌐 AI Coding Agent Ingestion
+## 🏛️ Core Concepts
+Deep dives into Kromium's internal engine architecture and design philosophy.
 
-Autonomous coding agents (Cursor, Claude Code, GitHub Copilot) can ingest full plain-text documentation endpoints directly from the live portal:
-
-- **[Quickstart & API Index (llms.txt)](https://kromium.daviante.dev/llms.txt)**: Structured library overview and API catalog.
-- **[Full Documentation Feed (llms-full.txt)](https://kromium.daviante.dev/llms-full.txt)**: Consolidated 40KB plain-text markdown file containing the entire documentation suite in a single request.
+* [**Engine Architecture & Bootstrapping**](core-concepts/architecture.md)  
+  Dynamic JetBrains Runtime JCEF bundle downloads, SHA-256 verification, native binary loading, and multi-process architecture.
+* [**State & Lifecycle Management**](core-concepts/state-and-lifecycle.md)  
+  The `KromiumState` reactive state machine, mutex-guarded initialization, idempotency, and graceful shutdown.
+* [**Security Hardening & Privacy**](core-concepts/security-and-privacy.md)  
+  Chromium process sandboxing, automated Windows Registry write suppression, anti-telemetry switches, and dangerous flag validation.
 
 ---
 
-[← Return to Repository Home](../README.md) &bull; [Explore the Interactive Web Portal](https://kromium.daviante.dev)
+## 📖 Practical Guides
+In-depth, task-oriented guides with complete, copy-pasteable Kotlin code snippets.
+
+* [**Compose Multiplatform UI Integration**](guides/compose-ui.md)  
+  Reactive browser state, custom loading placeholders, multi-tab window implementations, and recomposition safety.
+* [**Navigation, History & Page Controls**](guides/navigation-and-history.md)  
+  URL navigation, back/forward history, zoom control, in-page text search (`find`), and print-to-PDF.
+* [**JavaScript Bridge & Two-Way IPC**](guides/javascript-and-dom.md)  
+  Suspendable `evaluateJavaScript`, cancellation timeouts, two-way query router (`window.cefQuery`), and DOM extraction (`getHtml`, `getText`).
+* [**Network Interception & Enterprise Proxies**](guides/network-and-proxies.md)  
+  Custom header injection, ad/tracker blocking, WPAD, PAC scripts, authenticated SOCKS5/HTTP proxies, dynamic runtime proxy switching, and NTLM/Kerberos SSO.
+* [**Asset Filtering & Scoped SSL Policies**](guides/asset-filtering-and-security.md)  
+  Media/font/script blocking (`KromiumAssetFilter`), strict host-locking for kiosk apps, and scoped `SslErrorPolicy`.
+* [**Cookie & Session Management**](guides/cookie-management.md)  
+  Suspendable `KromiumCookieManager`, setting/getting/deleting cookies, session isolation, and persistent disk flushing.
+* [**Downloads, Dialogs & DevTools**](guides/downloads-and-dialogs.md)  
+  Download tracking, pause/resume/cancel, JavaScript modal dialogs (`alert`, `confirm`, `prompt`), and console log redirection.
+* [**Headless Browsing & Automation**](guides/headless-and-automation.md)  
+  Zero-dependency headless browser backed by an off-screen Swing peer, background web scraping, and automated screenshots.
+
+---
+
+## 📚 API Reference
+Exhaustive reference for every public class, configuration, handler, and error code.
+
+* [**Engine Configuration (`KromiumConfig`)**](reference/configuration.md)  
+  Complete catalogue of initialization properties, CEF flags, proxy strategies, and cache settings.
+* [**Browser & Client API (`KromiumBrowser` & `KromiumClient`)**](reference/browser-and-client-api.md)  
+  Complete signatures and documentation for all browser control methods and lifecycle APIs.
+* [**Handlers, Listeners & Callbacks**](reference/handlers-and-events.md)  
+  Event handlers: `CefLoadHandler`, `CefDisplayHandler`, `CefContextMenuHandler`, composite multiplexers, and download listeners.
+* [**Error Handling & Logging (`KromiumException`)**](reference/exceptions-and-logging.md)  
+  Complete sealed exception hierarchy, recovery strategies, and the pluggable `KromiumLogger`.
+
+---
+
+## 📦 Deployment & Platform Specifics
+Packaging applications for production and resolving platform-specific quirks.
+
+* [**Packaging & Distribution**](deployment/packaging-and-distribution.md)  
+  Packaging with Conveyor, Gradle Compose distributions (`packageDmg`, `packageMsi`, `packageDeb`), ProGuard/R8 rules, and bundle size optimization.
+* [**Platform-Specific Considerations**](deployment/platform-specifics.md)  
+  macOS Apple Silicon/Intel framework symlinks and Gatekeeper signing, Linux native dependencies, and Windows VC++ runtimes.
+* [**Troubleshooting & FAQ**](deployment/troubleshooting-and-faq.md)  
+  Solutions to black screens, GPU compositing bugs, EDT deadlocks, Wayland/X11 quirks, and cache locking.

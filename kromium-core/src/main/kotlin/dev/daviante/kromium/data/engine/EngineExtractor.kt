@@ -163,6 +163,11 @@ object EngineExtractor {
 
         // Ensure all executables and native libraries have proper execute permissions
         ensureExecutablePermissions(safeDestination)
+
+        // Ensure macOS framework symlinks are present
+        if (PlatformDetector.current().os.isMacOS) {
+            OperatingSystem.MacOS.ensureMacFrameworkLinks(safeDestination)
+        }
     }
 
     fun extractTarGz(archiveFile: File, destinationDir: File, bufferSize: Int = 32 * 1024) {
@@ -274,6 +279,11 @@ object EngineExtractor {
 
         // Ensure all executables and native libraries have proper execute permissions
         ensureExecutablePermissions(safeDestination)
+
+        // Ensure macOS framework symlinks are present
+        if (PlatformDetector.current().os.isMacOS) {
+            OperatingSystem.MacOS.ensureMacFrameworkLinks(safeDestination)
+        }
     }
 
     private fun isExecutableBinaryName(lowerName: String): Boolean {

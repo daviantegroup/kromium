@@ -37,6 +37,58 @@ sealed class OperatingSystem(val name: String, private vararg val aliases: Strin
             }
         }
 
+        /**
+         * Ensures required symbolic links exist under Frameworks/ so dyld can locate
+         * Chromium Embedded Framework.framework and helper apps via standard rpath.
+         */
+        fun ensureMacFrameworkLinks(installDir: File) {
+            val safeBase = FileUtils.sanitizeDirectory(installDir) ?: installDir.canonicalFile
+            val frameworksDir = File(safeBase, "Frameworks")
+            val cefServerFrameworks = File(frameworksDir, "cef_server.app/Contents/Frameworks")
+
+            if (cefServerFrameworks.exists() && cefServerFrameworks.isDirectory) {
+                frameworksDir.mkdirs()
+                val children = cefServerFrameworks.listFiles() ?: emptyArray()
+                for (child in children) {
+                    val linkTarget = java.nio.file.Path.of("cef_server.app/Contents/Frameworks/${child.name}")
+                    val symlinkFile = File(frameworksDir, child.name)
+                    // Remove broken or dangling symlink if present
+                    if (java.nio.file.Files.isSymbolicLink(symlinkFile.toPath()) && !symlinkFile.exists()) {
+                        try { java.nio.file.Files.delete(symlinkFile.toPath()) } catch (_: Throwable) {}
+                    }
+
+                    if (!symlinkFile.exists() && !java.nio.file.Files.isSymbolicLink(symlinkFile.toPath())) {
+                        try {
+                            java.nio.file.Files.createSymbolicLink(symlinkFile.toPath(), linkTarget)
+                        } catch (e: Exception) {
+                            try {
+                                if (child.isDirectory) {
+                                    child.copyRecursively(symlinkFile, overwrite = true)
+                                } else {
+                                    java.nio.file.Files.copy(child.toPath(), symlinkFile.toPath())
+                                }
+                            } catch (t: Throwable) {
+                                KromiumLogger.w("MacOS", "Failed to link or copy ${child.name} to Frameworks", t)
+                            }
+                        }
+                    }
+                }
+
+                val rootFrameworkLink = File(safeBase, "Chromium Embedded Framework.framework")
+                if (java.nio.file.Files.isSymbolicLink(rootFrameworkLink.toPath()) && !rootFrameworkLink.exists()) {
+                    try { java.nio.file.Files.delete(rootFrameworkLink.toPath()) } catch (_: Throwable) {}
+                }
+                if (!rootFrameworkLink.exists() && !java.nio.file.Files.isSymbolicLink(rootFrameworkLink.toPath())) {
+                    try {
+                        java.nio.file.Files.createSymbolicLink(
+                            rootFrameworkLink.toPath(),
+                            java.nio.file.Path.of("Frameworks/cef_server.app/Contents/Frameworks/Chromium Embedded Framework.framework")
+                        )
+                    } catch (_: Exception) {}
+                }
+            }
+        }
+
         fun getFrameworkPath(installDir: File, inFrameworks: Boolean = false): String {
             val safeBase = FileUtils.sanitizeDirectory(installDir) ?: installDir.canonicalFile
             val baseDir = if (inFrameworks) resolveCefFrameworksDir(safeBase) else safeBase

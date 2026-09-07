@@ -44,6 +44,11 @@ object KromiumCookieManager {
      * is never invoked (e.g., zero cookies for the URL).
      */
     suspend fun getCookies(url: String, includeHttpOnly: Boolean = true): Map<String, String> {
+        val trimmed = url.trim()
+        if (trimmed.isBlank() || trimmed.equals("about:blank", ignoreCase = true) || !trimmed.startsWith("http", ignoreCase = true)) {
+            return emptyMap()
+        }
+
         val result = withTimeoutOrNull(timeoutMs) {
             suspendCancellableCoroutine { continuation ->
                 val cookies = mutableMapOf<String, String>()

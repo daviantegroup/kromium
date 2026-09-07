@@ -39,6 +39,7 @@ object CefBootstrapper {
         // Configure JCEF System properties for org.cef.Startup
         if (os.isMacOS) {
             val macOs = os as OperatingSystem.MacOS
+            macOs.ensureMacFrameworkLinks(safeInstallDir)
             val frameworkPath = macOs.getFrameworkPath(safeInstallDir, inFrameworks = true)
             val helperPath = macOs.getMainBundlePath(safeInstallDir)
             val jcefLibDir = File(safeInstallDir, "Home/lib").takeIf { it.exists() }

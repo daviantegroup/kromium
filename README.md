@@ -30,22 +30,18 @@ Powered by standard **CEF 150** without third-party wrappers, Kromium delivers z
 
 ## 📚 Complete Documentation Hub
 
-Detailed guides covering every subsystem are available in the **[`docs/`](docs/)** directory:
+Detailed, categorized guides covering every subsystem are available in the **[`docs/`](docs/)** directory:
 
-| Guide | Topic Description |
-|:---|:---|
-| **[Documentation Index](docs/README.md)** | Master hub linking all 11 guides, categorized architecture, and API index. |
-| **[Architecture & Engine Lifecycle](docs/ARCHITECTURE_AND_LIFECYCLE.md)** | Automated JBR bundle download, SHA-256 checksums, Zip-Slip safe extraction, platform detection, and `KromiumState` machine. |
-| **[Compose Multiplatform Guide](docs/COMPOSE_DESKTOP_GUIDE.md)** | Declarative `KromiumView`, `rememberKromiumState`, observable properties (`url`, `title`, `isLoading`), and multi-tab browser tutorial. |
-| **[Core JVM & Swing Integration](docs/SWING_AND_JVM_GUIDE.md)** | Pure Kotlin JVM & Java Swing integration without Compose (`JFrame`, `JPanel`, EDT safety, window listeners). |
-| **[Browser & Client API Reference](docs/BROWSER_AND_CLIENT_API.md)** | Direct browser control via `KromiumClient` & `KromiumBrowser`, navigation, in-page search, zoom, screenshots, and PDF printing. |
-| **[JavaScript Bridge & DOM Inspection](docs/JAVASCRIPT_BRIDGE.md)** | Suspendable `evaluateJavaScript`, cancellation cleanup, timeout handling, and DOM extraction (`getHtml`, `getText`, `getFaviconUrl`). |
-| **[Network Interception & Security](docs/NETWORK_AND_SECURITY.md)** | `KromiumRequestInterceptor`, header injection, ad/tracker blocking, navigation overrides, `SslErrorPolicy`, and proxies. |
-| **[Cookie Management Reference](docs/COOKIE_MANAGEMENT.md)** | Suspendable `KromiumCookieManager`: asynchronous `getCookies()`, `setCookie()`, `deleteCookie()`, and disk flushing. |
-| **[Handlers, Listeners & Events](docs/HANDLERS_AND_EVENTS.md)** | Callbacks for HTTP authentication, JS modal dialogs (`alert`/`confirm`/`prompt`), downloads, console logs, and errors. |
-| **[Error Handling & Logging](docs/ERROR_HANDLING_AND_LOGGING.md)** | Sealed `KromiumException` catalog, recovery strategies, and pluggable `KromiumLogger` interface. |
-| **[Troubleshooting, Distribution & FAQ](docs/TROUBLESHOOTING_AND_FAQ.md)** | Black screen fixes, Linux package dependencies, macOS Gatekeeper handling, packaging with Conveyor / Gradle, and ProGuard rules. |
-| **[Migration & Release Notes](docs/MIGRATION_AND_RELEASE_NOTES.md)** | What's new in v1.2.150-b11 (Stable), compatibility matrices, and migration guides from JavaFX WebView and raw JCEF. |
+| Category | Guides & References | Topic Highlights |
+|:---|:---|:---|
+| **🚀 Getting Started** | [Installation](docs/getting-started/installation.md) &bull; [Compose Quickstart](docs/getting-started/quickstart-compose.md) &bull; [Swing JVM Quickstart](docs/getting-started/quickstart-jvm.md) | Gradle KMP setup, Maven Central, first browser window, and dynamic JVM module opening. |
+| **🏛️ Core Concepts** | [Architecture](docs/core-concepts/architecture.md) &bull; [State & Lifecycle](docs/core-concepts/state-and-lifecycle.md) &bull; [Security & Privacy](docs/core-concepts/security-and-privacy.md) | JCEF bootstrap, multi-process Chromium model, `KromiumState` flow, and Windows Registry suppression. |
+| **📖 Guides** | [Compose UI](docs/guides/compose-ui.md) &bull; [Navigation](docs/guides/navigation-and-history.md) &bull; [JavaScript Bridge](docs/guides/javascript-and-dom.md) &bull; [Network & Proxies](docs/guides/network-and-proxies.md) | In-depth tutorials: tabs, JS evaluation, DOM queries, enterprise proxies (PAC/WPAD/SSO), and dynamic switching. |
+| **📖 Guides (Cont.)** | [Asset Filtering](docs/guides/asset-filtering-and-security.md) &bull; [Cookies](docs/guides/cookie-management.md) &bull; [Downloads & Dialogs](docs/guides/downloads-and-dialogs.md) &bull; [Headless](docs/guides/headless-and-automation.md) | Ad blocking, host locking, async cookie store, downloads, JS alerts, and zero-dependency Swing peer headless mode. |
+| **📚 API Reference** | [Configuration](docs/reference/configuration.md) &bull; [Browser & Client API](docs/reference/browser-and-client-api.md) &bull; [Handlers](docs/reference/handlers-and-events.md) &bull; [Exceptions](docs/reference/exceptions-and-logging.md) | Full signatures for `KromiumConfig`, `KromiumBrowser`, `KromiumClient`, composite multiplexers, and exceptions. |
+| **📦 Deployment** | [Packaging & Distribution](docs/deployment/packaging-and-distribution.md) &bull; [Platform Specifics](docs/deployment/platform-specifics.md) &bull; [Troubleshooting & FAQ](docs/deployment/troubleshooting-and-faq.md) | Conveyor/jpackage bundling, macOS framework symlinks, Linux shared libs, and GPU blank screen fixes. |
+
+Visit the master sitemap at **[`docs/README.md`](docs/README.md)**.
 
 ---
 

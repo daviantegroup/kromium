@@ -90,4 +90,9 @@ sealed class KromiumException(
     data class InvalidConfig(
         val detail: String
     ) : KromiumException("Invalid Kromium configuration: $detail")
+
+    /** A proxy configuration or dynamic switching error occurred. */
+    data class ProxyError(
+        val detail: String
+    ) : KromiumException("Proxy error: $detail")
 }

@@ -64,10 +64,17 @@ class KromiumViewState(initialUrl: String) {
 
     var sslErrorPolicy: SslErrorPolicy by mutableStateOf(SslErrorPolicy.Strict)
 
+    var assetFilter: KromiumAssetFilter? by mutableStateOf(null)
+
+    var hostLock: Set<String>? by mutableStateOf(null)
+
+    var hostLockSubresources: Boolean by mutableStateOf(false)
+
     var browser: KromiumBrowser? by mutableStateOf(null)
         internal set
 
-    private var pendingUrl: String? = null
+    var pendingUrl: String? by mutableStateOf(null)
+        private set
 
     fun loadUrl(newUrl: String) {
         url = newUrl
@@ -149,6 +156,78 @@ class KromiumViewState(initialUrl: String) {
     fun startDownload(url: String) {
         browser?.startDownload(url)
     }
+
+    /**
+     * Configures asset blocking to avoid downloading images, media, fonts, or stylesheets.
+     */
+    fun blockMediaAssets(
+        images: Boolean = true,
+        media: Boolean = true,
+        fonts: Boolean = true,
+        stylesheets: Boolean = false
+    ) {
+        assetFilter = KromiumAssetFilter(
+            blockImages = images,
+            blockMedia = media,
+            blockFonts = fonts,
+            blockStylesheets = stylesheets
+        )
+        browser?.blockMediaAssets(images, media, fonts, stylesheets)
+    }
+
+    /**
+     * Restricts navigation to the specified allowed hostnames.
+     */
+    fun setHostLock(vararg allowedHosts: String, lockSubresources: Boolean = false) {
+        val set = allowedHosts.toSet()
+        hostLock = set
+        this.hostLockSubresources = lockSubresources
+        browser?.setHostLock(set, lockSubresources)
+    }
+
+    /**
+     * Removes active host lock constraints.
+     */
+    fun clearHostLock() {
+        hostLock = null
+        hostLockSubresources = false
+        browser?.clearHostLock()
+    }
+
+    /**
+     * Retrieves all cookies for the current page as a key-value map.
+     */
+    suspend fun getCookies(): Map<String, String> {
+        return browser?.getCookies() ?: KromiumCookieManager.getCookies(url)
+    }
+
+    /**
+     * Retrieves a specific cookie value by name for the current page.
+     */
+    suspend fun getCookie(name: String): String? {
+        return browser?.getCookie(name) ?: KromiumCookieManager.getCookie(url, name)
+    }
+
+    /**
+     * Sets a cookie for the current page.
+     */
+    fun setCookie(
+        name: String,
+        value: String,
+        domain: String? = null,
+        path: String = "/",
+        isSecure: Boolean = false,
+        isHttpOnly: Boolean = false,
+        expires: java.util.Date? = null
+    ): Boolean {
+        return browser?.setCookie(name, value, domain, path, isSecure, isHttpOnly, expires)
+            ?: KromiumCookieManager.setCookie(url, name, value, domain, path, isSecure, isHttpOnly, expires)
+    }
+
+    /**
+     * Deletes all cookies from the underlying cookie store.
+     */
+    fun clearCookies(): Boolean = KromiumCookieManager.clearCookies()
 }
 
 @Composable

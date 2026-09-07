@@ -86,11 +86,33 @@ class KromiumConfig {
     var proxy: KromiumProxy = KromiumProxy.System
 
     /**
+     * Suppresses Chromium background telemetry, crash reporting, update checks,
+     * and Windows registry modifications (e.g. UsageStats, default browser checks,
+     * component updates, autorun hooks, and native toast notifications).
+     *
+     * Enabled by default for clean embedded desktop operation.
+     */
+    var blockRegistryAndTelemetry: Boolean = true
+        set(value) {
+            field = value
+            if (value) {
+                applyRegistrySuppressionFlags()
+            } else {
+                commandLineArgs.removeAll { arg ->
+                    REGISTRY_SUPPRESSION_FLAGS.any { it.equals(arg, ignoreCase = true) } ||
+                        (arg.startsWith("--disable-features=") && arg.contains("WinNativeNotification"))
+                }
+            }
+        }
+
+    /**
      * Command-line arguments passed to the CEF process.
      *
-     * Default includes rendering optimization flags and essential security hardening:
+     * Default includes rendering optimization flags, security hardening, and
+     * privacy/registry suppression flags:
      * - `--disable-extensions` — Prevents loading untrusted browser extensions
      * - `--disable-plugins` — Disables PPAPI/NPAPI plugin loading
+     * - Anti-telemetry and registry suppression flags when [blockRegistryAndTelemetry] is true
      */
     val commandLineArgs: MutableList<String> = mutableListOf(
         "--disable-gpu-compositing",
@@ -99,10 +121,46 @@ class KromiumConfig {
         "--disable-plugins"
     )
 
+    init {
+        if (blockRegistryAndTelemetry) {
+            applyRegistrySuppressionFlags()
+        }
+    }
+
+    private fun applyRegistrySuppressionFlags() {
+        for (flag in REGISTRY_SUPPRESSION_FLAGS) {
+            if (commandLineArgs.none { it.equals(flag, ignoreCase = true) }) {
+                commandLineArgs.add(flag)
+            }
+        }
+        val existingFeatures = commandLineArgs.firstOrNull { it.startsWith("--disable-features=") }
+        if (existingFeatures == null) {
+            commandLineArgs.add("--disable-features=$REGISTRY_SUPPRESSION_FEATURES")
+        } else if (!existingFeatures.contains("WinNativeNotification")) {
+            commandLineArgs.remove(existingFeatures)
+            commandLineArgs.add("$existingFeatures,$REGISTRY_SUPPRESSION_FEATURES")
+        }
+    }
+
     /** Appends additional command-line arguments. */
     fun addArgs(vararg args: String) {
         commandLineArgs.addAll(args)
     }
+
+    /**
+     * Whitelist of servers/proxies permitted for Integrated Windows Authentication
+     * (NTLM / Kerberos Negotiate). Essential for enterprise single sign-on (SSO).
+     *
+     * Example: `listOf("*.corp.internal", "proxy.company.com")`
+     * Maps to Chromium's `--auth-server-allowlist` flag.
+     */
+    var authServerAllowlist: List<String> = emptyList()
+
+    /**
+     * Whitelist of servers/proxies permitted for Kerberos credential delegation.
+     * Maps to Chromium's `--auth-negotiate-delegate-allowlist` flag.
+     */
+    var authNegotiateDelegateAllowlist: List<String> = emptyList()
 
     /**
      * Validates this configuration and throws [KromiumException.InvalidConfig]
@@ -120,6 +178,9 @@ class KromiumConfig {
                 throw KromiumException.InvalidConfig("cachePath contains path traversal sequence: $path")
             }
         }
+
+        // Validate proxy parameters
+        proxy.validate()
 
         // Warn about dangerous flags
         val dangerousFlags = commandLineArgs.filter { arg ->
@@ -150,7 +211,9 @@ class KromiumConfig {
             if (requestedCache.isEmpty()) null else requestedCache
         } else {
             try {
-                File(installDir.parentFile, "cache").apply { mkdirs() }.canonicalPath
+                val base = installDir.canonicalFile
+                val target = base.parentFile?.let { File(it, "cache") } ?: File(base, "cache")
+                target.apply { mkdirs() }.canonicalPath
             } catch (_: Exception) { null }
         }
 
@@ -158,6 +221,9 @@ class KromiumConfig {
             settings.cache_path = path
             if (commandLineArgs.none { it.startsWith("--root-cache-path=") }) {
                 commandLineArgs.add("--root-cache-path=$path")
+            }
+            if (commandLineArgs.none { it.startsWith("--user-data-dir=") }) {
+                commandLineArgs.add("--user-data-dir=$path")
             }
         }
 
@@ -172,20 +238,61 @@ class KromiumConfig {
             }
         }
 
-        // Apply Proxy configuration
-        when (val p = proxy) {
-            is KromiumProxy.System -> { /* Default behavior in CEF */ }
-            is KromiumProxy.Direct -> {
-                commandLineArgs.add("--no-proxy-server")
-            }
-            is KromiumProxy.Http -> {
-                commandLineArgs.add("--proxy-server=http://${p.host}:${p.port}")
-            }
-            is KromiumProxy.Socks5 -> {
-                commandLineArgs.add("--proxy-server=socks5://${p.host}:${p.port}")
-            }
+        if (blockRegistryAndTelemetry) {
+            applyRegistrySuppressionFlags()
+        }
+
+        // Apply Proxy configuration (cleans up any existing proxy flags before applying current strategy)
+        commandLineArgs.removeAll { arg ->
+            arg == "--no-proxy-server" ||
+                arg == "--proxy-auto-detect" ||
+                arg.startsWith("--proxy-server=") ||
+                arg.startsWith("--proxy-pac-url=") ||
+                arg.startsWith("--proxy-bypass-list=")
+        }
+        for (arg in proxy.toCommandLineArgs()) {
+            commandLineArgs.add(arg)
+        }
+
+        // Apply Enterprise Integrated Windows Authentication (NTLM / Kerberos)
+        if (authServerAllowlist.isNotEmpty()) {
+            val arg = "--auth-server-allowlist=${authServerAllowlist.joinToString(",")}"
+            commandLineArgs.removeAll { it.startsWith("--auth-server-allowlist=") }
+            commandLineArgs.add(arg)
+        }
+        if (authNegotiateDelegateAllowlist.isNotEmpty()) {
+            val arg = "--auth-negotiate-delegate-allowlist=${authNegotiateDelegateAllowlist.joinToString(",")}"
+            commandLineArgs.removeAll { it.startsWith("--auth-negotiate-delegate-allowlist=") }
+            commandLineArgs.add(arg)
         }
 
         return settings
+    }
+
+    companion object {
+        /**
+         * Core Chromium flags that completely suppress background telemetry,
+         * crash reporting, component updates, and Windows registry write hooks.
+         */
+        val REGISTRY_SUPPRESSION_FLAGS: List<String> = listOf(
+            "--no-default-browser-check",
+            "--no-first-run",
+            "--disable-breakpad",
+            "--disable-crash-reporter",
+            "--disable-metrics",
+            "--disable-metrics-reporting",
+            "--disable-component-update",
+            "--disable-background-networking",
+            "--disable-domain-reliability",
+            "--disable-sync",
+            "--no-service-autorun",
+            "--disable-background-mode"
+        )
+
+        /**
+         * Chromium feature flags to disable Windows shell hooks (such as Action Center toast COM registrations).
+         */
+        const val REGISTRY_SUPPRESSION_FEATURES: String =
+            "WinNativeNotification,CalculateNativeWinOcclusion,CertificateTransparencyComponentUpdater"
     }
 }

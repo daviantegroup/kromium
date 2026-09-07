@@ -29,8 +29,11 @@ private const val TAG = "KromiumBrowser"
  */
 class KromiumBrowser(
     val client: KromiumClient,
-    private val browser: CefBrowser
+    private val browser: CefBrowser,
+    private val hostPeer: java.awt.Window? = null
 ) {
+
+    val rawBrowser: CefBrowser get() = browser
 
     val uiComponent: Component get() = browser.uiComponent
 
@@ -188,8 +191,10 @@ class KromiumBrowser(
         if (component.isShowing) {
             try {
                 val loc = component.locationOnScreen
-                val rect = java.awt.Rectangle(loc.x, loc.y, component.width, component.height)
-                return java.awt.Robot().createScreenCapture(rect)
+                if (loc.x >= 0 && loc.y >= 0) {
+                    val rect = java.awt.Rectangle(loc.x, loc.y, component.width, component.height)
+                    return java.awt.Robot().createScreenCapture(rect)
+                }
             } catch (_: Throwable) {
                 // Fallback to component painting if Robot capture is not permitted or headless
             }
@@ -202,13 +207,179 @@ class KromiumBrowser(
         return image
     }
 
+    /**
+     * Configures asset blocking on this browser's client to omit loading images, media, fonts, or stylesheets.
+     * Dramatically reduces bandwidth and CPU overhead for headless tasks and web automation.
+     */
+    fun blockMediaAssets(
+        images: Boolean = true,
+        media: Boolean = true,
+        fonts: Boolean = true,
+        stylesheets: Boolean = false
+    ) {
+        client.assetFilter = KromiumAssetFilter(
+            blockImages = images,
+            blockMedia = media,
+            blockFonts = fonts,
+            blockStylesheets = stylesheets
+        )
+    }
+
+    /**
+     * Restricts navigation exclusively to the specified allowed hostnames/domains.
+     * Attempts to navigate to non-whitelisted domains will be automatically blocked.
+     *
+     * @param allowedHosts Whitelist of permitted domains (e.g., "example.com", "api.example.com")
+     * @param lockSubresources If true, also prevents loading subresources (scripts, fetch) from outside allowed hosts.
+     */
+    fun setHostLock(vararg allowedHosts: String, lockSubresources: Boolean = false) {
+        client.hostLock = allowedHosts.toSet()
+        client.hostLockSubresources = lockSubresources
+    }
+
+    /**
+     * Restricts navigation exclusively to the specified allowed hostnames/domains.
+     */
+    fun setHostLock(allowedHosts: Set<String>?, lockSubresources: Boolean = false) {
+        client.hostLock = allowedHosts
+        client.hostLockSubresources = lockSubresources
+    }
+
+    /**
+     * Removes any active host lock restrictions.
+     */
+    fun clearHostLock() {
+        client.hostLock = null
+        client.hostLockSubresources = false
+    }
+
+    /**
+     * Retrieves all cookies for the current page as a key-value map.
+     */
+    suspend fun getCookies(): Map<String, String> {
+        val currentUrl = url ?: return emptyMap()
+        return KromiumCookieManager.getCookies(currentUrl)
+    }
+
+    /**
+     * Retrieves a specific cookie by [name] for the current page.
+     */
+    suspend fun getCookie(name: String): String? {
+        val currentUrl = url ?: return null
+        return KromiumCookieManager.getCookie(currentUrl, name)
+    }
+
+    /**
+     * Sets a cookie for the current page.
+     */
+    fun setCookie(
+        name: String,
+        value: String,
+        domain: String? = null,
+        path: String = "/",
+        isSecure: Boolean = false,
+        isHttpOnly: Boolean = false,
+        expires: java.util.Date? = null
+    ): Boolean {
+        val currentUrl = url ?: return false
+        return KromiumCookieManager.setCookie(currentUrl, name, value, domain, path, isSecure, isHttpOnly, expires)
+    }
+
+    /**
+     * Deletes all cookies from the underlying cookie store.
+     */
+    fun clearCookies(): Boolean = KromiumCookieManager.clearCookies()
+
+    private val attachedHandlers = java.util.concurrent.CopyOnWriteArrayList<Any>()
+
+    /**
+     * Registers a callback invoked when a page has completed loading in the main frame.
+     */
+    fun onPageFinished(callback: (url: String) -> Unit) {
+        val handler = object : org.cef.handler.CefLoadHandlerAdapter() {
+            override fun onLoadEnd(cefBrowser: CefBrowser?, frame: CefFrame?, httpStatusCode: Int) {
+                if (frame?.isMain == true && (cefBrowser == null || cefBrowser.identifier == browser.identifier)) {
+                    callback(cefBrowser?.url ?: url ?: "")
+                }
+            }
+        }
+        client.addLoadHandler(handler)
+        attachedHandlers.add(handler)
+    }
+
+    /**
+     * Registers a callback invoked when the browser URL / address changes.
+     */
+    fun onAddressChanged(callback: (newUrl: String) -> Unit) {
+        val handler = object : org.cef.handler.CefDisplayHandlerAdapter() {
+            override fun onAddressChange(cefBrowser: CefBrowser?, frame: CefFrame?, newUrl: String?) {
+                if (cefBrowser == null || cefBrowser.identifier == browser.identifier) {
+                    newUrl?.let(callback)
+                }
+            }
+        }
+        client.addDisplayHandler(handler)
+        attachedHandlers.add(handler)
+    }
+
+    /**
+     * Registers a callback invoked when the page title changes.
+     */
+    fun onTitleChanged(callback: (title: String) -> Unit) {
+        val handler = object : org.cef.handler.CefDisplayHandlerAdapter() {
+            override fun onTitleChange(cefBrowser: CefBrowser?, title: String?) {
+                if (cefBrowser == null || cefBrowser.identifier == browser.identifier) {
+                    title?.let(callback)
+                }
+            }
+        }
+        client.addDisplayHandler(handler)
+        attachedHandlers.add(handler)
+    }
+
+    /**
+     * Registers a callback invoked when the browser loading state or navigation history changes.
+     */
+    fun onLoadingChanged(callback: (isLoading: Boolean, canGoBack: Boolean, canGoForward: Boolean) -> Unit) {
+        val handler = object : org.cef.handler.CefLoadHandlerAdapter() {
+            override fun onLoadingStateChange(
+                cefBrowser: CefBrowser?,
+                isLoading: Boolean,
+                canGoBack: Boolean,
+                canGoForward: Boolean
+            ) {
+                if (cefBrowser == null || cefBrowser.identifier == browser.identifier) {
+                    callback(isLoading, canGoBack, canGoForward)
+                }
+            }
+        }
+        client.addLoadHandler(handler)
+        attachedHandlers.add(handler)
+    }
+
     fun dispose() {
         try {
+            for (h in attachedHandlers) {
+                when (h) {
+                    is org.cef.handler.CefLoadHandler -> client.removeLoadHandler(h)
+                    is org.cef.handler.CefDisplayHandler -> client.removeDisplayHandler(h)
+                }
+            }
+            attachedHandlers.clear()
             browser.stopLoad()
             browser.setCloseAllowed()
             browser.close(true)
         } catch (e: Exception) {
             KromiumLogger.w(TAG, "Error during browser disposal", e)
+        } finally {
+            hostPeer?.let { peer ->
+                javax.swing.SwingUtilities.invokeLater {
+                    try {
+                        peer.isVisible = false
+                        peer.dispose()
+                    } catch (_: Throwable) {}
+                }
+            }
         }
     }
 }

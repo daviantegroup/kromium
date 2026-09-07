@@ -40,6 +40,9 @@ object Kromium {
     private val mutex = Mutex()
     private var cefApp: CefApp? = null
 
+    private var _activeProxy: KromiumProxy = KromiumProxy.System
+    val activeProxy: KromiumProxy get() = _activeProxy
+
     val isReady: Boolean get() = _state.value is KromiumState.Ready
 
     /**
@@ -137,6 +140,7 @@ object Kromium {
 
                 _state.value = KromiumState.Initializing
                 KromiumLogger.i(TAG, "Bootstrapping CEF...")
+                _activeProxy = config.proxy
                 val app = CefBootstrapper.bootstrap(
                     installDir = installDir,
                     cefArgs = config.commandLineArgs,
@@ -200,6 +204,72 @@ object Kromium {
             }
         }
         return newClient()
+    }
+
+    /**
+     * Creates a new [KromiumBrowser] instance using a fresh client.
+     */
+    fun createBrowser(
+        url: String? = "about:blank",
+        isOffScreenRendered: Boolean = false,
+        isTransparent: Boolean = false
+    ): KromiumBrowser = newClient().createBrowser(url, isOffScreenRendered, isTransparent)
+
+    /**
+     * Creates a new zero-dependency headless [KromiumBrowser] instance backed by an off-screen Swing peer.
+     */
+    fun createHeadlessBrowser(
+        url: String? = "about:blank",
+        width: Int = 1280,
+        height: Int = 800
+    ): KromiumBrowser = newClient().createHeadlessBrowser(url, width, height)
+
+    /**
+     * Suspends until Kromium is ready, then creates a new [KromiumBrowser] instance.
+     */
+    suspend fun awaitBrowser(
+        url: String? = "about:blank",
+        isOffScreenRendered: Boolean = false,
+        isTransparent: Boolean = false
+    ): KromiumBrowser = awaitClient().createBrowser(url, isOffScreenRendered, isTransparent)
+
+    /**
+     * Suspends until Kromium is ready, then creates a new headless [KromiumBrowser] instance.
+     */
+    suspend fun awaitHeadlessBrowser(
+        url: String? = "about:blank",
+        width: Int = 1280,
+        height: Int = 800
+    ): KromiumBrowser = awaitClient().createHeadlessBrowser(url, width, height)
+
+    /**
+     * Dynamically updates the proxy strategy across all active browser windows
+     * at runtime without restarting the engine or losing tab state.
+     *
+     * @param proxy The new [KromiumProxy] configuration to apply.
+     * @return [Result.success] if applied, or [Result.failure] with error details.
+     */
+    fun setProxy(proxy: KromiumProxy): Result<Unit> {
+        _activeProxy = proxy
+        if (!isReady || cefApp == null) {
+            return Result.failure(KromiumException.NotInitialized)
+        }
+        return try {
+            val context = org.cef.browser.CefRequestContext.getGlobalContext()
+                ?: return Result.failure(KromiumException.NotInitialized)
+            val prefMap = proxy.toPreferenceMap()
+            val error = context.setPreference("proxy", prefMap)
+            if (error.isNullOrEmpty()) {
+                KromiumLogger.i(TAG, "Proxy dynamically updated to: $proxy")
+                Result.success(Unit)
+            } else {
+                KromiumLogger.e(TAG, "Failed to set dynamic proxy: $error")
+                Result.failure(KromiumException.ProxyError("Failed to set proxy preference: $error"))
+            }
+        } catch (t: Throwable) {
+            KromiumLogger.e(TAG, "Error applying dynamic proxy", t)
+            Result.failure(t)
+        }
     }
 
     /**

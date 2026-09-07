@@ -66,6 +66,9 @@ fun KromiumView(
         effectiveClient.loadErrorListener = state.onLoadError
         effectiveClient.shouldOverrideUrlLoading = state.shouldOverrideUrlLoading
         effectiveClient.sslErrorPolicy = state.sslErrorPolicy
+        effectiveClient.assetFilter = state.assetFilter
+        effectiveClient.hostLock = state.hostLock
+        effectiveClient.hostLockSubresources = state.hostLockSubresources
     }
 
     // Reactively handle URL loading (if loadUrl was called when browser was not ready)
@@ -80,7 +83,7 @@ fun KromiumView(
 
     key(state, effectiveClient) {
         DisposableEffect(state, effectiveClient) {
-            effectiveClient.addLoadHandler(object : CefLoadHandlerAdapter() {
+            val loadHandler = object : CefLoadHandlerAdapter() {
                 override fun onLoadingStateChange(
                     cefBrowser: CefBrowser?,
                     isLoading: Boolean,
@@ -95,9 +98,9 @@ fun KromiumView(
                 override fun onLoadEnd(cefBrowser: CefBrowser?, frame: CefFrame?, httpStatusCode: Int) {
                     state.isLoading = false
                 }
-            })
+            }
 
-            effectiveClient.addDisplayHandler(object : CefDisplayHandlerAdapter() {
+            val displayHandler = object : CefDisplayHandlerAdapter() {
                 override fun onAddressChange(cefBrowser: CefBrowser?, frame: CefFrame?, url: String?) {
                     url?.let { state.url = it }
                 }
@@ -105,9 +108,14 @@ fun KromiumView(
                 override fun onTitleChange(cefBrowser: CefBrowser?, title: String?) {
                     title?.let { state.title = it }
                 }
-            })
+            }
+
+            effectiveClient.addLoadHandler(loadHandler)
+            effectiveClient.addDisplayHandler(displayHandler)
 
             onDispose {
+                effectiveClient.removeLoadHandler(loadHandler)
+                effectiveClient.removeDisplayHandler(displayHandler)
                 state.browser?.dispose()
                 state.browser = null
                 if (client == null) {

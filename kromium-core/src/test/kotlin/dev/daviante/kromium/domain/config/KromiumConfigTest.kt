@@ -63,4 +63,47 @@ class KromiumConfigTest {
             config.validate()
         }
     }
+
+    @Test
+    fun testRegistrySuppressionFlagsEnabledByDefault() {
+        val config = KromiumConfig()
+        assertTrue(config.blockRegistryAndTelemetry)
+
+        // Verify key suppression flags
+        assertTrue(config.commandLineArgs.contains("--no-default-browser-check"))
+        assertTrue(config.commandLineArgs.contains("--no-first-run"))
+        assertTrue(config.commandLineArgs.contains("--disable-breakpad"))
+        assertTrue(config.commandLineArgs.contains("--disable-crash-reporter"))
+        assertTrue(config.commandLineArgs.contains("--disable-metrics"))
+        assertTrue(config.commandLineArgs.contains("--disable-component-update"))
+        assertTrue(config.commandLineArgs.contains("--disable-sync"))
+        assertTrue(config.commandLineArgs.contains("--no-service-autorun"))
+        assertTrue(config.commandLineArgs.any { it.startsWith("--disable-features=") && it.contains("WinNativeNotification") })
+    }
+
+    @Test
+    fun testRegistrySuppressionFlagsCanBeToggled() {
+        val config = KromiumConfig()
+        assertTrue(config.commandLineArgs.contains("--no-default-browser-check"))
+
+        // Disable registry suppression
+        config.blockRegistryAndTelemetry = false
+        assertFalse(config.commandLineArgs.contains("--no-default-browser-check"))
+        assertFalse(config.commandLineArgs.contains("--disable-breakpad"))
+
+        // Re-enable
+        config.blockRegistryAndTelemetry = true
+        assertTrue(config.commandLineArgs.contains("--no-default-browser-check"))
+        assertTrue(config.commandLineArgs.contains("--disable-breakpad"))
+    }
+
+    @Test
+    fun testUserDataDirConfiguredWithCache() {
+        val config = KromiumConfig()
+        config.cachePath = "C:/tmp/kromium-cache"
+        config.toCefSettings()
+
+        assertTrue(config.commandLineArgs.any { it == "--root-cache-path=C:/tmp/kromium-cache" })
+        assertTrue(config.commandLineArgs.any { it == "--user-data-dir=C:/tmp/kromium-cache" })
+    }
 }
