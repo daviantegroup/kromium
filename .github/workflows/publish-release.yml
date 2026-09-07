@@ -1,6 +1,10 @@
 name: Publish Release to Maven Central
 
 on:
+  pull_request:
+    types: [closed]
+    branches:
+      - master
   release:
     types: [published]
   workflow_dispatch:
@@ -24,31 +28,67 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
+  packages: write
+  pull-requests: read
 
 jobs:
   publish:
     name: Build, Sign & Publish to Maven Central
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check Trigger Condition (PR Merge & JAR Update)
+        id: check_trigger
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            if [ "${{ github.event.pull_request.merged }}" != "true" ]; then
+              echo "Pull request was closed without merging. Skipping release."
+              echo "proceed=false" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+
+            echo "Examining files changed in merged PR #${{ github.event.pull_request.number }}..."
+            CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.merge_commit_sha }} 2>/dev/null || git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+            echo "Changed files:"
+            echo "$CHANGED_FILES"
+
+            if echo "$CHANGED_FILES" | grep -E "kromium-core/libs/jcef\.jar|jcef-version\.txt"; then
+              echo "🚀 JCEF JAR update detected in merged PR! Proceeding with automated Maven release."
+              echo "proceed=true" >> $GITHUB_OUTPUT
+            else
+              echo "ℹ️ Pull request did not update JCEF JAR. Skipping automated release."
+              echo "proceed=false" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          else
+            echo "Direct release or manual workflow dispatch. Proceeding."
+            echo "proceed=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: Set up JDK 21
+        if: steps.check_trigger.outputs.proceed == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '21'
 
       - name: Setup Gradle
+        if: steps.check_trigger.outputs.proceed == 'true'
         uses: gradle/actions/setup-gradle@v4
 
       - name: Make gradlew executable
+        if: steps.check_trigger.outputs.proceed == 'true'
         run: chmod +x ./gradlew
 
       - name: Validate Release Version & Secrets Pre-flight
+        if: steps.check_trigger.outputs.proceed == 'true'
         id: preflight
         env:
           GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
@@ -60,6 +100,7 @@ jobs:
           echo "=== 1. Checking Project Version ==="
           PROJECT_VERSION=$(./gradlew properties --property version -q | awk '{print $2}')
           echo "Gradle Project Version: $PROJECT_VERSION"
+          echo "project_version=$PROJECT_VERSION" >> $GITHUB_OUTPUT
 
           if [ "${{ github.event_name }}" = "release" ]; then
             TAG_NAME="${{ github.event.release.tag_name }}"
@@ -70,6 +111,14 @@ jobs:
               exit 1
             fi
             echo "Release tag and Gradle version match perfectly ($PROJECT_VERSION)."
+          fi
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch --tags
+            if git rev-parse "v$PROJECT_VERSION" >/dev/null 2>&1; then
+              echo "::warning::Tag v$PROJECT_VERSION already exists. Skipping duplicate publish."
+              exit 0
+            fi
           fi
 
           echo "=== 2. Validating Secrets ==="
@@ -96,9 +145,39 @@ jobs:
           echo "Pre-flight validation passed successfully."
 
       - name: Run Test Suite
+        if: steps.check_trigger.outputs.proceed == 'true'
         run: ./gradlew test
 
+      - name: Create Git Tag and GitHub Release
+        if: steps.check_trigger.outputs.proceed == 'true' && github.event_name == 'pull_request' && !(inputs.dry_run || false)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PROJECT_VERSION="${{ steps.preflight.outputs.project_version }}"
+          TAG_NAME="v$PROJECT_VERSION"
+          echo "Creating Git Tag: $TAG_NAME"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git tag -a "$TAG_NAME" -m "Release $TAG_NAME"
+          git push origin "$TAG_NAME"
+
+          UPSTREAM_VER=$(cat jcef-version.txt 2>/dev/null || echo "")
+
+          echo "Creating GitHub Release for $TAG_NAME..."
+          gh release create "$TAG_NAME" \
+            --title "Kromium $TAG_NAME" \
+            --notes "### Automated Release $TAG_NAME
+
+- **Chromium / JCEF Runtime**: \`${UPSTREAM_VER}\`
+- **Compose Multiplatform Coordinates**: \`dev.daviante:kromium-compose:${PROJECT_VERSION}\`
+- **Core JVM Coordinates**: \`dev.daviante:kromium-core:${PROJECT_VERSION}\`
+
+Published automatically via JCEF update merge."
+
       - name: Build, Sign & Package Publications
+        if: steps.check_trigger.outputs.proceed == 'true'
         env:
           GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
           GPG_SIGNING_PASSWORD: ${{ secrets.GPG_SIGNING_PASSWORD }}
@@ -106,6 +185,7 @@ jobs:
           ./gradlew clean bundlePublishing --no-daemon
 
       - name: Verify Bundle Integrity
+        if: steps.check_trigger.outputs.proceed == 'true'
         id: verify-bundle
         env:
           IS_DRY_RUN: ${{ inputs.dry_run || false }}
@@ -151,6 +231,7 @@ jobs:
           fi
 
       - name: Archive Bundle as Workflow Artifact
+        if: steps.check_trigger.outputs.proceed == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: maven-central-bundle
@@ -158,7 +239,7 @@ jobs:
           retention-days: 14
 
       - name: Upload to Sonatype Central Portal
-        if: ${{ !(inputs.dry_run || false) }}
+        if: steps.check_trigger.outputs.proceed == 'true' && !(inputs.dry_run || false)
         env:
           SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
           SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
