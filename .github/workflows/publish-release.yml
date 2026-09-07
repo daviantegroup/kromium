@@ -41,7 +41,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
           fetch-depth: 0
@@ -76,14 +76,14 @@ jobs:
 
       - name: Set up JDK 21
         if: steps.check_trigger.outputs.proceed == 'true'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '21'
 
       - name: Setup Gradle
         if: steps.check_trigger.outputs.proceed == 'true'
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v5
 
       - name: Make gradlew executable
         if: steps.check_trigger.outputs.proceed == 'true'
@@ -265,7 +265,7 @@ jobs:
 
       - name: Archive Bundle as Workflow Artifact
         if: steps.check_trigger.outputs.proceed == 'true' && steps.preflight.outputs.proceed == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: maven-central-bundle
           path: build/bundle.zip
