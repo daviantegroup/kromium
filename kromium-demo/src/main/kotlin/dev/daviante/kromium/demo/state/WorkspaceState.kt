@@ -106,14 +106,14 @@ class WorkspaceState(
     init {
         // Initialize with default tab
         val defaultTab = BrowserTab(
-            initialUrl = "https://duckduckgo.com",
+            initialUrl = DEFAULT_HOME_URL,
             onDownloadUpdated = ::onDownloadUpdated
         )
         tabs.add(defaultTab)
         activeTabId = defaultTab.id
     }
 
-    fun openTab(url: String = "https://duckduckgo.com"): BrowserTab {
+    fun openTab(url: String = DEFAULT_HOME_URL): BrowserTab {
         val newTab = BrowserTab(
             initialUrl = url,
             onDownloadUpdated = ::onDownloadUpdated
@@ -127,7 +127,7 @@ class WorkspaceState(
         if (tabs.size <= 1) {
             // Keep at least one tab open, reset it
             val tab = tabs.first()
-            tab.viewState.loadUrl("https://duckduckgo.com")
+            tab.viewState.loadUrl(DEFAULT_HOME_URL)
             return
         }
 
@@ -381,6 +381,8 @@ class WorkspaceState(
     }
 
     companion object {
+        const val DEFAULT_HOME_URL = "https://kromium.daviante.dev"
+
         fun resolveNavigationTarget(input: String): String {
             val lower = input.lowercase()
             return when {

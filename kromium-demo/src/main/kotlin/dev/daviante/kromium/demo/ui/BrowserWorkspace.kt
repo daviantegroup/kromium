@@ -39,7 +39,7 @@ fun BrowserWorkspace(
             activeTabId = workspaceState.activeTabId,
             onSelectTab = { workspaceState.selectTab(it) },
             onCloseTab = { workspaceState.closeTab(it) },
-            onNewTab = { workspaceState.openTab("https://duckduckgo.com") }
+            onNewTab = { workspaceState.openTab() }
         )
 
         // Navigation Toolbar (Back/Forward, Omnibox, Zoom, DevTools)

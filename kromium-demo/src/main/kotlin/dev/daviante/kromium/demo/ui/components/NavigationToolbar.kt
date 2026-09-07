@@ -106,7 +106,7 @@ fun NavigationToolbar(
                 // Home Button
                 IconButton(
                     onClick = {
-                        val homeUrl = "https://duckduckgo.com"
+                        val homeUrl = WorkspaceState.DEFAULT_HOME_URL
                         inputUrl = homeUrl
                         workspaceState.navigate(homeUrl)
                     },
@@ -384,6 +384,7 @@ fun NavigationToolbar(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                ChromeBookmarkItem("🌐 Kromium Docs", WorkspaceState.DEFAULT_HOME_URL) { workspaceState.navigate(it) }
                 ChromeBookmarkItem("🦆 DuckDuckGo", "https://duckduckgo.com") { workspaceState.navigate(it) }
                 ChromeBookmarkItem("🔍 Google", "https://google.com") { workspaceState.navigate(it) }
                 ChromeBookmarkItem("🐙 GitHub", "https://github.com") { workspaceState.navigate(it) }
