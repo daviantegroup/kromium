@@ -189,11 +189,11 @@ jobs:
           if [ "${{ github.event_name }}" != "push" ]; then
             echo "Creating Git Tag: $TAG_NAME"
             if [ -n "${{ steps.app_token.outputs.token }}" ]; then
-              git config user.name "daviante-releaser[bot]"
-              git config user.email "${{ steps.app_token.outputs.app-slug || 'daviante-releaser' }}[bot]@users.noreply.github.com"
+              git config user.name "${{ steps.app_token.outputs.app-slug || 'daviante-releaser' }}"
+              git config user.email "${{ steps.app_token.outputs.app-slug || 'daviante-releaser' }}@users.noreply.github.com"
             else
-              git config user.name "github-actions[bot]"
-              git config user.email "github-actions[bot]@users.noreply.github.com"
+              git config user.name "github-actions"
+              git config user.email "github-actions@users.noreply.github.com"
             fi
             git tag -a "$TAG_NAME" -m "Release $TAG_NAME"
             git push origin "$TAG_NAME"

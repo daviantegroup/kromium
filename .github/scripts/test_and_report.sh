@@ -6,11 +6,11 @@ CURRENT_VERSION="${CURRENT_VERSION:-unknown}"
 
 # Configure git identity
 if [ -n "$APP_SLUG" ]; then
-  git config user.name "${APP_SLUG}[bot]"
-  git config user.email "${APP_SLUG}[bot]@users.noreply.github.com"
+  git config user.name "$APP_SLUG"
+  git config user.email "${APP_SLUG}@users.noreply.github.com"
 else
-  git config user.name "github-actions[bot]"
-  git config user.email "github-actions[bot]@users.noreply.github.com"
+  git config user.name "github-actions"
+  git config user.email "github-actions@users.noreply.github.com"
 fi
 
 # Run tests and catch exit code safely without crashing
