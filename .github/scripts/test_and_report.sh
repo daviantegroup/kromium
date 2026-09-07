@@ -63,14 +63,20 @@ EOF
     mv "$TEMP_CHANGELOG" CHANGELOG.md
   fi
 
+  # 4. Update documentation coordinates and Maven Central badge
+  sed -i -E "s/Maven_Central-v[0-9.]+(-b[0-9]+)?/Maven_Central-v${NEW_VERSION}/g" README.md
+  sed -i -E "s/dev\.daviante:kromium-compose:[0-9.]+(-b[0-9]+)?/dev.daviante:kromium-compose:${NEW_VERSION}/g" README.md docs/*.md
+  sed -i -E "s/dev\.daviante:kromium-core:[0-9.]+(-b[0-9]+)?/dev.daviante:kromium-core:${NEW_VERSION}/g" README.md docs/*.md
+
   BRANCH_NAME="update/jcef-${UPSTREAM_VERSION}"
   git checkout -B "$BRANCH_NAME"
-  git add kromium-core/libs/jcef.jar jcef-version.txt build.gradle.kts kromium-core/src/main/kotlin/dev/daviante/kromium/data/engine/EngineRegistry.kt CHANGELOG.md
+  git add kromium-core/libs/jcef.jar jcef-version.txt build.gradle.kts kromium-core/src/main/kotlin/dev/daviante/kromium/data/engine/EngineRegistry.kt CHANGELOG.md README.md docs/*.md
   git commit -m "chore(deps): upgrade JCEF engine to ${UPSTREAM_VERSION} (${NEW_VERSION})
 
 - Downloaded certified jcef.jar from JetBrains Maven (${UPSTREAM_VERSION})
 - Bumped project version to ${NEW_VERSION}
 - Isolated runtime cache directory to jcef-${CACHE_TAG}
+- Updated documentation dependencies and Maven Central badge
 - Verified all unit tests and compilation pass with 0 errors"
 
   git push -u origin "$BRANCH_NAME" --force
@@ -87,6 +93,7 @@ This automated PR updates the pure \`jcef.jar\` binary from JetBrains Maven repo
 - ✅ Official certified binary from \`org.jetbrains.intellij.deps.jcef:jcef\`
 - ✅ Project version bumped to **\`${NEW_VERSION}\`** in \`build.gradle.kts\`
 - ✅ Native runtime cache directory isolated to \`jcef-${CACHE_TAG}\`
+- ✅ Documentation coordinates and Maven badges updated to **\`${NEW_VERSION}\`**
 - ✅ \`./gradlew test\` passed cleanly with zero compilation or API regressions
 
 > [!TIP]
