@@ -1,0 +1,197 @@
+name: Publish Release to Maven Central
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (build, test, sign, and verify bundle without uploading)'
+        required: true
+        type: boolean
+        default: false
+      publishing_type:
+        description: 'Sonatype Central publishing mode (AUTOMATIC publishes directly after validation, USER_MANAGED requires manual approval in portal)'
+        required: true
+        type: choice
+        options:
+          - AUTOMATIC
+          - USER_MANAGED
+        default: AUTOMATIC
+
+concurrency:
+  group: publish-maven-central
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Build, Sign & Publish to Maven Central
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Validate Release Version & Secrets Pre-flight
+        id: preflight
+        env:
+          GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
+          GPG_SIGNING_PASSWORD: ${{ secrets.GPG_SIGNING_PASSWORD }}
+          SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+          IS_DRY_RUN: ${{ inputs.dry_run || false }}
+        run: |
+          echo "=== 1. Checking Project Version ==="
+          PROJECT_VERSION=$(./gradlew properties --property version -q | awk '{print $2}')
+          echo "Gradle Project Version: $PROJECT_VERSION"
+
+          if [ "${{ github.event_name }}" = "release" ]; then
+            TAG_NAME="${{ github.event.release.tag_name }}"
+            STRIPPED_TAG="${TAG_NAME#v}"
+            echo "GitHub Release Tag: $TAG_NAME (normalized: $STRIPPED_TAG)"
+            if [ "$STRIPPED_TAG" != "$PROJECT_VERSION" ]; then
+              echo "::error::Release tag '$TAG_NAME' does not match Gradle project version '$PROJECT_VERSION'! Aborting release."
+              exit 1
+            fi
+            echo "Release tag and Gradle version match perfectly ($PROJECT_VERSION)."
+          fi
+
+          echo "=== 2. Validating Secrets ==="
+          MISSING_SECRETS=0
+          if [ -z "$GPG_SIGNING_KEY" ]; then
+            if [ "$IS_DRY_RUN" = "true" ]; then
+              echo "::warning::GPG_SIGNING_KEY is not set. Dry-run will generate unsigned artifacts."
+            else
+              echo "::error::GPG_SIGNING_KEY secret is required for Maven Central releases!"
+              MISSING_SECRETS=1
+            fi
+          fi
+
+          if [ "$IS_DRY_RUN" != "true" ]; then
+            if [ -z "$SONATYPE_USERNAME" ] || [ -z "$SONATYPE_PASSWORD" ]; then
+              echo "::error::SONATYPE_USERNAME and SONATYPE_PASSWORD secrets are required for Central Portal upload!"
+              MISSING_SECRETS=1
+            fi
+          fi
+
+          if [ "$MISSING_SECRETS" -eq 1 ]; then
+            exit 1
+          fi
+          echo "Pre-flight validation passed successfully."
+
+      - name: Run Test Suite
+        run: ./gradlew test
+
+      - name: Build, Sign & Package Publications
+        env:
+          GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
+          GPG_SIGNING_PASSWORD: ${{ secrets.GPG_SIGNING_PASSWORD }}
+        run: |
+          ./gradlew clean bundlePublishing --no-daemon
+
+      - name: Verify Bundle Integrity
+        id: verify-bundle
+        env:
+          IS_DRY_RUN: ${{ inputs.dry_run || false }}
+        run: |
+          if [ ! -f "build/bundle.zip" ]; then
+            echo "::error::build/bundle.zip was not generated!"
+            exit 1
+          fi
+
+          echo "Listing contents of build/bundle.zip:"
+          unzip -l build/bundle.zip
+
+          echo "=== Checking Required POM and JAR artifacts ==="
+          for mod in kromium-core kromium-compose; do
+            unzip -l build/bundle.zip | grep -q "dev/daviante/$mod/" || {
+              echo "::error::Missing $mod in bundle.zip!"
+              exit 1
+            }
+            unzip -l build/bundle.zip | grep -q "$mod-.*\.pom" || {
+              echo "::error::Missing $mod POM in bundle.zip!"
+              exit 1
+            }
+            unzip -l build/bundle.zip | grep -q "$mod-.*-sources\.jar" || {
+              echo "::error::Missing $mod sources jar in bundle.zip!"
+              exit 1
+            }
+            unzip -l build/bundle.zip | grep -q "$mod-.*-javadoc\.jar" || {
+              echo "::error::Missing $mod javadoc jar in bundle.zip!"
+              exit 1
+            }
+          done
+
+          if [ "$IS_DRY_RUN" != "true" ]; then
+            echo "=== Verifying GPG Signatures (.asc) ==="
+            ASC_COUNT=$(unzip -l build/bundle.zip | grep -c "\.asc" || true)
+            if [ "$ASC_COUNT" -eq 0 ]; then
+              echo "::error::No GPG signature (.asc) files found in bundle.zip! Artifacts must be signed for Maven Central."
+              exit 1
+            fi
+            echo "Verified $ASC_COUNT cryptographic signatures (.asc) in bundle.zip."
+          else
+            echo "Dry run: Skipping GPG signature check."
+          fi
+
+      - name: Archive Bundle as Workflow Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: maven-central-bundle
+          path: build/bundle.zip
+          retention-days: 14
+
+      - name: Upload to Sonatype Central Portal
+        if: ${{ !(inputs.dry_run || false) }}
+        env:
+          SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+          PUBLISHING_TYPE: ${{ inputs.publishing_type || 'AUTOMATIC' }}
+        run: |
+          echo "Generating Sonatype Publisher authorization token..."
+          AUTH_TOKEN=$(printf "%s:%s" "$SONATYPE_USERNAME" "$SONATYPE_PASSWORD" | base64 -w 0)
+          
+          echo "Uploading build/bundle.zip to Sonatype Central Portal..."
+          echo "Publishing Mode: $PUBLISHING_TYPE"
+          
+          HTTP_RESPONSE=$(curl --silent --show-error \
+            --write-out "\nHTTP_STATUS:%{http_code}" \
+            --request POST \
+            --header "Authorization: Bearer $AUTH_TOKEN" \
+            --form "bundle=@build/bundle.zip" \
+            "https://central.sonatype.com/api/v1/publisher/upload?publishingType=$PUBLISHING_TYPE")
+
+          HTTP_BODY=$(echo "$HTTP_RESPONSE" | sed -e '$d')
+          HTTP_STATUS=$(echo "$HTTP_RESPONSE" | tail -n 1 | cut -d':' -f2)
+
+          echo "HTTP Response Status: $HTTP_STATUS"
+          echo "HTTP Response Body: $HTTP_BODY"
+
+          if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
+            echo "::error::Sonatype Central Portal upload failed with HTTP status $HTTP_STATUS: $HTTP_BODY"
+            exit 1
+          fi
+
+          DEPLOYMENT_ID=$(echo "$HTTP_BODY" | tr -d '"\r\n ')
+          echo "=========================================================="
+          echo "🚀 Sonatype Central Portal Upload Succeeded!"
+          echo "Deployment ID: $DEPLOYMENT_ID"
+          echo "Track Validation & Publication Status:"
+          echo "https://central.sonatype.com/publishing/deployments/$DEPLOYMENT_ID"
+          echo "=========================================================="

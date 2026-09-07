@@ -1,0 +1,47 @@
+name: "📝 Documentation Issue"
+description: Report errors, missing sections, or suggest improvements to the documentation
+title: "[Docs]: "
+labels: ["documentation", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting documentation issues! Great documentation is essential for Kotlin & Compose developers.
+
+  - type: input
+    id: page-url
+    attributes:
+      label: Documentation Page or Section
+      description: URL or file path where the documentation issue occurs.
+      placeholder: "e.g. https://kromium.daviante.dev or docs/COMPOSE_DESKTOP_GUIDE.md"
+    validations:
+      required: true
+
+  - type: textarea
+    id: issue-description
+    attributes:
+      label: What is wrong or missing?
+      description: Describe the typo, outdated snippet, or missing documentation.
+      placeholder: "The snippet in the quickstart references ... which should be ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-change
+    attributes:
+      label: Suggested Correction or Improvement
+      description: Provide the corrected text or code snippet if available.
+      render: markdown
+      placeholder: |
+        Suggested change:
+        ...
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I would be willing to submit a Pull Request to fix this documentation issue.
+          required: false

@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 Kromium Documentation & Interactive Playground
+    url: https://kromium.daviante.dev
+    about: Explore official guides, Compose Desktop architecture, and live API simulator.
+  - name: 💬 GitHub Discussions
+    url: https://github.com/daviantegroup/kromium/discussions
+    about: Ask questions, share ideas, and connect with the Kromium developer community.
+  - name: 🛡️ Security Vulnerability Reporting
+    url: https://github.com/daviantegroup/kromium/security/policy
+    about: Report security vulnerabilities confidentially according to our security policy.

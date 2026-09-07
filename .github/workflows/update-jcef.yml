@@ -1,0 +1,127 @@
+name: Safe JCEF Update Pipeline
+
+on:
+  schedule:
+    # Runs weekly on Monday at 06:00 UTC
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force check and integration tests even if version matches'
+        type: boolean
+        default: false
+
+concurrency:
+  group: jcef-automated-update
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  check-and-update:
+    name: Check & Safe Update JCEF
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout Kromium Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java Development Kit (JDK 21)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Inspect Current and Upstream JCEF Versions
+        id: version_check
+        env:
+          FORCE_RUN: ${{ inputs.force }}
+        run: |
+          CURRENT_VERSION="unknown"
+          if [ -f "jcef-version.txt" ]; then
+            CURRENT_VERSION=$(tr -d '[:space:]' < jcef-version.txt)
+          fi
+          echo "Current Kromium JCEF version: ${CURRENT_VERSION}"
+          echo "current_version=${CURRENT_VERSION}" >> $GITHUB_OUTPUT
+
+          echo "Querying JetBrains IntelliJ Dependencies Maven Repository..."
+          MAVEN_METADATA_URL="https://packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/intellij/deps/jcef/jcef/maven-metadata.xml"
+          
+          METADATA_XML=$(curl -sSL --fail "$MAVEN_METADATA_URL" 2>/dev/null || echo "")
+          if [ -z "$METADATA_XML" ]; then
+            echo "::warning::Could not fetch maven-metadata.xml from JetBrains repository."
+            echo "status=network_error" >> $GITHUB_OUTPUT
+            echo "### ⚠️ Upstream Metadata Unavailable" >> $GITHUB_STEP_SUMMARY
+            echo "Could not reach JetBrains Maven metadata. Pipeline exited safely." >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          UPSTREAM_VERSION=$(echo "$METADATA_XML" | grep -oPm1 "(?<=<release>)[^<]+")
+          if [ -z "$UPSTREAM_VERSION" ]; then
+            UPSTREAM_VERSION=$(echo "$METADATA_XML" | grep -oPm1 "(?<=<latest>)[^<]+")
+          fi
+
+          if [ -z "$UPSTREAM_VERSION" ]; then
+            echo "::warning::Could not parse release version from maven-metadata.xml."
+            echo "status=parse_error" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Detected Upstream JCEF Version: ${UPSTREAM_VERSION}"
+          echo "upstream_version=${UPSTREAM_VERSION}" >> $GITHUB_OUTPUT
+
+          if [ "$CURRENT_VERSION" = "$UPSTREAM_VERSION" ] && [ "$FORCE_RUN" != "true" ]; then
+            echo "status=up_to_date" >> $GITHUB_OUTPUT
+            echo "### ✅ JCEF Version Up to Date" >> $GITHUB_STEP_SUMMARY
+            echo "Kromium is running the latest certified JetBrains JCEF release (\`${CURRENT_VERSION}\`). No update required." >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          echo "status=update_needed" >> $GITHUB_OUTPUT
+
+      - name: Download Official JetBrains JCEF Binary
+        id: download_jcef
+        if: steps.version_check.outputs.status == 'update_needed'
+        run: |
+          UPSTREAM_VERSION="${{ steps.version_check.outputs.upstream_version }}"
+          JAR_URL="https://packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/intellij/deps/jcef/jcef/${UPSTREAM_VERSION}/jcef-${UPSTREAM_VERSION}.jar"
+          
+          echo "Downloading official JCEF JAR from JetBrains Maven: ${JAR_URL}..."
+          mkdir -p kromium-core/libs
+          
+          HTTP_STATUS=$(curl -sSL -w "%{http_code}" -o "kromium-core/libs/jcef.jar" "$JAR_URL")
+          if [ "$HTTP_STATUS" -ne 200 ]; then
+            echo "::error::Failed to download jcef.jar (HTTP $HTTP_STATUS) from $JAR_URL"
+            exit 1
+          fi
+
+          JAR_SIZE=$(wc -c < kromium-core/libs/jcef.jar)
+          echo "Downloaded jcef.jar size: $JAR_SIZE bytes."
+
+          if [ "$JAR_SIZE" -lt 1000000 ]; then
+            echo "::error::Downloaded jcef.jar is suspiciously small ($JAR_SIZE bytes)!"
+            exit 1
+          fi
+
+          # Verify JAR integrity
+          jar tf kromium-core/libs/jcef.jar > /dev/null
+          echo "Verified JAR structure and integrity."
+          echo "downloaded=true" >> $GITHUB_OUTPUT
+
+      - name: Test Integration & Handle API Changes
+        id: test_and_report
+        if: steps.download_jcef.outputs.downloaded == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UPSTREAM_VERSION: ${{ steps.version_check.outputs.upstream_version }}
+          CURRENT_VERSION: ${{ steps.version_check.outputs.current_version }}
+        run: bash .github/scripts/test_and_report.sh

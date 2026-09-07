@@ -1,0 +1,69 @@
+name: "💡 Feature Request"
+description: Propose a new feature, enhancement, or API capability for Kromium
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve Kromium! Please provide a clear use-case and describe the desired developer API.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-flight Verification
+      description: Please verify before submitting.
+      options:
+        - label: I have searched existing [feature requests and discussions](https://github.com/daviantegroup/kromium/issues?q=is%3Aissue+label%3Aenhancement) to ensure this is not already proposed.
+          required: true
+
+  - type: textarea
+    id: problem-statement
+    attributes:
+      label: Problem or Limitation
+      description: Is your feature request related to a problem, missing CEF feature, or developer pain-point?
+      placeholder: "I am trying to accomplish ... but currently Kromium only supports ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed Solution & Desired Behavior
+      description: Describe the solution, behavior, or functionality you would like to see.
+      placeholder: Describe the new behavior, component, or engine feature in detail...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-api
+    attributes:
+      label: Proposed API Design (Kotlin / Compose)
+      description: Share an example of how you envision using this feature in code.
+      render: kotlin
+      placeholder: |
+        // Example proposed syntax or API:
+        KromiumView(
+            state = state,
+            onBeforeDownload = { downloadItem, callback ->
+                callback.continueDownload(path = "/downloads/myfile.zip")
+            }
+        )
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Describe any workarounds or alternative solutions you have evaluated.
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Links to Chromium / CEF documentation, upstream JCEF issues, or relevant references.
+    validations:
+      required: false
