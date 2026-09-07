@@ -35,6 +35,11 @@ private const val TAG = "KromiumConfig"
 class KromiumConfig {
     /** Directory where the JCEF engine binaries will be installed. */
     var installDir: File = EngineRegistry.defaultInstallDir()
+        set(value) {
+            val sanitized = FileUtils.sanitizeDirectory(value)
+                ?: throw IllegalArgumentException("Invalid or unsafe install directory: ${value.path}")
+            field = sanitized
+        }
 
     /** Path for the CEF cache (cookies, localStorage, etc.). Null uses an in-memory cache. */
     var cachePath: String? = null

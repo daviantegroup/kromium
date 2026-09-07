@@ -12,7 +12,6 @@ import dev.daviante.kromium.presentation.network.*
 import dev.daviante.kromium.core.logging.*
 import dev.daviante.kromium.core.util.*
 
-
 import java.io.File
 
 object EngineRegistry {
@@ -36,38 +35,48 @@ object EngineRegistry {
                 if (!xdgData.isNullOrBlank()) File(xdgData, "kromium") else File(userHome, ".local/share/kromium")
             }
         }
-        return File(baseDir, "jcef-150-b11")
+        val target = File(baseDir, "jcef-150-b11")
+        return target.canonicalFile
     }
 
     fun isInstalled(installDir: File): Boolean {
-        if (!installDir.exists() || !installDir.isDirectory) return false
-        val lock = File(installDir, LOCK_FILE_NAME)
+        val safeDir = FileUtils.sanitizeDirectory(installDir) ?: return false
+        if (!safeDir.exists() || !safeDir.isDirectory) return false
+        val lock = FileUtils.resolveChild(safeDir, LOCK_FILE_NAME) ?: return false
         if (!lock.exists()) return false
 
         val platform = PlatformDetector.current()
+        fun checkFile(relative: String): Boolean {
+            val file = FileUtils.resolveChild(safeDir, relative) ?: return false
+            return file.exists()
+        }
+
         return when (platform.os) {
             OperatingSystem.Windows -> {
-                File(installDir, "jcef.dll").exists() ||
-                    File(installDir, "libcef.dll").exists() ||
-                    File(installDir, "bin/jcef.dll").exists() ||
-                    File(installDir, "bin/libcef.dll").exists()
+                checkFile("jcef.dll") ||
+                    checkFile("libcef.dll") ||
+                    checkFile("bin/jcef.dll") ||
+                    checkFile("bin/libcef.dll")
             }
             OperatingSystem.MacOS -> {
-                File(installDir, "Chromium Embedded Framework.framework").exists() ||
-                    File(installDir, "Frameworks/Chromium Embedded Framework.framework").exists()
+                checkFile("Chromium Embedded Framework.framework") ||
+                    checkFile("Frameworks/Chromium Embedded Framework.framework")
             }
             OperatingSystem.Linux -> {
-                File(installDir, "libcef.so").exists() ||
-                    File(installDir, "libjcef.so").exists() ||
-                    File(installDir, "lib/libcef.so").exists() ||
-                    File(installDir, "lib/libjcef.so").exists()
+                checkFile("libcef.so") ||
+                    checkFile("libjcef.so") ||
+                    checkFile("lib/libcef.so") ||
+                    checkFile("lib/libjcef.so")
             }
         }
     }
 
     fun markInstalled(installDir: File) {
-        val lock = File(installDir, LOCK_FILE_NAME)
-        val info = KromiumEngine.getInfo(installDir)
+        val safeDir = FileUtils.sanitizeDirectory(installDir)
+            ?: throw IllegalArgumentException("Invalid or unsafe install directory: ${installDir.path}")
+        val lock = FileUtils.resolveChild(safeDir, LOCK_FILE_NAME)
+            ?: throw IllegalStateException("Cannot resolve lock file in: ${safeDir.path}")
+        val info = KromiumEngine.getInfo(safeDir)
         val metadata = """
             {
                 "jcefVersion": "${info.jcefVersion}",
@@ -80,7 +89,7 @@ object EngineRegistry {
 
         val platform = PlatformDetector.current()
         if (platform.os.isMacOS) {
-            FileUtils.removeMacQuarantine(installDir)
+            FileUtils.removeMacQuarantine(safeDir)
         }
     }
 

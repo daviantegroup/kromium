@@ -1,49 +1,108 @@
 package dev.daviante.kromium.core.util
 
-import dev.daviante.kromium.domain.model.*
-import dev.daviante.kromium.domain.config.*
-import dev.daviante.kromium.domain.exception.*
-import dev.daviante.kromium.data.engine.*
-import dev.daviante.kromium.data.model.*
-import dev.daviante.kromium.presentation.browser.*
-import dev.daviante.kromium.presentation.handler.*
-import dev.daviante.kromium.presentation.js.*
-import dev.daviante.kromium.presentation.network.*
 import dev.daviante.kromium.core.logging.*
-import dev.daviante.kromium.core.util.*
-
-
 import java.io.File
 
 private const val TAG = "FileUtils"
 
 object FileUtils {
 
-    fun deleteDirectory(dir: File): Boolean {
-        if (!dir.exists()) return true
-        return try {
-            dir.deleteRecursively()
+    /**
+     * Validates and sanitizes a [dir] path to prevent path traversal (CWE-022)
+     * and accidental/malicious operations on sensitive system directories or roots.
+     *
+     * @return The canonical, validated [File] or null if validation fails.
+     */
+    fun sanitizeDirectory(dir: File): File? {
+        val rawPath = dir.path
+        if (rawPath.contains("..")) {
+            KromiumLogger.w(TAG, "Path traversal sequence detected in: $rawPath")
+            return null
+        }
+
+        val canonical = try {
+            dir.canonicalFile
         } catch (e: Exception) {
-            KromiumLogger.w(TAG, "Failed to delete directory: ${dir.absolutePath}", e)
+            KromiumLogger.w(TAG, "Failed to resolve canonical path for: $rawPath", e)
+            return null
+        }
+
+        val canonicalPath = canonical.canonicalPath
+        if (canonicalPath.contains("..")) {
+            return null
+        }
+
+        // Refuse operations on filesystem roots (e.g. "/" or "C:\")
+        val roots = File.listRoots()?.map { it.canonicalPath } ?: emptyList()
+        if (canonical.parentFile == null || roots.any { it.equals(canonicalPath, ignoreCase = true) }) {
+            KromiumLogger.w(TAG, "Refusing operation on filesystem root: $canonicalPath")
+            return null
+        }
+
+        // Refuse operations directly on the user's home directory root
+        val userHome = System.getProperty("user.home")?.let { File(it).canonicalPath }
+        if (userHome != null && canonicalPath == userHome) {
+            KromiumLogger.w(TAG, "Refusing operation on user home root directory: $canonicalPath")
+            return null
+        }
+
+        return canonical
+    }
+
+    /**
+     * Resolves a child file safely under [baseDir], ensuring it does not escape [baseDir].
+     */
+    fun resolveChild(baseDir: File, relativePath: String): File? {
+        if (relativePath.contains("..")) return null
+        val safeBase = sanitizeDirectory(baseDir) ?: return null
+        val basePath = safeBase.toPath().toAbsolutePath().normalize()
+        val resolved = basePath.resolve(relativePath).normalize()
+        if (!resolved.startsWith(basePath)) return null
+        return resolved.toFile()
+    }
+
+    fun deleteDirectory(dir: File): Boolean {
+        val safeDir = sanitizeDirectory(dir) ?: return false
+        if (!safeDir.exists()) return true
+        if (!safeDir.isDirectory) {
+            KromiumLogger.w(TAG, "Path is not a directory: ${safeDir.path}")
+            return false
+        }
+        return try {
+            safeDir.deleteRecursively()
+        } catch (e: Exception) {
+            KromiumLogger.w(TAG, "Failed to delete directory: ${safeDir.path}", e)
             false
         }
     }
 
     fun ensureDirectory(dir: File): Boolean {
-        return if (dir.exists()) {
-            dir.isDirectory
+        val safeDir = sanitizeDirectory(dir) ?: return false
+        return if (safeDir.exists()) {
+            safeDir.isDirectory
         } else {
-            val created = dir.mkdirs()
+            val created = safeDir.mkdirs()
             if (!created) {
-                KromiumLogger.w(TAG, "Failed to create directory: ${dir.absolutePath}")
+                KromiumLogger.w(TAG, "Failed to create directory: ${safeDir.path}")
             }
             created
         }
     }
 
     fun removeMacQuarantine(dir: File) {
+        val safeDir = sanitizeDirectory(dir) ?: return
+        if (!safeDir.exists() || !safeDir.isDirectory) return
+
+        val canonicalPath = safeDir.canonicalPath
+        // Ensure path does not begin with '-' to prevent option injection
+        if (canonicalPath.startsWith("-")) {
+            KromiumLogger.w(TAG, "Refusing to execute quarantine stripping on path starting with dash: $canonicalPath")
+            return
+        }
+
         try {
-            val process = ProcessBuilder("xattr", "-d", "-r", "com.apple.quarantine", dir.canonicalPath).start()
+            // Use '--' argument delimiter to prevent command line argument injection (CWE-88)
+            val process = ProcessBuilder("xattr", "-d", "-r", "com.apple.quarantine", "--", canonicalPath).start()
             process.waitFor()
         } catch (e: Exception) {
             KromiumLogger.d(TAG, "Could not remove macOS quarantine flag (expected on non-macOS): ${e.message}")
@@ -51,11 +110,19 @@ object FileUtils {
     }
 
     fun makeExecutable(file: File) {
+        val rawPath = file.path
+        if (rawPath.contains("..")) return
+        val canonical = try {
+            file.canonicalFile
+        } catch (e: Exception) {
+            return
+        }
+        if (!canonical.exists() || canonical.isDirectory) return
         try {
-            file.setExecutable(true, false)
-            file.setReadable(true, false)
+            canonical.setExecutable(true, false)
+            canonical.setReadable(true, false)
         } catch (e: SecurityException) {
-            KromiumLogger.w(TAG, "Failed to set executable permissions on: ${file.name}", e)
+            KromiumLogger.w(TAG, "Failed to set executable permissions on: ${canonical.name}", e)
         }
     }
 }

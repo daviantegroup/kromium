@@ -3,15 +3,8 @@ package dev.daviante.kromium.data.engine
 import dev.daviante.kromium.domain.model.*
 import dev.daviante.kromium.domain.config.*
 import dev.daviante.kromium.domain.exception.*
-import dev.daviante.kromium.data.engine.*
-import dev.daviante.kromium.data.model.*
-import dev.daviante.kromium.presentation.browser.*
-import dev.daviante.kromium.presentation.handler.*
-import dev.daviante.kromium.presentation.js.*
-import dev.daviante.kromium.presentation.network.*
 import dev.daviante.kromium.core.logging.*
 import dev.daviante.kromium.core.util.*
-
 
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
@@ -24,7 +17,10 @@ import java.io.FileOutputStream
 object EngineExtractor {
 
     fun extractTarGz(archiveFile: File, destinationDir: File, bufferSize: Int = 32 * 1024) {
-        FileUtils.ensureDirectory(destinationDir)
+        val safeDestination = FileUtils.sanitizeDirectory(destinationDir)
+            ?: throw IllegalArgumentException("Invalid destination directory: ${destinationDir.path}")
+        FileUtils.ensureDirectory(safeDestination)
+        val destinationBasePath = safeDestination.toPath().toAbsolutePath().normalize()
 
         FileInputStream(archiveFile).use { fis ->
             BufferedInputStream(fis, bufferSize).use { bis ->
@@ -34,15 +30,19 @@ object EngineExtractor {
                         val buffer = ByteArray(bufferSize)
 
                         while (entry != null) {
-                            val targetFile = File(destinationDir, entry.name)
+                            val entryName = entry.name
 
                             // Prevent Zip-Slip directory traversal
-                            val targetPath = targetFile.canonicalPath
-                            if (!targetPath.startsWith(destinationDir.canonicalPath + File.separator) &&
-                                targetPath != destinationDir.canonicalPath
-                            ) {
-                                throw KromiumException.MaliciousArchiveEntry(entry.name)
+                            if (entryName.contains("..") || entryName.contains("\u0000")) {
+                                throw KromiumException.MaliciousArchiveEntry(entryName)
                             }
+
+                            val resolvedPath = destinationBasePath.resolve(entryName).normalize()
+                            if (!resolvedPath.startsWith(destinationBasePath)) {
+                                throw KromiumException.MaliciousArchiveEntry(entryName)
+                            }
+
+                            val targetFile = resolvedPath.toFile()
 
                             if (entry.isDirectory) {
                                 targetFile.mkdirs()
@@ -70,23 +70,30 @@ object EngineExtractor {
         }
 
         // If the archive unpacked into a single nested subdirectory, flatten it
-        flattenIfSingleChild(destinationDir)
+        flattenIfSingleChild(safeDestination)
     }
 
     private fun flattenIfSingleChild(dir: File) {
-        var currentDir = dir
+        val safeDir = FileUtils.sanitizeDirectory(dir) ?: return
+        var currentDir = safeDir
         var children = currentDir.listFiles() ?: return
-        
+        val currentBasePath = currentDir.toPath().toAbsolutePath().normalize()
+
         while (children.size == 1 && children[0].isDirectory) {
             val nestedDir = children[0]
             val nestedChildren = nestedDir.listFiles() ?: return
-            
+
             for (child in nestedChildren) {
-                val dest = File(currentDir, child.name)
+                val childName = child.name
+                if (childName.contains("..") || childName.contains("\u0000")) continue
+                val destPath = currentBasePath.resolve(childName).normalize()
+                if (!destPath.startsWith(currentBasePath)) continue
+                val dest = destPath.toFile()
+
                 try {
                     java.nio.file.Files.move(
                         child.toPath(),
-                        dest.toPath(),
+                        destPath,
                         java.nio.file.StandardCopyOption.REPLACE_EXISTING,
                         java.nio.file.StandardCopyOption.ATOMIC_MOVE
                     )

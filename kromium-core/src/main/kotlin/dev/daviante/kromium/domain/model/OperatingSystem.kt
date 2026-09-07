@@ -50,40 +50,46 @@ sealed class OperatingSystem(val name: String, private vararg val aliases: Strin
 
     data object Linux : OperatingSystem("linux", "linux") {
         override fun getBrowserPath(installDir: File): String {
+            val safeBase = FileUtils.sanitizeDirectory(installDir) ?: installDir.canonicalFile
             val candidates = listOf(
-                File(installDir, "lib/jcef_helper"),
-                File(installDir, "bin/jcef_helper"),
-                File(installDir, "jcef_helper")
-            )
-            return (candidates.firstOrNull { it.exists() } ?: candidates.first()).canonicalPath
+                FileUtils.resolveChild(safeBase, "lib/jcef_helper"),
+                FileUtils.resolveChild(safeBase, "bin/jcef_helper"),
+                FileUtils.resolveChild(safeBase, "jcef_helper")
+            ).filterNotNull()
+            return (candidates.firstOrNull { it.exists() } ?: File(safeBase, "lib/jcef_helper")).canonicalPath
         }
 
         override fun getResourcesPath(installDir: File): String {
-            val libDir = File(installDir, "lib")
-            if (File(libDir, "resources.pak").exists()) {
+            val safeBase = FileUtils.sanitizeDirectory(installDir) ?: installDir.canonicalFile
+            val libDir = FileUtils.resolveChild(safeBase, "lib")
+            val pak = libDir?.let { FileUtils.resolveChild(it, "resources.pak") }
+            if (libDir != null && pak != null && pak.exists()) {
                 return libDir.canonicalPath
             }
-            return installDir.canonicalPath
+            return safeBase.canonicalPath
         }
     }
 
     data object Windows : OperatingSystem("windows", "win", "windows") {
         override fun getBrowserPath(installDir: File): String {
+            val safeBase = FileUtils.sanitizeDirectory(installDir) ?: installDir.canonicalFile
             val candidates = listOf(
-                File(installDir, "bin/jcef_helper.exe"),
-                File(installDir, "jcef_helper.exe"),
-                File(installDir, "bin/jcef_helper"),
-                File(installDir, "jcef_helper")
-            )
-            return (candidates.firstOrNull { it.exists() } ?: candidates.first()).canonicalPath
+                FileUtils.resolveChild(safeBase, "bin/jcef_helper.exe"),
+                FileUtils.resolveChild(safeBase, "jcef_helper.exe"),
+                FileUtils.resolveChild(safeBase, "bin/jcef_helper"),
+                FileUtils.resolveChild(safeBase, "jcef_helper")
+            ).filterNotNull()
+            return (candidates.firstOrNull { it.exists() } ?: File(safeBase, "bin/jcef_helper.exe")).canonicalPath
         }
 
         override fun getResourcesPath(installDir: File): String {
-            val binDir = File(installDir, "bin")
-            if (File(binDir, "resources.pak").exists()) {
+            val safeBase = FileUtils.sanitizeDirectory(installDir) ?: installDir.canonicalFile
+            val binDir = FileUtils.resolveChild(safeBase, "bin")
+            val pak = binDir?.let { FileUtils.resolveChild(it, "resources.pak") }
+            if (binDir != null && pak != null && pak.exists()) {
                 return binDir.canonicalPath
             }
-            return installDir.canonicalPath
+            return safeBase.canonicalPath
         }
     }
 

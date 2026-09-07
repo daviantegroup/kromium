@@ -71,34 +71,40 @@ object CefBootstrapper {
         }
 
         // Configure default paths if not explicitly overridden
+        val safeInstallDir = FileUtils.sanitizeDirectory(installDir) ?: installDir.canonicalFile
+
         if (cefSettings.locales_dir_path.isNullOrEmpty() && !os.isMacOS) {
-            val binLocales = File(installDir, "bin/locales")
-            val libLocales = File(installDir, "lib/locales")
-            val rootLocales = File(installDir, "locales")
+            val binLocales = FileUtils.resolveChild(safeInstallDir, "bin/locales")
+            val libLocales = FileUtils.resolveChild(safeInstallDir, "lib/locales")
+            val rootLocales = FileUtils.resolveChild(safeInstallDir, "locales")
             val resolvedLocales = when {
-                binLocales.exists() -> binLocales
-                libLocales.exists() -> libLocales
-                else -> rootLocales
+                binLocales != null && binLocales.exists() -> binLocales
+                libLocales != null && libLocales.exists() -> libLocales
+                else -> rootLocales ?: File(safeInstallDir, "locales")
             }
             cefSettings.locales_dir_path = resolvedLocales.canonicalPath
         }
 
         if (cefSettings.resources_dir_path.isNullOrEmpty() && !os.isMacOS) {
-            cefSettings.resources_dir_path = os.getResourcesPath(installDir)
+            cefSettings.resources_dir_path = os.getResourcesPath(safeInstallDir)
         }
 
         if (cefSettings.browser_subprocess_path.isNullOrEmpty()) {
-            val subProcessPath = os.getBrowserPath(installDir)
-            if (!File(subProcessPath).exists()) {
+            val subProcessPath = os.getBrowserPath(safeInstallDir)
+            val subProcessFile = try { File(subProcessPath).canonicalFile } catch (e: Exception) { File(subProcessPath) }
+            if (!subProcessFile.exists()) {
                 throw KromiumException.BootstrapFailed(
                     IllegalStateException("Browser subprocess executable not found at: $subProcessPath")
                 )
             }
-            cefSettings.browser_subprocess_path = subProcessPath
-        } else if (!File(cefSettings.browser_subprocess_path).exists()) {
-            throw KromiumException.BootstrapFailed(
-                IllegalStateException("Configured browser subprocess executable not found at: ${cefSettings.browser_subprocess_path}")
-            )
+            cefSettings.browser_subprocess_path = subProcessFile.canonicalPath
+        } else {
+            val configuredFile = try { File(cefSettings.browser_subprocess_path).canonicalFile } catch (e: Exception) { File(cefSettings.browser_subprocess_path) }
+            if (!configuredFile.exists()) {
+                throw KromiumException.BootstrapFailed(
+                    IllegalStateException("Configured browser subprocess executable not found at: ${cefSettings.browser_subprocess_path}")
+                )
+            }
         }
 
         // Prepare startup arguments
