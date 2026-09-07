@@ -166,15 +166,19 @@ jobs:
           UPSTREAM_VER=$(cat jcef-version.txt 2>/dev/null || echo "")
 
           echo "Creating GitHub Release for $TAG_NAME..."
+          {
+            echo "### Automated Release $TAG_NAME"
+            echo ""
+            echo "- **Chromium / JCEF Runtime**: \`$UPSTREAM_VER\`"
+            echo "- **Compose Multiplatform Coordinates**: \`dev.daviante:kromium-compose:$PROJECT_VERSION\`"
+            echo "- **Core JVM Coordinates**: \`dev.daviante:kromium-core:$PROJECT_VERSION\`"
+            echo ""
+            echo "Published automatically via JCEF update merge."
+          } > release_notes.md
+
           gh release create "$TAG_NAME" \
             --title "Kromium $TAG_NAME" \
-            --notes "### Automated Release $TAG_NAME
-
-- **Chromium / JCEF Runtime**: \`${UPSTREAM_VER}\`
-- **Compose Multiplatform Coordinates**: \`dev.daviante:kromium-compose:${PROJECT_VERSION}\`
-- **Core JVM Coordinates**: \`dev.daviante:kromium-core:${PROJECT_VERSION}\`
-
-Published automatically via JCEF update merge."
+            --notes-file release_notes.md
 
       - name: Build, Sign & Package Publications
         if: steps.check_trigger.outputs.proceed == 'true'
