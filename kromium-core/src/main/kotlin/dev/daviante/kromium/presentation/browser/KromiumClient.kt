@@ -44,7 +44,7 @@ class KromiumClient(
 
     var requestInterceptor: KromiumRequestInterceptor? = null
     var downloadListener: KromiumDownloadListener? = null
-    var downloadDirectory: java.io.File = java.io.File(System.getProperty("user.home"), "Downloads")
+    var downloadDirectory: java.io.File = resolveDefaultDownloadDirectory()
     var onBeforeDownloadListener: ((item: KromiumDownloadItem, suggestedFileName: String) -> String?)? = null
     private val downloadCallbacks = java.util.concurrent.ConcurrentHashMap<Int, CefDownloadItemCallback>()
 
@@ -327,7 +327,11 @@ class KromiumClient(
                     .replace("[?%*:|\"<>]".toRegex(), "_")
                     .ifBlank { "download" }
 
-                val targetDir = downloadDirectory.apply { if (!exists()) mkdirs() }
+                val targetDir = if (downloadDirectory.canWrite() || downloadDirectory.mkdirs()) {
+                    downloadDirectory
+                } else {
+                    resolveDefaultDownloadDirectory()
+                }
                 val targetFile = getNonConflictingDownloadFile(targetDir, cleanName)
                 val defaultTargetPath = targetFile.absolutePath
 
@@ -349,21 +353,22 @@ class KromiumClient(
 
                 val customPath = if (item != null) onBeforeDownloadListener?.invoke(item, cleanName) else null
 
-                when {
+                return when {
                     customPath != null && customPath.isBlank() -> {
                         KromiumLogger.i(TAG, "Download canceled: $cleanName")
-                        return true
+                        false
                     }
                     customPath != null -> {
                         KromiumLogger.i(TAG, "Downloading $cleanName to custom path: $customPath")
                         callback.Continue(customPath, false)
+                        true
                     }
                     else -> {
                         KromiumLogger.i(TAG, "Downloading $cleanName to: $defaultTargetPath")
                         callback.Continue(defaultTargetPath, false)
+                        true
                     }
                 }
-                return false
             }
 
             override fun onDownloadUpdated(
@@ -583,6 +588,28 @@ class KromiumClient(
             rawClient.dispose()
         } catch (e: Throwable) {
             KromiumLogger.w(TAG, "Error during client disposal", e)
+        }
+    }
+
+    companion object {
+        fun resolveDefaultDownloadDirectory(): java.io.File {
+            val userDownloads = java.io.File(System.getProperty("user.home"), "Downloads")
+            return try {
+                if (!userDownloads.exists()) userDownloads.mkdirs()
+                if (userDownloads.canWrite()) {
+                    userDownloads
+                } else {
+                    getFallbackDownloadDirectory()
+                }
+            } catch (_: Throwable) {
+                getFallbackDownloadDirectory()
+            }
+        }
+
+        private fun getFallbackDownloadDirectory(): java.io.File {
+            val fallback = java.io.File(System.getProperty("user.home"), "KromiumDownloads")
+            if (!fallback.exists()) fallback.mkdirs()
+            return fallback
         }
     }
 }
