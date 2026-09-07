@@ -27,9 +27,18 @@ jobs:
     timeout-minutes: 25
 
     steps:
-      - name: Checkout Kromium Repository
-        uses: actions/checkout@v7
+      - name: Generate GitHub App Token for Daviante Releaser
+        id: app_token
+        uses: actions/create-github-app-token@v1
+        continue-on-error: true
         with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      - name: Checkout Kromium Repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
       - name: Setup Java Development Kit (JDK 21)
@@ -121,7 +130,8 @@ jobs:
         id: test_and_report
         if: steps.download_jcef.outputs.downloaded == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
+          APP_SLUG: ${{ steps.app_token.outputs.app-slug || 'daviante-releaser' }}
           UPSTREAM_VERSION: ${{ steps.version_check.outputs.upstream_version }}
           CURRENT_VERSION: ${{ steps.version_check.outputs.current_version }}
         run: bash .github/scripts/test_and_report.sh

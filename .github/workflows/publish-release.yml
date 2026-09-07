@@ -43,10 +43,19 @@ jobs:
     timeout-minutes: 35
 
     steps:
+      - name: Generate GitHub App Token for Daviante Releaser
+        id: app_token
+        uses: actions/create-github-app-token@v1
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+          token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
       - name: Check Trigger Condition (PR Merge & JAR Update)
@@ -172,15 +181,20 @@ jobs:
       - name: Create Git Tag and GitHub Release
         if: steps.check_trigger.outputs.proceed == 'true' && steps.preflight.outputs.proceed == 'true' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.event_name == 'push') && inputs.dry_run != true
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
         run: |
           PROJECT_VERSION="${{ steps.preflight.outputs.project_version }}"
           TAG_NAME="v$PROJECT_VERSION"
 
           if [ "${{ github.event_name }}" != "push" ]; then
             echo "Creating Git Tag: $TAG_NAME"
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
+            if [ -n "${{ steps.app_token.outputs.token }}" ]; then
+              git config user.name "daviante-releaser[bot]"
+              git config user.email "${{ steps.app_token.outputs.app-slug || 'daviante-releaser' }}[bot]@users.noreply.github.com"
+            else
+              git config user.name "github-actions[bot]"
+              git config user.email "github-actions[bot]@users.noreply.github.com"
+            fi
             git tag -a "$TAG_NAME" -m "Release $TAG_NAME"
             git push origin "$TAG_NAME"
           fi

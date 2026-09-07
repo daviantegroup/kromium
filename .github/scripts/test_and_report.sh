@@ -5,8 +5,13 @@ UPSTREAM_VERSION="${UPSTREAM_VERSION:-unknown}"
 CURRENT_VERSION="${CURRENT_VERSION:-unknown}"
 
 # Configure git identity
-git config user.name "github-actions[bot]"
-git config user.email "github-actions[bot]@users.noreply.github.com"
+if [ -n "$APP_SLUG" ]; then
+  git config user.name "${APP_SLUG}[bot]"
+  git config user.email "${APP_SLUG}[bot]@users.noreply.github.com"
+else
+  git config user.name "github-actions[bot]"
+  git config user.email "github-actions[bot]@users.noreply.github.com"
+fi
 
 # Run tests and catch exit code safely without crashing
 set +e
