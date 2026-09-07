@@ -94,7 +94,18 @@ object Kromium {
 
             try {
                 _state.value = KromiumState.Locating
-                val installDir = config.installDir
+                val rawInstallDir = config.installDir
+                if (rawInstallDir.path.contains("..")) {
+                    throw KromiumException.InstallationFailed("Invalid installation directory: traversal detected in ${rawInstallDir.path}")
+                }
+                val installDir = rawInstallDir.canonicalFile
+                if (installDir.path.contains("..")) {
+                    throw KromiumException.InstallationFailed("Invalid installation directory: traversal detected in ${installDir.path}")
+                }
+                val parentDir = installDir.parentFile
+                if (parentDir != null && !installDir.canonicalPath.startsWith(parentDir.canonicalPath)) {
+                    throw KromiumException.InstallationFailed("Invalid installation directory: boundary check failed for ${installDir.path}")
+                }
                 KromiumLogger.i(TAG, "Install directory: ${installDir.absolutePath}")
 
                 if (!EngineRegistry.isInstalled(installDir)) {

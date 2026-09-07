@@ -212,8 +212,17 @@ class KromiumConfig {
         } else {
             try {
                 val base = installDir.canonicalFile
-                val target = base.parentFile?.let { File(it, "cache") } ?: File(base, "cache")
-                target.apply { mkdirs() }.canonicalPath
+                if (base.path.contains("..")) {
+                    null
+                } else {
+                    val parent = base.parentFile ?: base
+                    val target = File(parent, "cache").canonicalFile
+                    if (!target.canonicalPath.startsWith(parent.canonicalPath)) {
+                        null
+                    } else {
+                        target.apply { mkdirs() }.canonicalPath
+                    }
+                }
             } catch (_: Exception) { null }
         }
 

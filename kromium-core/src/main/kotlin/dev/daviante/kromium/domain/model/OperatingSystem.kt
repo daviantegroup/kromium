@@ -42,16 +42,27 @@ sealed class OperatingSystem(val name: String, private vararg val aliases: Strin
          * Chromium Embedded Framework.framework and helper apps via standard rpath.
          */
         fun ensureMacFrameworkLinks(installDir: File) {
-            val safeBase = FileUtils.sanitizeDirectory(installDir) ?: installDir.canonicalFile
-            val frameworksDir = File(safeBase, "Frameworks")
-            val cefServerFrameworks = File(frameworksDir, "cef_server.app/Contents/Frameworks")
+            val safeBase = installDir.canonicalFile
+            if (safeBase.path.contains("..")) return
+
+            val frameworksDir = File(safeBase, "Frameworks").canonicalFile
+            if (!frameworksDir.canonicalPath.startsWith(safeBase.canonicalPath)) return
+
+            val cefServerFrameworks = File(frameworksDir, "cef_server.app/Contents/Frameworks").canonicalFile
+            if (!cefServerFrameworks.canonicalPath.startsWith(frameworksDir.canonicalPath)) return
 
             if (cefServerFrameworks.exists() && cefServerFrameworks.isDirectory) {
                 frameworksDir.mkdirs()
                 val children = cefServerFrameworks.listFiles() ?: emptyArray()
                 for (child in children) {
-                    val linkTarget = java.nio.file.Path.of("cef_server.app/Contents/Frameworks/${child.name}")
-                    val symlinkFile = File(frameworksDir, child.name)
+                    val childName = child.name
+                    if (childName.contains("..") || childName.contains("/") || childName.contains("\\")) continue
+                    val symlinkFile = File(frameworksDir, childName).canonicalFile
+                    if (!symlinkFile.canonicalPath.startsWith(frameworksDir.canonicalPath)) continue
+                    val childCanonical = child.canonicalFile
+                    if (!childCanonical.canonicalPath.startsWith(cefServerFrameworks.canonicalPath)) continue
+
+                    val linkTarget = java.nio.file.Path.of("cef_server.app/Contents/Frameworks/$childName")
                     // Remove broken or dangling symlink if present
                     if (java.nio.file.Files.isSymbolicLink(symlinkFile.toPath()) && !symlinkFile.exists()) {
                         try { java.nio.file.Files.delete(symlinkFile.toPath()) } catch (_: Throwable) {}
@@ -62,19 +73,21 @@ sealed class OperatingSystem(val name: String, private vararg val aliases: Strin
                             java.nio.file.Files.createSymbolicLink(symlinkFile.toPath(), linkTarget)
                         } catch (e: Exception) {
                             try {
-                                if (child.isDirectory) {
-                                    child.copyRecursively(symlinkFile, overwrite = true)
+                                if (childCanonical.isDirectory) {
+                                    childCanonical.copyRecursively(symlinkFile, overwrite = true)
                                 } else {
-                                    java.nio.file.Files.copy(child.toPath(), symlinkFile.toPath())
+                                    java.nio.file.Files.copy(childCanonical.toPath(), symlinkFile.toPath())
                                 }
                             } catch (t: Throwable) {
-                                KromiumLogger.w("MacOS", "Failed to link or copy ${child.name} to Frameworks", t)
+                                KromiumLogger.w("MacOS", "Failed to link or copy $childName to Frameworks", t)
                             }
                         }
                     }
                 }
 
-                val rootFrameworkLink = File(safeBase, "Chromium Embedded Framework.framework")
+                val rootFrameworkLink = File(safeBase, "Chromium Embedded Framework.framework").canonicalFile
+                if (!rootFrameworkLink.canonicalPath.startsWith(safeBase.canonicalPath)) return
+
                 if (java.nio.file.Files.isSymbolicLink(rootFrameworkLink.toPath()) && !rootFrameworkLink.exists()) {
                     try { java.nio.file.Files.delete(rootFrameworkLink.toPath()) } catch (_: Throwable) {}
                 }

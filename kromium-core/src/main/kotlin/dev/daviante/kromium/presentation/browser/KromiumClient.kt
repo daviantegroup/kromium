@@ -1033,7 +1033,18 @@ class KromiumClient(
         }
 
         fun resolveDefaultDownloadDirectory(): java.io.File {
-            val userDownloads = java.io.File(System.getProperty("user.home"), "Downloads")
+            val rawHome = System.getProperty("user.home") ?: "."
+            if (rawHome.contains("..")) {
+                return java.io.File("Downloads").canonicalFile.apply { mkdirs() }
+            }
+            val homeDir = java.io.File(rawHome).canonicalFile
+            if (homeDir.path.contains("..")) {
+                return java.io.File("Downloads").canonicalFile.apply { mkdirs() }
+            }
+            val userDownloads = java.io.File(homeDir, "Downloads").canonicalFile
+            if (!userDownloads.canonicalPath.startsWith(homeDir.canonicalPath)) {
+                return getFallbackDownloadDirectory()
+            }
             return try {
                 if (!userDownloads.exists()) userDownloads.mkdirs()
                 if (userDownloads.canWrite()) {
@@ -1047,7 +1058,18 @@ class KromiumClient(
         }
 
         private fun getFallbackDownloadDirectory(): java.io.File {
-            val fallback = java.io.File(System.getProperty("user.home"), "KromiumDownloads")
+            val rawHome = System.getProperty("user.home") ?: "."
+            if (rawHome.contains("..")) {
+                return java.io.File("KromiumDownloads").canonicalFile.apply { mkdirs() }
+            }
+            val homeDir = java.io.File(rawHome).canonicalFile
+            if (homeDir.path.contains("..")) {
+                return java.io.File("KromiumDownloads").canonicalFile.apply { mkdirs() }
+            }
+            val fallback = java.io.File(homeDir, "KromiumDownloads").canonicalFile
+            if (!fallback.canonicalPath.startsWith(homeDir.canonicalPath)) {
+                return java.io.File("KromiumDownloads").canonicalFile.apply { mkdirs() }
+            }
             if (!fallback.exists()) fallback.mkdirs()
             return fallback
         }

@@ -223,48 +223,85 @@ object CefBootstrapper {
     }
 
     private fun loadNativeLibrary(dir: File, baseName: String, platform: PlatformInfo): Boolean {
+        if (dir.path.contains("..") || baseName.contains("..") || baseName.contains("/") || baseName.contains("\\")) {
+            return false
+        }
+        val canonicalDir = dir.canonicalFile
+        if (canonicalDir.path.contains("..")) return false
+
         val ext = platform.os.dynamicLibraryExtension
 
         val searchDirs = mutableListOf<File>()
-        searchDirs.add(dir)
-        File(dir, "bin").takeIf { it.exists() }?.let { searchDirs.add(it) }
-        File(dir, "lib").takeIf { it.exists() }?.let { searchDirs.add(it) }
-        File(dir, "Home/lib").takeIf { it.exists() }?.let { searchDirs.add(it) }
+        searchDirs.add(canonicalDir)
+
+        val binDir = File(canonicalDir, "bin").canonicalFile
+        if (binDir.canonicalPath.startsWith(canonicalDir.canonicalPath) && binDir.exists()) searchDirs.add(binDir)
+
+        val libDir = File(canonicalDir, "lib").canonicalFile
+        if (libDir.canonicalPath.startsWith(canonicalDir.canonicalPath) && libDir.exists()) searchDirs.add(libDir)
+
+        val homeLibDir = File(canonicalDir, "Home/lib").canonicalFile
+        if (homeLibDir.canonicalPath.startsWith(canonicalDir.canonicalPath) && homeLibDir.exists()) searchDirs.add(homeLibDir)
 
         // Also check sibling bin/lib if dir points to a subfolder
-        dir.parentFile?.let { parent ->
-            File(parent, "bin").takeIf { it.exists() && !searchDirs.contains(it) }?.let { searchDirs.add(it) }
-            File(parent, "lib").takeIf { it.exists() && !searchDirs.contains(it) }?.let { searchDirs.add(it) }
+        canonicalDir.parentFile?.let { parent ->
+            val parentCanonical = parent.canonicalFile
+            val pBin = File(parentCanonical, "bin").canonicalFile
+            if (pBin.canonicalPath.startsWith(parentCanonical.canonicalPath) && pBin.exists() && !searchDirs.contains(pBin)) {
+                searchDirs.add(pBin)
+            }
+            val pLib = File(parentCanonical, "lib").canonicalFile
+            if (pLib.canonicalPath.startsWith(parentCanonical.canonicalPath) && pLib.exists() && !searchDirs.contains(pLib)) {
+                searchDirs.add(pLib)
+            }
         }
 
         // Include JVM home lib/bin paths for reliable JAWT resolution across all OSes
-        val javaHome = System.getProperty("java.home")?.let { File(it) }
+        val rawJavaHome = System.getProperty("java.home")
+        val javaHome = if (!rawJavaHome.isNullOrBlank() && !rawJavaHome.contains("..")) {
+            val jf = File(rawJavaHome).canonicalFile
+            if (!jf.path.contains("..")) jf else null
+        } else null
+
         if (javaHome != null && javaHome.exists()) {
-            File(javaHome, "bin").takeIf { it.exists() }?.let { searchDirs.add(it) }
-            File(javaHome, "lib").takeIf { it.exists() }?.let { searchDirs.add(it) }
+            val jHomeCanonical = javaHome.canonicalFile
+            val jBin = File(jHomeCanonical, "bin").canonicalFile
+            if (jBin.canonicalPath.startsWith(jHomeCanonical.canonicalPath) && jBin.exists()) searchDirs.add(jBin)
+            val jLib = File(jHomeCanonical, "lib").canonicalFile
+            if (jLib.canonicalPath.startsWith(jHomeCanonical.canonicalPath) && jLib.exists()) searchDirs.add(jLib)
         }
 
         // On macOS, search Frameworks directories where native libraries may reside
         if (platform.os.isMacOS) {
-            val frameworksDir = File(dir, "Frameworks")
-            if (frameworksDir.exists()) searchDirs.add(frameworksDir)
-            val cefServerFrameworks = File(dir, "Frameworks/cef_server.app/Contents/Frameworks")
-            if (cefServerFrameworks.exists()) searchDirs.add(cefServerFrameworks)
-            val cefFrameworkLibs = File(cefServerFrameworks, "Chromium Embedded Framework.framework/Libraries")
-            if (cefFrameworkLibs.exists()) searchDirs.add(cefFrameworkLibs)
-            val directCefFrameworkLibs = File(frameworksDir, "Chromium Embedded Framework.framework/Libraries")
-            if (directCefFrameworkLibs.exists()) searchDirs.add(directCefFrameworkLibs)
+            val frameworksDir = File(canonicalDir, "Frameworks").canonicalFile
+            if (frameworksDir.canonicalPath.startsWith(canonicalDir.canonicalPath) && frameworksDir.exists()) {
+                searchDirs.add(frameworksDir)
+                val directCefFrameworkLibs = File(frameworksDir, "Chromium Embedded Framework.framework/Libraries").canonicalFile
+                if (directCefFrameworkLibs.canonicalPath.startsWith(frameworksDir.canonicalPath) && directCefFrameworkLibs.exists()) {
+                    searchDirs.add(directCefFrameworkLibs)
+                }
+            }
+
+            val cefServerFrameworks = File(canonicalDir, "Frameworks/cef_server.app/Contents/Frameworks").canonicalFile
+            if (cefServerFrameworks.canonicalPath.startsWith(canonicalDir.canonicalPath) && cefServerFrameworks.exists()) {
+                searchDirs.add(cefServerFrameworks)
+                val cefFrameworkLibs = File(cefServerFrameworks, "Chromium Embedded Framework.framework/Libraries").canonicalFile
+                if (cefFrameworkLibs.canonicalPath.startsWith(cefServerFrameworks.canonicalPath) && cefFrameworkLibs.exists()) {
+                    searchDirs.add(cefFrameworkLibs)
+                }
+            }
         }
 
         for (searchDir in searchDirs) {
+            val sCanonical = searchDir.canonicalFile
             val candidates = listOf(
-                File(searchDir, "$baseName$ext"),
-                File(searchDir, "lib$baseName$ext"),
-                File(searchDir, baseName)
+                File(sCanonical, "$baseName$ext").canonicalFile,
+                File(sCanonical, "lib$baseName$ext").canonicalFile,
+                File(sCanonical, baseName).canonicalFile
             )
 
             for (file in candidates) {
-                if (file.exists()) {
+                if (file.canonicalPath.startsWith(sCanonical.canonicalPath) && file.exists()) {
                     try {
                         System.load(file.canonicalPath)
                         return true
