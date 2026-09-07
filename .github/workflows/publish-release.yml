@@ -171,13 +171,26 @@ jobs:
 
           echo "Creating GitHub Release for $TAG_NAME..."
           {
-            echo "### Automated Release $TAG_NAME"
+            echo "### 🚀 Kromium $TAG_NAME"
             echo ""
-            echo "- **Chromium / JCEF Runtime**: \`$UPSTREAM_VER\`"
-            echo "- **Compose Multiplatform Coordinates**: \`dev.daviante:kromium-compose:$PROJECT_VERSION\`"
-            echo "- **Core JVM Coordinates**: \`dev.daviante:kromium-core:$PROJECT_VERSION\`"
+            echo "Automated release of Kromium compiled against certified upstream JCEF runtime \`$UPSTREAM_VER\`."
             echo ""
-            echo "Published automatically via JCEF update merge."
+            echo "#### 📦 Coordinates"
+            echo "\`\`\`kotlin"
+            echo "dependencies {"
+            echo "    // Compose Multiplatform Desktop"
+            echo "    implementation(\"dev.daviante:kromium-compose:$PROJECT_VERSION\")"
+            echo ""
+            echo "    // Standalone Kotlin JVM / Swing"
+            echo "    // implementation(\"dev.daviante:kromium-core:$PROJECT_VERSION\")"
+            echo "}"
+            echo "\`\`\`"
+            echo ""
+            echo "#### ⚙️ Engine Details"
+            echo "- **Upstream JCEF Runtime**: \`$UPSTREAM_VER\`"
+            echo "- **Native Cache Directory**: \`jcef-$(echo "$PROJECT_VERSION" | sed 's/^1\.0\.//')\`"
+            echo ""
+            echo "📖 **Documentation**: [kromium.daviante.dev](https://kromium.daviante.dev) &bull; **Changelog**: [CHANGELOG.md](CHANGELOG.md)"
           } > release_notes.md
 
           gh release create "$TAG_NAME" \
