@@ -20,6 +20,14 @@ object EngineRegistry {
 
     @JvmStatic
     fun defaultInstallDir(): File {
+        val customProp = System.getProperty("kromium.install.dir")
+        if (!customProp.isNullOrBlank() && !customProp.contains("..")) {
+            val f = File(customProp).canonicalFile
+            if (!f.path.contains("..")) {
+                return f
+            }
+        }
+
         val platform = PlatformDetector.current()
         val rawHome = System.getProperty("user.home") ?: "."
         if (rawHome.contains("..")) {
