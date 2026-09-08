@@ -72,21 +72,29 @@ When `KromiumEngine.initialize()` is called:
 
 ## 🖥️ Rendering Modes: Windowed vs. Off-Screen (OSR)
 
-Kromium supports two distinct rendering pipelines, configurable via `KromiumConfig`:
+Kromium supports two distinct rendering pipelines to safely bridge Chromium into the JVM environment. The default mode depends on your UI framework:
 
-```kotlin
-val config = KromiumConfig(
-    isOffScreenRenderingEnabled = false // default: Windowed mode
-)
-```
+### The "Heavyweight vs. Lightweight" Java Flaw
+Historically, Java AWT components (like native OS window handles) are known as **Heavyweight** components, while Swing components (like `JButton`, `JTextField`) are drawn purely in Java memory as **Lightweight** components. 
 
-| Feature | Windowed Rendering (`false`, Default) | Off-Screen Rendering (`true`, OSR) |
+Embedding a native Chromium window inside a Java Swing hierarchy creates a severe Heavyweight/Lightweight mixing conflict. Because the native OS window always renders independently, it permanently sits on top of all Swing components (causing Z-ordering bugs where dropdown menus hide behind the browser) and bypasses Java's keyboard focus manager (causing focus-stealing loops).
+
+### Off-Screen Rendering (OSR) for Java Swing
+To solve this fundamental Java architectural limitation, **Kromium defaults to OSR (`isOffScreenRendered = true`) for all pure Java/Swing integrations.**
+
+In OSR mode, Chromium uses JOGL (Java OpenGL) to render web frames purely into an off-screen memory buffer (a Lightweight `GLJPanel`). Because there is no native OS window handle, the browser plays perfectly by Swing's rules: Z-ordering is flawless, popups render on top, and keyboard focus is strictly managed by Java.
+
+### Windowed Mode for Compose Desktop
+Jetpack Compose Desktop operates differently. It utilizes Skia for drawing and explicitly supports embedding Heavyweight components via `SwingPanel` by intelligently cutting transparent "holes" in its own canvas to let the underlying native OS window shine through. 
+
+Because Compose gracefully handles Heavyweight clipping, **Kromium Compose explicitly defaults to Windowed mode (`isOffScreenRendered = false`)** to leverage direct hardware-accelerated zero-copy compositing for maximum performance.
+
+| Feature | Windowed Rendering (Compose Default) | Off-Screen Rendering (Swing Default) |
 |:---|:---|:---|
-| **Underlying Component** | Native OS Window Handle (`HWND`, `NSView`, `X11 Window`) embedded in Swing hierarchy. | Raw memory pixel buffer (`ByteBuffer`) painted onto a Java/Skia surface. |
-| **Performance** | **Maximum 60/120+ FPS**. Direct GPU zero-copy compositing. | Good (CPU-GPU pixel buffer copying overhead). |
-| **Input Handling** | Native OS event dispatching (accelerators, IME Japanese/Chinese inputs, smooth trackpad gestures). | Synthesized mouse and keyboard events forwarded from Compose. |
-| **Compose Overlays** | Native window renders above standard Swing/AWT surfaces unless layered using Compose popup windows. | Seamlessly allows semi-transparent Compose overlays directly on top of the browser view. |
-| **Recommendation** | **Recommended for 99% of desktop use cases** (web browsers, portals, dashboards). | Recommended when custom Compose animations or clipping masks must overlay web content. |
+| **Underlying Component** | Native OS Window Handle (`HWND`, `NSView`) embedded directly. | Lightweight Java2D/OpenGL buffer (`GLJPanel`). |
+| **Performance** | **Maximum 60/120+ FPS**. Direct GPU zero-copy compositing. | Excellent, but incurs a minor CPU-GPU buffer copy overhead. |
+| **Focus & Z-Ordering** | Managed natively by the OS (Can break pure Swing apps). | Managed perfectly by the Java AWT Focus Manager. |
+| **Compose Overlays** | Requires Compose popup windows to float above. | Allows direct semi-transparent Compose overlays. |
 
 ---
 
