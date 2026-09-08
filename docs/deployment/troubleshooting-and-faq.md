@@ -1,60 +1,119 @@
-# Troubleshooting & FAQ
+# Troubleshooting & Frequently Asked Questions
 
-[Documentation Hub](../README.md) &bull; **Deployment** &bull; Troubleshooting & FAQ
+This guide diagnoses common runtime errors, native crashes, missing library issues, and answers frequently asked architecture questions.
 
 ---
 
-## ❓ Frequently Asked Questions
+## 🔧 Common Errors & Solutions
 
-### 1. The browser window displays a black or white blank screen.
-**Cause**: GPU driver incompatibility or hardware acceleration compositing conflicts with the Swing `SwingPanel`.  
-**Solution**: By default, Kromium includes `--disable-gpu-compositing` to ensure smooth Swing compositing. If issues persist on specific hardware, completely disable GPU rendering:
+### 1. `InaccessibleObjectException: module java.desktop does not "opens sun.awt"`
+
+**Symptom:**
+```
+java.lang.reflect.InaccessibleObjectException: Unable to make field private long sun.awt.X11ComponentPeer.window accessible: 
+module java.desktop does not "opens sun.awt" to unnamed module
+```
+
+**Cause:**
+Modern Java (Java 17, 21, 25) strictly encapsulates internal JDK packages (`sun.awt`). The JCEF native bridge requires access to native window pointers.
+
+**Solution:**
+Add the `--add-opens` flags to your JVM execution arguments:
+```
+--add-opens=java.desktop/sun.awt=ALL-UNNAMED
+--add-opens=java.desktop/java.awt.peer=ALL-UNNAMED
+```
+
+In Gradle (`build.gradle.kts`):
 ```kotlin
-Kromium.initialize {
-    addArgs("--disable-gpu", "--disable-software-rasterizer")
+tasks.withType<JavaExec> {
+    jvmArgs(
+        "--add-opens=java.desktop/sun.awt=ALL-UNNAMED",
+        "--add-opens=java.desktop/java.awt.peer=ALL-UNNAMED"
+    )
 }
 ```
 
 ---
 
-### 2. `KromiumException.NotInitialized` is thrown when calling `newClient()` or `setProxy()`.
-**Cause**: You attempted to create browser instances before `Kromium.initialize()` finished bootstrapping.  
-**Solution**: Always wait for the engine state to transition to `KromiumState.Ready`:
-```kotlin
-val client = Kromium.awaitClient()
-```
+### 2. Windows: `UnsatisfiedLinkError: jcef.dll: Can't find dependent libraries`
+
+**Symptom:**
+Application crashes immediately upon startup on a fresh Windows machine.
+
+**Cause:**
+The target Windows installation is missing the **Microsoft Visual C++ 2015-2022 Redistributable**.
+
+**Solution:**
+Install the official [Visual C++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist) or bundle `vc_redist.x64.exe` inside your application installer.
 
 ---
 
-### 3. `BootstrapFailed: java.lang.UnsatisfiedLinkError: no jawt in java.library.path`
-**Cause**: Java AWT native peer library (`jawt`) could not be resolved from `java.home`.  
-**Solution**: Ensure you are running on a standard JDK (Java 17 or 21 LTS from Temurin, Zulu, or Corretto). Stripped minimal JREs created with `jlink` must include the `java.desktop` module:
+### 3. Linux: `UnsatisfiedLinkError: libcef.so: cannot open shared object file: No such file or directory`
+
+**Symptom:**
+Engine fails to load on Ubuntu/Debian/Fedora.
+
+**Cause:**
+Missing system multimedia or X11 shared libraries.
+
+**Solution:**
+Install the prerequisite packages:
 ```bash
-jlink --add-modules java.desktop,java.base ...
+sudo apt-get update && sudo apt-get install -y libgtk-3-0 libasound2 libnss3 libxss1 libgbm1
 ```
 
 ---
 
-### 4. `BootstrapFailed: libcef.so: cannot open shared object file` (Linux)
-**Cause**: A required system shared library (e.g. `libnss3` or `libasound`) is missing on the host Linux distribution.  
-**Solution**: Install the required dependencies listed in the [Linux Prerequisites](../getting-started/installation.md#linux-prerequisites).
+### 4. Blank White or Black Screen on Older GPUs
 
----
+**Symptom:**
+The browser component mounts but remains blank or black.
 
-### 5. What if our enterprise environment is air-gapped without internet access?
-**Solution**: Pre-download the JCEF bundle for your target platform and host it on an internal server, or pre-bundle it inside your app installation:
+**Cause:**
+Outdated GPU drivers or hardware acceleration conflicts with virtual machine display adapters.
+
+**Solution:**
+Disable GPU hardware acceleration using CEF command-line switches in `KromiumConfig`:
 ```kotlin
-Kromium.initialize {
-    customBundleUrl = "https://internal-artifactory.corp/jcef-bundle.tar.gz"
-    customChecksumUrl = "https://internal-artifactory.corp/jcef-bundle.sha256"
+val config = KromiumConfig().apply {
+    commandLineArgs.add("--disable-gpu")
+    commandLineArgs.add("--disable-gpu-compositing")
 }
 ```
 
 ---
 
-### 6. How do I clear the local engine cache to force a fresh re-download?
-**Solution**:
+### 5. WebRTC Microphone or Camera Not Activating
+
+**Symptom:**
+WebRTC applications (Google Meet, Jitsi) report "No camera/microphone found" or fail silently.
+
+**Solution Checklist:**
+1. **Permission Handler**: Ensure your `permissionHandler` is registered and calls `request.allow()`:
+   ```kotlin
+   state.permissionHandler = KromiumPermissionHandler { it.allow() }
+   ```
+2. **macOS Entitlements**: Ensure your app bundle includes `NSCameraUsageDescription` and `NSMicrophoneUsageDescription` in `Info.plist`.
+3. **Session Cache**: If a user previously denied permission, call `state.clearPermissionCache()`.
+
+---
+
+## ❓ Frequently Asked Questions (FAQ)
+
+### Can Kromium run completely offline without internet access?
+**Yes.** By bundling the pre-compiled JCEF binaries in your application installer and setting `autoDownload = false` in `KromiumConfig`, Kromium runs in air-gapped, zero-internet environments. You can serve full Single Page Apps locally using custom schemes (`app://`).
+
+### What is the difference between `kromium-compose` and `kromium-core`?
+- **`kromium-compose`**: Contains the `@Composable KromiumView` and reactive `KromiumViewState` for Jetpack / JetBrains Compose Desktop.
+- **`kromium-core`**: A pure JVM library with zero Compose runtime dependencies. It exposes `KromiumBrowser`, `KromiumClient`, and `KromiumEngine` with 100% Java-idiomatic APIs (`CompletableFuture`, SAM listeners) for Swing, JavaFX, and headless backend servers.
+
+### How do I inspect DOM elements with Chrome DevTools?
+Call `browser.openDevTools()` in your code, or enable remote debugging during development:
 ```kotlin
-EngineRegistry.clearInstallation(EngineRegistry.defaultInstallDir())
+val config = KromiumConfig(remoteDebuggingPort = 9222)
 ```
-Or manually delete the `~/.kromium/jcef` directory.
+Then navigate to `http://localhost:9222` in any external Chrome or Edge browser.
+
+### Is Kromium thread-safe?
+**Yes.** UI component mounting occurs on the Java AWT Event Dispatch Thread (EDT), Chromium executes in isolated native processes, and all heavy evaluations (JavaScript, PDF printing, downloads) return asynchronous `CompletableFuture` objects or suspending Kotlin coroutines.

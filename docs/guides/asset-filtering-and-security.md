@@ -1,94 +1,123 @@
-# Asset Filtering & Scoped SSL Policies
+# Virtual Asset Streaming & Security Filters
 
-[Documentation Hub](../README.md) &bull; **Guides** &bull; Asset Filtering & SSL Policies
+This guide covers serving local assets, offline Single Page Applications (React, Vue, Svelte), and desktop UI bundles securely using custom virtual schemes (`app://`), along with high-performance resource filtering and ad-blocking.
 
 ---
 
-## 🛑 Resource Asset Filtering (`KromiumAssetFilter`)
+## 📦 Virtual Custom Schemes (`app://`)
 
-In embedded web views, kiosk applications, or performance-critical dashboards, you may want to block heavy media assets, external fonts, or third-party stylesheets:
+Desktop applications often bundle a web frontend (built with React, Next.js static export, Vite, or Vue) inside the application JAR or resources folder.
+
+Loading local assets via `file://` causes severe security restrictions:
+- Modern Web APIs (`localStorage`, `IndexedDB`, Web Workers, WebRTC, Service Workers) are disabled or restricted on `file://`.
+- Strict CORS policies block local `fetch()` and `XMLHttpRequest`.
+
+Kromium solves this with **Standard Custom Schemes** (`app://`):
+
+```
+┌────────────────────────────────────────────────────────┐
+│ Browser URL: app://local/index.html                     │
+├────────────────────────────────────────────────────────┤
+│ • Treated by Chromium as a secure, standard origin     │
+│ • Full localStorage & IndexedDB support                │
+│ • No open localhost HTTP server or socket ports needed │
+│ • Streams directly from JAR or local filesystem memory │
+└────────────────────────────────────────────────────────┘
+```
+
+### 1. Registering the Scheme During Engine Initialization
+
+Custom schemes must be registered before the Chromium engine starts:
 
 ```kotlin
-import dev.daviante.kromium.presentation.network.KromiumAssetFilter
-import dev.daviante.kromium.presentation.network.KromiumRequestInterceptor
+// Kotlin Initialization
+val config = KromiumConfig().apply {
+    registerScheme("app") {
+        isStandard = true
+        isSecure = true
+        isCorsEnabled = true
+        isLocal = true
+    }
+}
+KromiumEngine.getInstance().initialize(config)
+```
 
-// 1. Type-safe asset filter configuration
+```java
+// Pure Java Initialization
+KromiumConfig config = KromiumConfig.builder()
+    .registerScheme("app", true, true, true, true)
+    .build();
+KromiumEngine.getInstance().initialize(config);
+```
+
+### 2. Mounting the Asset Handler
+
+Provide a `KromiumSchemeHandler` to stream content from your resources:
+
+```kotlin
+import dev.daviante.kromium.presentation.scheme.KromiumSchemeHandler
+
+KromiumEngine.getInstance().registerSchemeHandler("app", "local") { url ->
+    val path = url.removePrefix("app://local/").trimStart('/')
+    val resourceStream = Thread.currentThread().contextClassLoader.getResourceAsStream("web/$path")
+    
+    if (resourceStream != null) {
+        val mimeType = when {
+            path.endsWith(".html") -> "text/html"
+            path.endsWith(".js") -> "application/javascript"
+            path.endsWith(".css") -> "text/css"
+            path.endsWith(".png") -> "image/png"
+            path.endsWith(".svg") -> "image/svg+xml"
+            else -> "application/octet-stream"
+        }
+        KromiumSchemeResponse(
+            data = resourceStream,
+            mimeType = mimeType,
+            status = 200
+        )
+    } else {
+        KromiumSchemeResponse(status = 404)
+    }
+}
+
+// Now navigate in the browser:
+browser.loadUrl("app://local/index.html")
+```
+
+---
+
+## 🚫 Resource Interception & Asset Filtering
+
+For web scraping, automation, or enterprise data-saving mode, blocking heavyweight assets (images, video, audio, fonts) dramatically reduces bandwidth and CPU utilization.
+
+### One-Line Asset Blocking
+
+```kotlin
+// In Compose or Kotlin:
+browser.blockMediaAssets(
+    images = true,
+    media = true,
+    fonts = true,
+    stylesheets = false
+)
+```
+
+```java
+// In Pure Java:
+browser.blockMediaAssets(true, true, true, false);
+```
+
+### Fine-Grained Asset Filter (`KromiumAssetFilter`)
+
+```kotlin
 client.assetFilter = KromiumAssetFilter(
     blockImages = true,
     blockMedia = true,
     blockFonts = true,
-    blockStylesheets = false
+    urlBlockList = listOf(
+        "doubleclick.net",
+        "google-analytics.com",
+        "facebook.net"
+    )
 )
-
-// Or attach to Compose state:
-state.assetFilter = KromiumAssetFilter(blockImages = true, blockMedia = true)
-
-// Or use the Compose convenience helper:
-state.blockMediaAssets(images = true, media = true, fonts = true)
 ```
-
-### Pre-Built Convenience Presets
-
-```kotlin
-// Block all images, media, fonts, and stylesheets for maximum performance
-client.assetFilter = KromiumAssetFilter.ALL_BLOCKED
-
-// Block images, media, and fonts while keeping stylesheets intact
-client.assetFilter = KromiumAssetFilter.MEDIA_ONLY
-```
-
-### Custom URL & Script Blocking (`KromiumRequestInterceptor`)
-
-To filter custom ad scripts, tracking beacons, or untrusted URLs:
-
-```kotlin
-client.requestInterceptor = KromiumRequestInterceptor { request ->
-    // Block third-party tracking scripts and ad networks
-    if (request.url.contains("adservice") || request.url.contains("doubleclick.net")) {
-        return@KromiumRequestInterceptor true // Cancel request immediately
-    }
-    false // Allow resource
-}
-```
-
----
-
-## 🔒 Strict Host-Locking
-
-For secure kiosk apps, authentication windows, or dedicated tools, restrict browsing strictly to approved domains:
-
-```kotlin
-// Only allow navigation to myapp.com and its subdomains
-client.hostLock = setOf("myapp.com", "auth.myapp.com")
-
-// Also enforce host-lock on subresources (scripts, iframes, styles)
-client.hostLockSubresources = true
-```
-
-Any navigation to an unapproved domain is blocked automatically before hitting the network.
-
----
-
-## 🔐 Scoped SSL/TLS Certificate Policies (`SslErrorPolicy`)
-
-By default, Kromium operates in `Strict` mode, rejecting any invalid, expired, self-signed, or untrusted TLS certificates.
-
-For internal corporate deployments or staging environments using private self-signed certificates:
-
-```kotlin
-// 1. Strict Mode (Default - Recommended for Production)
-client.sslErrorPolicy = SslErrorPolicy.Strict
-
-// 2. Scoped Domain Whitelist (Permits self-signed certs ONLY on designated domains)
-client.sslErrorPolicy = SslErrorPolicy.AllowDomains(
-    "localhost",
-    "127.0.0.1",
-    "staging.internal.company.com"
-)
-
-// 3. Permissive Development Mode (NEVER ship to production)
-client.sslErrorPolicy = SslErrorPolicy.AllowAll
-```
-
-> [!CAUTION]
-> `SslErrorPolicy.AllowAll` completely disables TLS identity validation and exposes traffic to Man-in-the-Middle (MitM) attacks. Only use `AllowDomains` for staging servers.

@@ -1,127 +1,113 @@
 # Cookie & Session Management
 
-[Documentation Hub](../README.md) &bull; **Guides** &bull; Cookie Management
+Kromium provides complete control over HTTP cookies and session data via `KromiumCookieManager` and `KromiumBrowser`.
 
 ---
 
-## 🍪 Asynchronous `KromiumCookieManager`
+## 🍪 Cookie Persistence: In-Memory vs. Disk Storage
 
-Kromium wraps Chromium's native asynchronous cookie store with a modern, coroutine-friendly Kotlin singleton API (`KromiumCookieManager`).
-
-All query operations are suspendable and non-blocking, automatically timed out using `timeoutMs` to prevent permanent coroutine suspension when visiting empty cookie stores.
-
----
-
-## 🔍 Reading Cookies
-
-Retrieve cookies for any HTTP or HTTPS URL as a structured key-value map:
+Cookie persistence is controlled by `cachePath` in `KromiumConfig`:
+- **In-Memory Mode (`cachePath = null`)**: Cookies, `sessionStorage`, and cached network assets are kept exclusively in RAM and evaporate immediately when the application process terminates.
+- **Persistent Disk Mode (`cachePath = "/path/to/cache"`)**: Cookies with expiration dates are encrypted and safely persisted to the specified disk directory.
 
 ```kotlin
-import dev.daviante.kromium.presentation.network.KromiumCookieManager
-import kotlinx.coroutines.launch
+val config = KromiumConfig().apply {
+    cachePath = File(System.getProperty("user.home"), ".myapp/cache").absolutePath
+}
+KromiumEngine.getInstance().initialize(config)
+```
 
-coroutineScope.launch {
-    // 1. Fetch all cookies for a specific destination
-    val cookies: Map<String, String> = KromiumCookieManager.getCookies("https://github.com")
+---
 
-    for ((name, value) in cookies) {
-        println("Cookie: $name = $value")
+## 🔍 Reading & Inspecting Cookies
+
+### Kotlin Coroutines
+
+```kotlin
+// Retrieve all cookies for the current active page as Map<String, String>:
+val cookies: Map<String, String> = browser.getCookies()
+cookies.forEach { (name, value) ->
+    println("Cookie $name = $value")
+}
+
+// Retrieve a specific cookie by name:
+val sessionToken = browser.getCookie("SESSIONID")
+```
+
+### Pure Java with CompletableFuture
+
+```java
+import dev.daviante.kromium.KromiumBrowser;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+
+public final class CookieJavaDemo {
+    public static void printSession(KromiumBrowser browser) {
+        CompletableFuture<Map<String, String>> future = browser.getCookiesAsync();
+
+        future.thenAccept(cookies -> {
+            System.out.println("Session Auth Token: " + cookies.get("authToken"));
+        });
     }
-
-    // 2. Fetch a specific cookie by name
-    val sessionToken = KromiumCookieManager.getCookie(
-        url = "https://example.com",
-        name = "session_token"
-    )
-    println("Session: $sessionToken")
 }
 ```
 
 ---
 
-## ✍️ Setting Cookies
+## ✍️ Injecting & Modifying Cookies
 
-Inject session tokens, authentication cookies, or user preferences:
+Inject authentication tokens, feature flags, or tracking bypasses programmatically:
 
 ```kotlin
-import dev.daviante.kromium.presentation.network.KromiumCookieManager
-import java.util.Date
-
-val success: Boolean = KromiumCookieManager.setCookie(
-    url = "https://example.com",
-    name = "session_token",
-    value = "abc123xyz456",
-    domain = "example.com", // Optional: defaults to URL host
+// In Kotlin:
+browser.setCookie(
+    name = "authToken",
+    value = "jwt_token_example_12345",
+    domain = ".corp.internal",
     path = "/",
     isSecure = true,
     isHttpOnly = true,
-    expires = Date(System.currentTimeMillis() + 86400000L) // 24 hours (null = session cookie)
+    expires = java.util.Date(System.currentTimeMillis() + 86400000) // 24 hours
 )
+```
 
-if (success) {
-    println("Session cookie injected successfully!")
-}
+```java
+// In Pure Java:
+browser.setCookie(
+    "authToken",
+    "jwt_token_example_12345",
+    ".corp.internal",
+    "/",
+    true,
+    true,
+    new java.util.Date(System.currentTimeMillis() + 86400000)
+);
 ```
 
 ---
 
-## 🗑️ Deleting & Clearing Cookies
+## 🧹 Deleting & Clearing Cookies
 
-Clear specific session tokens or perform complete user logouts:
+### Clearing Cookies for Active View
 
 ```kotlin
-// Delete a specific cookie by name for a given URL
-val deleted: Boolean = KromiumCookieManager.deleteCookie(
-    url = "https://example.com",
-    name = "session_token"
-)
-
-// Delete all cookies across all domains from Chromium's store
-val cleared: Boolean = KromiumCookieManager.clearCookies()
-println("Cookies cleared: $cleared")
+// Clear cookies asynchronously
+browser.clearCookiesAsync()
 ```
 
----
+### Global Cookie Operations (`KromiumCookieManager`)
 
-## 💻 Browser & Compose State Convenience Methods
-
-Both `KromiumBrowser` and `KromiumViewState` expose contextual cookie convenience methods that automatically target the active page URL:
-
-### In Compose Multiplatform (`KromiumViewState`)
-```kotlin
-coroutineScope.launch {
-    // Reads cookies for the current active page
-    val currentCookies = state.getCookies()
-    val token = state.getCookie("auth_token")
-
-    // Injects a cookie into the current page domain
-    state.setCookie(
-        name = "theme",
-        value = "dark",
-        isSecure = false
-    )
-
-    // Wipes all cookies
-    state.clearCookies()
-}
-```
-
-### In Kotlin JVM / Swing (`KromiumBrowser`)
-```kotlin
-coroutineScope.launch {
-    val cookies = browser.getCookies()
-    browser.setCookie(name = "user_pref", value = "compact")
-    browser.clearCookies()
-}
-```
-
----
-
-## ⏱️ Timeout Configuration
-
-If a URL has no cookies, Chromium's native cookie visitor does not invoke any callbacks. To avoid suspending coroutines indefinitely, `KromiumCookieManager` applies a configurable timeout:
+For multi-tenant sign-out or session cleanup across all browser instances:
 
 ```kotlin
-// Set global cookie lookup timeout (default: 2,000ms)
-KromiumCookieManager.timeoutMs = 1_000L
+import dev.daviante.kromium.presentation.network.KromiumCookieManager
+
+// Delete a single cookie:
+KromiumCookieManager.deleteCookie("https://example.com", "authToken")
+
+// Clear all cookies globally across the engine:
+KromiumCookieManager.clearCookies()
+
+// Flush memory cookie changes to disk immediately:
+KromiumCookieManager.flush()
 ```

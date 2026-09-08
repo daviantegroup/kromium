@@ -1,43 +1,58 @@
-# Packaging & Distribution
+# Packaging & Native Distribution
 
-[Documentation Hub](../README.md) &bull; **Deployment** &bull; Packaging & Distribution
+Distributing desktop applications with an embedded Chromium engine requires packaging native binaries (`.dylib`, `.dll`, `.so`) and helper processes alongside the Java runtime.
+
+This guide details best practices for packaging Kromium apps into native desktop installers: **DMG / PKG (macOS)**, **MSI / EXE (Windows)**, and **DEB / RPM (Linux)**.
 
 ---
 
-## 📦 Packaging Desktop Applications
+## 📦 Strategy: Pre-bundled vs. Runtime Download
 
-When distributing your Compose Multiplatform or Kotlin JVM desktop application to end users, you have two primary distribution strategies:
+Kromium supports two deployment models:
 
-### Strategy A: On-Demand Runtime Installation (Recommended)
-* **Installer Size**: Tiny (~15MB to 30MB initial download).
-* **Mechanism**: Your application ships without native Chromium binaries. When the user first launches the app, Kromium downloads the appropriate JCEF engine for their specific OS architecture and caches it in `~/.kromium/jcef`.
-* **Advantage**: Single installer binary; zero bloat for unused OS platforms.
+| Strategy | Advantages | Trade-offs | Best For |
+|:---|:---|:---|:---|
+| **1. Runtime Auto-Download (Default)** | Installer download is small (~30-50MB). CEF engine downloads on first app launch. | Requires initial internet connection on first start. | Open-source apps, quick demos, consumer tools. |
+| **2. Pre-bundled Offline Binaries** | **Zero network requests** on startup. Immediate offline launch. | Installer bundle is larger (~120-150MB per OS). | **Enterprise, air-gapped, healthcare, and POS applications.** |
 
-### Strategy B: Pre-Bundled Standalone Distribution
-* **Installer Size**: Larger (~150MB to 220MB).
-* **Mechanism**: You pre-extract the JCEF bundle into your application distribution folder during build time and point `installDir` to the local bundled directory:
+---
+
+## 🏢 Enterprise Pre-Bundling (`autoDownload = false`)
+
+To create an air-gapped offline installer:
+
+### 1. Configure Engine to Use Pre-Bundled Directory
+
+Point `installDir` to a relative subfolder inside your packaged application:
 
 ```kotlin
-Kromium.initialize {
-    // Point to bundled JCEF folder inside your app installation
-    installDir = File(System.getProperty("compose.application.resources.dir"), "jcef")
+val config = KromiumConfig().apply {
+    // Locate native binaries relative to the app installation directory:
+    installDir = File(System.getProperty("app.dir", "."), "jcef")
+    autoDownload = false // Prohibit network calls
 }
+KromiumEngine.getInstance().initialize(config)
+```
+
+```java
+KromiumConfig config = KromiumConfig.builder()
+    .setInstallDir(new File(System.getProperty("app.dir", "."), "jcef"))
+    .setAutoDownload(false)
+    .build();
+KromiumEngine.getInstance().initialize(config);
 ```
 
 ---
 
-## 🚀 Packaging Your Application with Compose Desktop
+## 🛠️ Packaging with Compose Gradle Plugin
 
-> [!NOTE]
-> **Library vs. Application**:  
-> Kromium is a library dependency (`dev.daviante:kromium-compose`). The configuration below applies to **your own application's** `build.gradle.kts` (the application that embeds Kromium), replacing `YourAppName` and `com.yourcompany.yourapp` with your actual project details.
-
-In your consumer desktop application's `build.gradle.kts`:
+If using Compose Multiplatform, use the built-in `compose.desktop.nativeDistributions` DSL:
 
 ```kotlin
+// build.gradle.kts
 compose.desktop {
     application {
-        mainClass = "com.yourcompany.yourapp.MainKt"
+        mainClass = "com.example.MainKt"
 
         nativeDistributions {
             targetFormats(
@@ -45,47 +60,30 @@ compose.desktop {
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi,
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Deb
             )
-            packageName = "YourAppName"       // User-facing application name
-            packageVersion = "1.0.0"
+            packageName = "EnterpriseBrowser"
+            packageVersion = "2.1.0"
+            vendor = "Daviante Group"
+
+            // JVM Module openings required by native AWT/CEF bridges:
+            jvmArgs(
+                "--add-opens=java.desktop/sun.awt=ALL-UNNAMED",
+                "--add-opens=java.desktop/java.awt.peer=ALL-UNNAMED"
+            )
+
+            macOS {
+                bundleID = "dev.daviante.enterprisebrowser"
+                iconFile.set(project.file("src/main/resources/icons/mac.icns"))
+                entitlementsFile.set(project.file("entitlements.plist"))
+            }
 
             windows {
-                menuGroup = "YourCompany"
+                iconFile.set(project.file("src/main/resources/icons/win.ico"))
+                menuGroup = "Enterprise"
                 upgradeUuid = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
-                iconFile.set(project.file("src/main/resources/icon.ico"))
-            }
-
-            macOS {
-                bundleID = "com.yourcompany.yourapp"
-                iconFile.set(project.file("src/main/resources/icon.icns"))
             }
 
             linux {
-                shortcut = true
-                iconFile.set(project.file("src/main/resources/icon.png"))
-            }
-        }
-    }
-}
-```
-
-### Reference: How `kromium-sample-compose` is Packaged
-For a real-world reference, see the included [`kromium-sample-compose/build.gradle.kts`](../../kromium-sample-compose/build.gradle.kts):
-
-```kotlin
-compose.desktop {
-    application {
-        mainClass = "dev.daviante.kromium.demo.MainKt"
-        nativeDistributions {
-            packageName = "Kromium Demo"
-            packageVersion = "1.0.0"
-            macOS {
-                iconFile.set(project.file("src/main/resources/icon.icns"))
-            }
-            windows {
-                iconFile.set(project.file("src/main/resources/icon.ico"))
-            }
-            linux {
-                iconFile.set(project.file("src/main/resources/icon.png"))
+                iconFile.set(project.file("src/main/resources/icons/linux.png"))
             }
         }
     }
@@ -93,38 +91,47 @@ compose.desktop {
 ```
 
 ### Build Commands
-```bash
-# Windows MSI Installer
-./gradlew packageMsi
 
-# macOS DMG Installer
+```bash
+# Package macOS DMG:
 ./gradlew packageDmg
 
-# Linux Debian Package
+# Package Windows MSI:
+./gradlew packageMsi
+
+# Package Linux DEB:
 ./gradlew packageDeb
 ```
 
 ---
 
-## 🛡️ ProGuard / R8 Obfuscation Rules
+## 🚀 Packaging with Conveyor
 
-If you obfuscate or minify your desktop distribution using ProGuard or R8, you must preserve JCEF native classes and JNI entry points:
+[Conveyor](https://conveyor.hydraulic.dev/) is a popular modern cross-platform packaging tool for desktop JVM apps. It can generate signed, auto-updating native installers for macOS, Windows, and Linux from any host OS:
 
-```proguard
-# Preserve Kromium Public API
--keep class dev.daviante.kromium.** { *; }
+```hocon
+# conveyor.conf
+include required("/stdlib/jvm/enhancements/client/v1.conf")
 
-# Preserve JCEF Native Interface Classes
--keep class org.cef.** { *; }
--keepclassmembers class org.cef.** {
-    native <methods>;
+app {
+  display-name = "Enterprise Browser"
+  fsname = "enterprise-browser"
+  version = 2.1.0
+  vendor = "Daviante Group"
+
+  jvm {
+    gui.main-class = "com.example.MainKt"
+    options += [
+      "--add-opens=java.desktop/sun.awt=ALL-UNNAMED",
+      "--add-opens=java.desktop/java.awt.peer=ALL-UNNAMED"
+    ]
+  }
+
+  mac {
+    info-plist {
+      NSCameraUsageDescription = "Used for WebRTC video conferencing"
+      NSMicrophoneUsageDescription = "Used for WebRTC audio calls"
+    }
+  }
 }
-
-# Preserve AWT / JAWT Native Peers
--keep class sun.awt.** { *; }
--keep class java.desktop.** { *; }
-
-# Suppress Kotlin reflection warnings
--dontwarn dev.daviante.kromium.**
--dontwarn org.cef.**
 ```

@@ -1,64 +1,167 @@
-# Error Handling & Logging (`KromiumException`)
+# Exceptions & Diagnostic Logging
 
-[Documentation Hub](../README.md) &bull; **API Reference** &bull; Exceptions & Logging
+Kromium features a strongly-typed, sealed exception hierarchy and a pluggable diagnostic logging pipeline that bridges into your application's existing logging framework (SLF4J, Logback, Log4j2, or java.util.logging).
 
 ---
 
-## 🚨 Sealed Exception Hierarchy (`KromiumException`)
+## 🛑 Exception Hierarchy
 
-All errors thrown by Kromium derive from `KromiumException`. This enables exhaustive `when` pattern matching without parsing generic string messages.
+Package: `dev.daviante.kromium.domain.exception.KromiumException`
 
-```kotlin
-sealed class KromiumException(
-    override val message: String,
-    override val cause: Throwable? = null
-) : Exception(message, cause)
+All errors raised by Kromium inherit from the sealed class `KromiumException` (which extends `java.lang.RuntimeException`). This eliminates brittle string matching and allows programmatic handling of specific error cases.
+
+```
+KromiumException (abstract RuntimeException)
+├── NotInitialized
+├── Disposed
+├── UnsupportedPlatform
+├── InstallationFailed
+├── AutoDownloadDisabled
+├── NoBundleAvailable
+├── DownloadFailed
+├── ChecksumMismatch
+├── ExtractionFailed
+├── MaliciousArchiveEntry
+├── BootstrapFailed
+├── InstallationCorrupted
+├── JsEvaluationTimeout
+├── InvalidConfig
+├── ProxyError
+└── PdfPrintFailed
 ```
 
 ### Exception Catalog
 
-| Exception Class | Description | Recovery Strategy |
+| Exception | Thrown When | Recommended Action |
 |:---|:---|:---|
-| `NotInitialized` | Attempted to create a client/browser before calling `Kromium.initialize()`. | Ensure `Kromium.initialize()` runs during application startup. |
-| `Disposed` | Attempted to use the engine after calling `Kromium.dispose()`. | Re-initialize engine or create fresh application instance. |
-| `UnsupportedPlatform` | OS or CPU architecture is not supported (e.g. 32-bit x86). | Verify host OS meets system requirements. |
-| `InstallationFailed` | Could not create or write to `installDir`. | Check file write permissions for user directory. |
-| `DownloadFailed` | Network failure while downloading JCEF runtime archive. | Verify internet connectivity or configure `customBundleUrl`. |
-| `ChecksumMismatch` | Downloaded archive hash did not match expected SHA-256. | Re-attempt download; check for proxy tampering. |
-| `ExtractionFailed` | Archive decompression failed. | Check available disk space and filesystem permissions. |
-| `MaliciousArchiveEntry` | Zip-Slip path traversal attempt detected in archive. | Ensure archive source is legitimate and untampered. |
-| `BootstrapFailed` | Native JNI library linking or `CefApp.startup()` failed. | Verify VC++ Redistributable (Windows) or native libraries (Linux). |
-| `InstallationCorrupted` | Installed bundle files are damaged or missing. | Clear engine directory via `EngineRegistry.clearInstallation()`. |
-| `JsEvaluationTimeout` | JavaScript execution exceeded configured `timeoutMs`. | Check for infinite loops or increase timeout threshold. |
-| `InvalidConfig` | Configuration validation rejected an invalid property. | Correct port numbers, URLs, or directory paths. |
-| `ProxyError` | Dynamic runtime proxy update failed natively in CEF. | Verify proxy format and preference schema. |
+| `NotInitialized` | An operation is attempted before `KromiumEngine.getInstance().initialize()` is called. | Initialize engine in `main()` before opening windows. |
+| `Disposed` | A method is called on a browser or engine that has already been shut down. | Check lifecycle; don't reuse closed browser instances. |
+| `AutoDownloadDisabled` | Native CEF binaries are missing from `installDir` and `autoDownload = false`. | Bundle JCEF binaries in your application installer or enable `autoDownload`. |
+| `ChecksumMismatch` | Downloaded native bundle archive fails SHA256 checksum validation. | Verify network integrity or update `customChecksumUrl`. |
+| `JsEvaluationTimeout` | JavaScript execution exceeds specified timeout (e.g. infinite loops in web page). | Check web script or increase timeout duration. |
+| `ProxyError` | Dynamic proxy switching fails or proxy credentials are invalid. | Verify proxy host, port, and network reachability. |
+| `PdfPrintFailed` | Async PDF export fails to render or write to the target file. | Check file write permissions or destination disk space. |
 
----
-
-## 📝 Pluggable Logging (`KromiumLogger`)
-
-Kromium features a decoupled logging abstraction with zero external logging framework dependencies.
-
-### Custom Logger Registration
-Redirect internal Kromium log statements to SLF4J, Logback, Log4j2, or Kermit by assigning `KromiumLogger.instance`:
+### Pattern-Matching Errors (Kotlin)
 
 ```kotlin
-import dev.daviante.kromium.core.logging.KromiumLogger
-
-KromiumLogger.instance = object : KromiumLogger {
-    override fun debug(tag: String, message: String) = log.debug("[$tag] $message")
-    override fun info(tag: String, message: String) = log.info("[$tag] $message")
-    override fun warn(tag: String, message: String, throwable: Throwable?) = log.warn("[$tag] $message", throwable)
-    override fun error(tag: String, message: String, throwable: Throwable?) = log.error("[$tag] $message", throwable)
+try {
+    val pdf = browser.printToPdf(File("/protected/output.pdf"))
+} catch (e: KromiumException) {
+    when (e) {
+        is KromiumException.PdfPrintFailed -> {
+            println("Failed to write PDF to path: ${e.path}")
+        }
+        is KromiumException.Disposed -> {
+            println("Cannot print: browser was already disposed.")
+        }
+        else -> println("Kromium error: ${e.message}")
+    }
 }
 ```
 
-### Direct Logging Helpers
-You can also emit log messages through Kromium's configured logger:
+### Typed Handling (Pure Java)
+
+```java
+import dev.daviante.kromium.domain.exception.KromiumException;
+import java.io.File;
+
+browser.printToPdfAsync(new File("output.pdf")).exceptionally(throwable -> {
+    Throwable cause = throwable.getCause();
+    if (cause instanceof KromiumException.PdfPrintFailed pdfErr) {
+        System.err.println("PDF generation failed on path: " + pdfErr.getPath());
+    } else if (cause instanceof KromiumException.ProxyError proxyErr) {
+        System.err.println("Proxy issue: " + proxyErr.getDetail());
+    } else {
+        System.err.println("Unexpected error: " + throwable.getMessage());
+    }
+    return null;
+});
+```
+
+---
+
+## 🪵 Pluggable Logging Pipeline
+
+Package: `dev.daviante.kromium.core.logging.KromiumLogger`
+
+By default, Kromium outputs diagnostic logs to `java.util.logging` via `JulKromiumLogger`. You can replace this default logger with your own adapter to route Kromium internal logs through SLF4J, Log4j2, or disable them entirely.
+
+### Interface Definition
 
 ```kotlin
-KromiumLogger.d("MyTag", "Debug message")
-KromiumLogger.i("MyTag", "Info message")
-KromiumLogger.w("MyTag", "Warning message", throwable)
-KromiumLogger.e("MyTag", "Error message", throwable)
+interface KromiumLogger {
+    fun debug(tag: String, message: String)
+    fun info(tag: String, message: String)
+    fun warn(tag: String, message: String, throwable: Throwable? = null)
+    fun error(tag: String, message: String, throwable: Throwable? = null)
+}
+```
+
+### Integrating with SLF4J / Logback (Kotlin & Java)
+
+```kotlin
+// In Kotlin:
+import dev.daviante.kromium.core.logging.KromiumLogger
+import org.slf4j.LoggerFactory
+
+class Slf4jKromiumAdapter : KromiumLogger {
+    override fun debug(tag: String, message: String) {
+        LoggerFactory.getLogger(tag).debug(message)
+    }
+    override fun info(tag: String, message: String) {
+        LoggerFactory.getLogger(tag).info(message)
+    }
+    override fun warn(tag: String, message: String, throwable: Throwable?) {
+        LoggerFactory.getLogger(tag).warn(message, throwable)
+    }
+    override fun error(tag: String, message: String, throwable: Throwable?) {
+        LoggerFactory.getLogger(tag).error(message, throwable)
+    }
+}
+
+// Attach during startup:
+KromiumLogger.instance = Slf4jKromiumAdapter()
+```
+
+```java
+// In Pure Java:
+import dev.daviante.kromium.core.logging.KromiumLogger;
+import org.slf4j.LoggerFactory;
+
+public final class Slf4jLoggerBridge implements KromiumLogger {
+    @Override
+    public void debug(String tag, String message) {
+        LoggerFactory.getLogger(tag).debug(message);
+    }
+
+    @Override
+    public void info(String tag, String message) {
+        LoggerFactory.getLogger(tag).info(message);
+    }
+
+    @Override
+    public void warn(String tag, String message, Throwable throwable) {
+        LoggerFactory.getLogger(tag).warn(message, throwable);
+    }
+
+    @Override
+    public void error(String tag, String message, Throwable throwable) {
+        LoggerFactory.getLogger(tag).error(message, throwable);
+    }
+}
+
+// Attach during application startup:
+KromiumLogger.setInstance(new Slf4jLoggerBridge());
+```
+
+### Disabling Logs Completely
+
+For automated test suites or production silence:
+
+```kotlin
+import dev.daviante.kromium.core.logging.KromiumLogger
+import dev.daviante.kromium.core.logging.NoOpKromiumLogger
+
+KromiumLogger.instance = NoOpKromiumLogger
 ```

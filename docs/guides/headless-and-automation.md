@@ -1,82 +1,151 @@
-# Headless Browsing & Automation
+# Headless Automation & PDF Generation
 
-[Documentation Hub](../README.md) &bull; **Guides** &bull; Headless & Automation
+Kromium can execute headlessly without rendering a visible desktop window. This makes it ideal for background web scrapers, automated regression testing, scheduled report generation, and vector PDF printing in backend servers or CI/CD pipelines.
 
 ---
 
-## 🤖 Zero-Dependency Headless Browsing
+## ⚙️ Configuring Headless Engine
 
-Standard CEF off-screen rendering (OSR) requires linking third-party OpenGL bindings like JOGL (`com.jogamp.opengl`), which frequently cause JVM crashes on Linux Wayland or Apple Silicon when dependencies are missing.
-
-Kromium solves this with **Zero-Dependency Headless Browsing**:
-`Kromium.createHeadlessBrowser()` creates an embedded browser backed by an off-screen Swing native window peer (`JWindow` positioned outside desktop coordinates).
+Set `windowlessRendering = true` during engine configuration:
 
 ```kotlin
-val headlessBrowser = Kromium.createHeadlessBrowser(
-    url = "https://news.ycombinator.com",
-    width = 1280,
-    height = 800
-)
+val config = KromiumConfig().apply {
+    windowlessRendering = true // Headless off-screen rendering
+    sandboxEnabled = true
+}
+KromiumEngine.getInstance().initialize(config)
 ```
 
-### Key Advantages
-* **100% Reliable**: Zero JOGL or OpenGL classpath dependencies required.
-* **Full JavaScript & V8 Execution**: Single Page Applications (React, Angular, Vue), dynamic Canvas animations, and WebAssembly execute identically to a visible window.
-* **Automated Peer Lifecycle**: Native Swing peer window is automatically torn down when `headlessBrowser.dispose()` is called.
-
 ---
 
-## 🕸️ Background Web Scraping
+## 🖨️ Automated Vector PDF Export
 
-Extract structured data from dynamic web pages without showing any UI:
+Kromium can render any web page directly to a crisp, high-resolution vector PDF with customizable page sizes, margins, headers, and footers.
+
+### Configuring PDF Layout (`KromiumPdfSettings`)
+
+| Setting | Type | Default | Description |
+|:---|:---|:---|:---|
+| `landscape` | `Boolean` | `false` | Page orientation (`true` = landscape, `false` = portrait). |
+| `printBackgrounds` | `Boolean` | `true` | Renders CSS background colors and images. |
+| `paperWidth` / `paperHeight` | `Double` | `8.5` x `11.0` | Paper dimension in inches. |
+| `marginTop` / `marginBottom` | `Double` | `0.4` | Margins in inches. |
+| `headerTemplate` / `footerTemplate` | `String?` | `null` | HTML templates for page numbers and document titles. |
+
+### Kotlin Coroutines Example
 
 ```kotlin
-import dev.daviante.kromium.presentation.browser.Kromium
-import kotlinx.coroutines.delay
+package com.example.headless
+
+import dev.daviante.kromium.KromiumEngine
+import dev.daviante.kromium.presentation.browser.KromiumPdfSettings
 import kotlinx.coroutines.runBlocking
+import java.io.File
 
 fun main() = runBlocking {
-    Kromium.initialize()
+    val engine = KromiumEngine.getInstance()
+    val client = engine.createClient()
+    val browser = client.createBrowser("https://en.wikipedia.org/wiki/Chromium_(web_browser)")
 
-    val browser = Kromium.createHeadlessBrowser("https://example.com")
+    // Wait for page load, then print to PDF:
+    val outputFile = File("build/reports/chromium_article.pdf")
+    val settings = KromiumPdfSettings(
+        landscape = false,
+        printBackgrounds = true,
+        headerTemplate = "<span style='font-size: 8pt;'>Corporate Report</span>",
+        footerTemplate = "<span style='font-size: 8pt;' class='pageNumber'></span>"
+    )
 
-    // Await page load and DOM readiness
-    delay(2000)
+    val generatedPdf = browser.printToPdf(outputFile, settings)
+    println("Vector PDF generated at: ${generatedPdf.absolutePath}")
 
-    // 1. Extract raw visible text
-    val text = browser.getText()
-    println("Extracted text:\n$text")
+    browser.close(true)
+    client.dispose()
+    engine.dispose()
+}
+```
 
-    // 2. Query DOM elements via JavaScript
-    val headingsJson = browser.evaluateJavaScript("""
-        Array.from(document.querySelectorAll('h1, h2')).map(el => el.innerText)
-    """.trimIndent())
-    println("Headings: $headingsJson")
+### Pure Java Example with CompletableFuture
 
-    // 3. Clean up native peer
-    browser.dispose()
-    Kromium.dispose()
+```java
+package com.example.headless;
+
+import dev.daviante.kromium.KromiumBrowser;
+import dev.daviante.kromium.KromiumClient;
+import dev.daviante.kromium.KromiumConfig;
+import dev.daviante.kromium.KromiumEngine;
+import dev.daviante.kromium.presentation.browser.KromiumPdfSettings;
+import java.io.File;
+import java.util.concurrent.CompletableFuture;
+
+public final class HeadlessPdfJavaDemo {
+    public static void main(String[] args) {
+        KromiumConfig config = new KromiumConfig();
+        config.setWindowlessRendering(true);
+        KromiumEngine.getInstance().initialize(config);
+
+        KromiumClient client = KromiumEngine.getInstance().createClient();
+        KromiumBrowser browser = client.createBrowser("https://example.com");
+
+        File targetPdf = new File("output_report.pdf");
+        CompletableFuture<File> pdfFuture = browser.printToPdfAsync(targetPdf, KromiumPdfSettings.DEFAULT);
+
+        pdfFuture.thenAccept(file -> {
+            System.out.println("PDF generation completed: " + file.getAbsolutePath());
+            browser.close(true);
+            client.dispose();
+            KromiumEngine.getInstance().dispose();
+        }).exceptionally(ex -> {
+            System.err.println("Failed to export PDF: " + ex.getMessage());
+            return null;
+        });
+    }
 }
 ```
 
 ---
 
-## 📸 Automated Screenshot & PDF Generation
+## 📸 Automated Screenshots
 
-Generate reports or thumbnails headlessly:
+Capture the full rendered viewport without opening a window:
 
 ```kotlin
-val browser = Kromium.createHeadlessBrowser("https://github.com", width = 1920, height = 1080)
-delay(3000)
-
-// Capture high-resolution PNG screenshot
 val screenshot = browser.takeScreenshot()
 if (screenshot != null) {
-    javax.imageio.ImageIO.write(screenshot, "PNG", java.io.File("github_desktop.png"))
+    javax.imageio.ImageIO.write(screenshot, "PNG", File("build/screenshot.png"))
 }
+```
 
-// Generate full vector PDF
-browser.printToPdf("github_page.pdf")
+---
 
-browser.dispose()
+## 🤖 CI/CD Linux Environment Setup (GitHub Actions)
+
+On Linux servers without a physical monitor, run with a virtual framebuffer (`xvfb`):
+
+```yaml
+# .github/workflows/headless-tests.yml
+name: Headless Automated Browser Tests
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      # Install Linux native dependencies:
+      - name: Install Native Prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-0 libasound2 libnss3 libxss1 xvfb
+
+      # Run automated PDF/scraping tests under xvfb:
+      - name: Run Headless Suite
+        run: |
+          xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" ./gradlew test
 ```

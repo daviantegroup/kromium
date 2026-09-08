@@ -1,46 +1,105 @@
 # Platform-Specific Considerations
 
-[Documentation Hub](../README.md) &bull; **Deployment** &bull; Platform Specifics
+Each desktop operating system has unique graphic compositing models, security entitlements, and system library dependencies. This guide provides instructions for **macOS**, **Windows**, and **Linux**.
 
 ---
 
-## 🍎 macOS (Apple Silicon & Intel)
+## 🍏 macOS (Apple Silicon & Intel)
 
-### Framework Symlinks
-Chromium on macOS expects its helper app (`jcef Helper.app`) and framework bundle (`Chromium Embedded Framework.framework`) to be located inside a `Frameworks/` directory.
+### Architectures
+Kromium natively supports both **`aarch64` (M1/M2/M3/M4)** and **`x86_64` (Intel Macs)** without Rosetta translation.
 
-* **Automated Handling**: `OperatingSystem.MacOS.ensureMacFrameworkLinks` dynamically creates and verifies the required relative symlinks at runtime.
-* **Architecture Support**: Native universal binaries for Apple Silicon (ARM64 M1/M2/M3/M4) and Intel (x86_64) are resolved and loaded transparently.
+### Camera & Microphone Entitlements (WebRTC)
+If your application uses WebRTC audio or video calls, macOS Gatekeeper requires disclosure strings in your bundle's `Info.plist`:
 
-### Notarization & Code Signing
-When distributing signed macOS `.app` or `.dmg` packages:
-* Sign all embedded `.dylib` libraries and helper apps recursively.
-* Ensure your entitlements file includes the `com.apple.security.cs.allow-jit` and `com.apple.security.cs.allow-unsigned-executable-memory` entitlements required by V8's JIT compiler.
+```xml
+<!-- Info.plist -->
+<key>NSCameraUsageDescription</key>
+<string>This application requires camera access for video conferencing.</string>
+<key>NSMicrophoneUsageDescription</key>
+<string>This application requires microphone access for voice calls.</string>
+```
+
+### Codesigning & Notarization
+When distributing macOS apps outside the Mac App Store:
+1. Sign all native binaries (including `libjcef.dylib`, `libcef.dylib`, and helper apps like `jcef_helper`) with a Developer ID Application certificate.
+2. Enable the **Hardened Runtime** (`--options runtime`).
+3. Include standard JIT entitlements for the Java Virtual Machine:
+
+```xml
+<!-- entitlements.plist -->
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
+    <key>com.apple.security.device.camera</key>
+    <true/>
+</dict>
+</plist>
+```
+
+---
+
+## 🪟 Windows (Windows 10 / 11 / ARM64)
+
+### Visual C++ Redistributable
+Chromium requires the **Microsoft Visual C++ 2015–2022 Redistributable** (`x64` or `arm64`). If users experience a crash during initial engine startup (`UnsatisfiedLinkError: jcef.dll: Can't find dependent libraries`), ensure the runtime is installed:
+
+- Include the [VC++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist) prerequisite in your WiX / Inno Setup / MSI installer:
+  ```
+  vc_redist.x64.exe /install /quiet /norestart
+  ```
+
+### Per-Monitor High DPI Scaling
+Windows 10/11 multi-monitor setups often combine different scaling factors (e.g. 200% on a 4K display, 100% on a 1080p side monitor). Kromium automatically listens to DPI change events and rescales CEF surfaces dynamically.
+
+To prevent Windows from applying bitmap stretching:
+```xml
+<!-- application manifest or JVM flag -->
+-Dsun.java2d.dpiaware=true
+```
 
 ---
 
 ## 🐧 Linux (Ubuntu, Debian, Fedora, Arch)
 
-### Dynamic Library Dependencies
-Linux requires standard desktop X11/Wayland and multimedia libraries:
+### Shared Native Library Prerequisites
+Unlike macOS and Windows which ship complete multimedia frameworks out of the box, Linux distributions require specific desktop packages:
 
 ```bash
-# Verify shared library linkage
-ldd ~/.kromium/jcef/lib/libcef.so | grep "not found"
+# Debian / Ubuntu / Linux Mint:
+sudo apt-get update
+sudo apt-get install -y \
+    libgtk-3-0 \
+    libasound2 \
+    libnss3 \
+    libxss1 \
+    libxtst6 \
+    libxcursor1 \
+    libxrandr2 \
+    libgbm1
+
+# Fedora / RHEL:
+sudo dnf install -y \
+    gtk3 \
+    alsa-lib \
+    nss \
+    libXScrnSaver \
+    libXtst \
+    mesa-libgbm
 ```
 
-If any dependency is missing, install the required packages using your package manager (see [Installation Prerequisites](../getting-started/installation.md#linux-prerequisites)).
-
 ### Wayland vs. X11
-CEF connects to the display server via X11. Under Wayland, the system XWayland compatibility layer is used automatically. If hardware acceleration issues occur on specific Wayland compositors, pass `--ozone-platform=wayland` or fallback to software rendering.
+CEF Windowed rendering utilizes X11 window primitives. While modern Linux distributions use Wayland by default, XWayland handles this seamlessly. If you encounter rendering artifacts on Wayland, ensure the AWT toolkit runs under XWayland:
 
----
-
-## 🪟 Windows (10 & 11)
-
-### Microsoft Visual C++ Runtime
-Chromium and JCEF native binaries are compiled with MSVC and require the Visual C++ 2015–2022 Redistributable (`msvcp140.dll`, `vcruntime140.dll`). If missing, `CefBootstrapper` throws `KromiumException.BootstrapFailed`.
-* Include the VC++ redistributable in your installer package (e.g. WiX, Inno Setup, or Conveyor).
-
-### Windows Antivirus & SmartScreen
-Because `jcef_helper.exe` is a child process spawned dynamically by the JVM, certain strict enterprise EDR / antivirus tools may flag newly downloaded helper executables. Signing your final application bundle with a trusted Authenticode code signing certificate prevents false positives.
+```bash
+export GDK_BACKEND=x11
+```

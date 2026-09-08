@@ -1,165 +1,109 @@
-# Network Interception & Enterprise Proxies
+# Network Configuration & Proxy Switching
 
-[Documentation Hub](../README.md) &bull; **Guides** &bull; Network & Proxies
-
----
-
-## 🌐 Network Request Interception
-
-Intercept, inspect, block, or modify every HTTP and sub-resource request initiated by the browser:
-
-```kotlin
-client.requestInterceptor = KromiumRequestInterceptor { request ->
-    println("URL: ${request.url} | Method: ${request.method} | IsNav: ${request.isNavigation}")
-
-    // 1. Block tracking scripts & analytic pixels
-    if (request.url.contains("google-analytics.com") || request.url.contains("doubleclick.net")) {
-        return@KromiumRequestInterceptor true // Cancel request immediately
-    }
-
-    // 2. Inject custom authorization or session headers
-    if (request.url.startsWith("https://api.mycompany.com")) {
-        request.headers["Authorization"] = "Bearer token_abc123"
-        request.headers["X-Client-Platform"] = "Kromium-Desktop"
-    }
-
-    false // Allow request to proceed
-}
-```
+Kromium allows dynamic network configuration, runtime proxy switching without browser restarts, authenticated proxy support, and custom HTTP request interception.
 
 ---
 
-## 🏢 Enterprise & Small Business Proxy Strategies
+## 🌐 Dynamic Runtime Proxy Switching
 
-Kromium supports the full spectrum of corporate, enterprise, and privacy proxy configurations:
+Unlike standard browser engines that require restarting the entire JVM process to change proxy settings, Kromium can change proxies on the fly per client context or globally.
 
-```mermaid
-graph TD
-    KromiumProxy --> System["System (OS Default)"]
-    KromiumProxy --> Direct["Direct (Bypass All)"]
-    KromiumProxy --> AutoDetect["AutoDetect (WPAD DHCP/DNS)"]
-    KromiumProxy --> Pac["Pac (Proxy Auto-Configuration Script)"]
-    KromiumProxy --> Http["Http / Https (With Bypass Rules & TLS Tunnels)"]
-    KromiumProxy --> Socks5["Socks5 / Socks4 (With Remote DNS & Auth)"]
-    KromiumProxy --> MultiProtocol["MultiProtocol (Split HTTP/HTTPS/SOCKS Routing)"]
-```
+### Available Proxy Types
 
-### 1. HTTP / Secure HTTPS Proxy with Bypass Rules
-```kotlin
-Kromium.initialize {
-    proxy = KromiumProxy.Http(
-        host = "proxy.corp.internal",
-        port = 8080,
-        username = "domain\\user",
-        password = "SecurePassword123",
-        isSecure = false, // Set to true for https:// TLS proxy tunnels (Zero-Trust)
-        bypassList = listOf("<local>", "127.0.0.1", "*.internal.corp", "10.0.0.0/8")
-    )
-}
-```
+Defined in `KromiumProxy`:
+- `KromiumProxy.system()`: Uses the operating system's configured network proxy.
+- `KromiumProxy.direct()`: Bypasses all proxies and connects directly.
+- `KromiumProxy.http(host, port)`: HTTP proxy.
+- `KromiumProxy.https(host, port)`: HTTPS proxy.
+- `KromiumProxy.socks5(host, port)`: SOCKS5 proxy (ideal for SSH tunneling, Tor, and internal socks gateways).
+- `KromiumProxy.pac(pacScriptUrl)`: Proxy Auto-Configuration via PAC script.
 
-### 2. SOCKS5 with Remote DNS Leak Protection
-```kotlin
-Kromium.initialize {
-    proxy = KromiumProxy.Socks5(
-        host = "127.0.0.1",
-        port = 1080,
-        username = "socks_user",
-        password = "socks_pass",
-        remoteDns = true, // Resolves DNS on the proxy to prevent local DNS leakage
-        bypassList = listOf("localhost", "127.0.0.1")
-    )
-}
-```
-
-### 3. Proxy Auto-Configuration (PAC) Script
-Standard in corporate intranets where routing logic is distributed via `.pac` files:
+### Switching Proxies at Runtime (Kotlin)
 
 ```kotlin
-Kromium.initialize {
-    proxy = KromiumProxy.Pac("http://pac.corp.internal/wpad.dat")
-}
-```
+import dev.daviante.kromium.domain.config.KromiumProxy
 
-### 4. WPAD Auto-Discovery
-```kotlin
-Kromium.initialize {
-    proxy = KromiumProxy.AutoDetect
-}
-```
-
-### 5. Multi-Protocol Split Routing
-Route HTTP traffic through one proxy and HTTPS traffic through a secure egress gateway:
-
-```kotlin
-Kromium.initialize {
-    proxy = KromiumProxy.MultiProtocol(
-        http = "http://http-proxy.corp:8080",
-        https = "https://secure-egress.corp:8443",
-        socks = "socks5://socks.corp:1080",
-        bypassList = listOf("<local>", "*.corp")
-    )
-}
-```
-
----
-
-## 🔑 Automatic Proxy Authentication (HTTP 407)
-
-When credentials are provided in `KromiumProxy.Http` or `KromiumProxy.Socks5`, Kromium **automatically supplies them** when challenged with an `HTTP 407 (Proxy Authentication Required)` response. No custom listeners are required.
-
-To supply dynamic or interactive credentials at runtime, attach an `authListener`:
-
-```kotlin
-client.authListener = KromiumAuthListener { req ->
-    if (req.isProxy) {
-        KromiumAuthResponse.Proceed(
-            username = "domain\\myuser",
-            password = "SecretPassword"
-        )
-    } else {
-        KromiumAuthResponse.Cancel
-    }
-}
-```
-
----
-
-## ⚡ Dynamic Runtime Proxy Switching
-
-In enterprise desktop applications, users frequently switch network environments (e.g. connecting to a corporate VPN, switching Wi-Fi networks, or changing proxy profiles in App Settings).
-
-Kromium allows you to update the proxy configuration at runtime **without disposing browsers or restarting the engine**:
-
-```kotlin
-// Change proxy globally across all active browser windows:
-val result = Kromium.setProxy(
-    KromiumProxy.Http(
-        host = "vpn-gateway.internal",
-        port = 8443,
-        isSecure = true
-    )
-)
+// Switch to a corporate SOCKS5 proxy on the fly:
+val result = client.setProxy(KromiumProxy.socks5("127.0.0.1", 1080))
 
 if (result.isSuccess) {
-    println("Switched to VPN proxy successfully!")
+    println("Switched proxy successfully!")
 } else {
     println("Failed to update proxy: ${result.exceptionOrNull()?.message}")
 }
 ```
 
+### Switching Proxies at Runtime (Pure Java)
+
+In Java, `updateProxy` provides clean boolean ergonomics bypassing Kotlin Result class mangling:
+
+```java
+import dev.daviante.kromium.KromiumClient;
+import dev.daviante.kromium.domain.config.KromiumProxy;
+
+public final class ProxySwitchDemo {
+    public static void rotateProxy(KromiumClient client, String host, int port) {
+        boolean success = client.updateProxy(KromiumProxy.http(host, port));
+        if (success) {
+            System.out.println("Rotated proxy to: " + host + ":" + port);
+        } else {
+            System.err.println("Failed to update proxy.");
+        }
+    }
+}
+```
+
 ---
 
-## 🔐 Integrated Windows Authentication (NTLM / Kerberos SSO)
+## 🔑 Authenticated Proxies & HTTP Basic Auth
 
-To support seamless Single Sign-On (SSO) in Active Directory environments without prompting for credentials:
+When a proxy server or web page returns an `HTTP 407 Proxy Authentication Required` or `HTTP 401 Unauthorized` challenge, handle credentials using `onAuthRequired` / `KromiumAuthListener`:
+
+### Compose Desktop Auth Handler
 
 ```kotlin
-Kromium.initialize {
-    // Whitelist servers permitted for NTLM / Kerberos Negotiate
-    authServerAllowlist = listOf("*.corp.internal", "sso.company.com")
+val state = rememberKromiumViewState("https://internal-proxy.corp")
 
-    // Whitelist servers permitted for Kerberos credential delegation
-    authNegotiateDelegateAllowlist = listOf("sso.company.com")
+state.onAuthRequired = { authRequest ->
+    if (authRequest.isProxy) {
+        // Supply credentials for authenticated corporate proxy
+        KromiumAuthResponse(username = "corp_user", password = "SecretPassword123")
+    } else {
+        // Handle standard website HTTP Basic Auth
+        KromiumAuthResponse(username = "admin", password = "adminPassword")
+    }
+}
+```
+
+### Pure Java Auth Listener
+
+```java
+import dev.daviante.kromium.KromiumClient;
+import dev.daviante.kromium.presentation.handler.KromiumAuthResponse;
+
+client.setAuthListener(request -> {
+    if (request.isProxy()) {
+        return new KromiumAuthResponse("proxy_user", "proxy_pass");
+    }
+    return null; // Prompt user or cancel
+});
+```
+
+---
+
+## 🛰️ Request Headers & Custom Interception
+
+Intercept, inspect, or modify outbound HTTP requests using `KromiumRequestInterceptor`:
+
+```kotlin
+client.requestInterceptor = KromiumRequestInterceptor { request ->
+    // Inject corporate authorization or tracking headers:
+    request.setHeader("X-Client-Version", "2.1.150")
+    request.setHeader("X-Custom-Tenant-ID", "tenant-alpha-9")
+
+    // Or block requests to tracking domains:
+    if (request.url.contains("google-analytics.com")) {
+        request.cancel()
+    }
 }
 ```

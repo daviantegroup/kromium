@@ -1,94 +1,164 @@
-# Engine Architecture & Bootstrapping
+# Architecture & Process Model
 
-[Documentation Hub](../README.md) &bull; **Core Concepts** &bull; Architecture
+Kromium bridges the world of modern desktop JVM development (Jetpack Compose Desktop, Swing, JavaFX) with the state-of-the-art **Chromium Embedded Framework (CEF)**.
+
+Understanding Kromium's multi-process model, native bridging layer, and threading guarantees is key to building responsive, crash-resilient desktop applications.
 
 ---
 
-## 🏛️ High-Level System Architecture
+## 🏛️ Multi-Process Architecture
 
-Kromium bridges Kotlin applications with the Chromium Embedded Framework (CEF) by coordinating dynamic runtime installation, JNI native library resolution, multi-process lifecycle supervision, and Java AWT/Swing rendering pipelines.
+Like Google Chrome, Kromium executes web content across multiple isolated native processes. A crash or memory leak in a single web page cannot crash your JVM application.
 
-```mermaid
-graph TD
-    App["Your Desktop Application<br/>(Compose Desktop / Swing JVM)"] --> Core["Kromium Coordination Engine<br/>(dev.daviante:kromium-core)"]
-    
-    subgraph Engine Bootstrap Pipeline
-        Registry["EngineRegistry<br/>(Verifies .kromium_installed)"] -->|Missing| Downloader["EngineDownloader<br/>(JetBrains JBR / GitHub CDN)"]
-        Downloader --> Verifier["SHA-256 Checksum Verifier"]
-        Verifier --> Extractor["EngineExtractor<br/>(Zip-Slip Safe Extraction + Permissions)"]
-        Extractor --> Bootstrapper["CefBootstrapper<br/>(Dynamic JNI Library Loader)"]
-    end
-    
-    Core --> EngineBootstrapPipeline
-    
-    subgraph Multi-Process Chromium Model
-        BrowserProc["CEF Browser Process<br/>(Main UI, Network, IO Thread)"]
-        BrowserProc --- RendererProc["CEF Renderer Subprocess<br/>(Blink HTML/CSS, V8 Engine)"]
-        BrowserProc --- GpuProc["GPU Acceleration Process<br/>(SwiftShader, ANGLE, DirectX/OpenGL)"]
-        BrowserProc --- UtilityProc["Utility Subprocesses<br/>(Audio, Network Service, Storage)"]
-    end
-    
-    Bootstrapper --> BrowserProc
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                        JVM HOST APPLICATION PROCESS                     │
+│                                                                        │
+│   ┌───────────────────────────┐      ┌──────────────────────────────┐  │
+│   │ Compose Desktop / Swing   │      │ Kromium Kotlin / Java API     │  │
+│   │ (AWT Event Dispatch Thread)      │ (KromiumEngine, KromiumClient)│  │
+│   └─────────────┬─────────────┘      └──────────────┬───────────────┘  │
+│                 │                                   │                  │
+│                 ▼                                   ▼                  │
+│   ┌─────────────────────────────────────────────────────────────────┐  │
+│   │                 JNI / JCEF Native Binding Layer                 │  │
+│   │                     (libjcef.dylib / jcef.dll)                  │  │
+│   └─────────────────────────────────┬───────────────────────────────┘  │
+└─────────────────────────────────────┼──────────────────────────────────┘
+                                      │ IPC (Chromium Mojo IPC Pipes)
+                                      ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                      NATIVE CHROMIUM PROCESSES                         │
+│                                                                        │
+│   ┌───────────────────────────┐      ┌──────────────────────────────┐  │
+│   │  Chromium Render Process  │      │   Chromium GPU Process       │  │
+│   │  (Blink HTML5, V8 JS)     │      │   (Skia, Vulkan, Metal, D3D) │  │
+│   └───────────────────────────┘      └──────────────────────────────┘  │
+│   ┌───────────────────────────┐      ┌──────────────────────────────┐  │
+│   │  Chromium Network Process │      │   Chromium Utility Processes │  │
+│   │  (BoringSSL, HTTP/3 QUIC) │      │   (Audio, Storage, Printing) │  │
+│   └───────────────────────────┘      └──────────────────────────────┘  │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+### Process Roles
+
+1. **Host Browser Process (JVM Main Process)**:
+   - Manages the top-level application window, menus, life cycle, and native UI component mounting.
+   - Dispatches I/O, file downloads, permission prompts, and cookie persistence.
+2. **Render Process (`jcef_helper`)**:
+   - Executes Blink (HTML/CSS parsing, DOM tree layout) and Google V8 (JavaScript engine).
+   - Sandboxed by native OS policies (restricted disk and hardware access).
+3. **GPU Process**:
+   - Hardware-accelerated compositing using OS-native graphics APIs (Metal on macOS, DirectX 11/12 on Windows, Vulkan/OpenGL on Linux).
+4. **Network & Utility Processes**:
+   - Performs network socket operations, DNS resolution, and media decoding in isolated sandboxes.
+
+---
+
+## 🌉 The JCEF Native Bridging Layer
+
+Kromium builds upon modern, optimized JCEF (Java Chromium Embedded Framework) binaries compiled for:
+- **macOS**: `x86_64` (Intel) and `aarch64` (Apple Silicon M1/M2/M3/M4)
+- **Windows**: `x86_64` (64-bit Intel/AMD) and `arm64` (Snapdragon X Elite / Windows on ARM)
+- **Linux**: `x86_64` and `aarch64` (GLIBC 2.31+)
+
+When `KromiumEngine.initialize()` is called:
+1. Kromium unpacks or locates the native helper binaries and shared libraries (`libcef.dylib`, `libcef.so`, `chrome_elf.dll`).
+2. Initializes the CEF C++ core runtime via Java Native Interface (JNI).
+3. Sets up message routers for cross-process JavaScript IPC.
+
+---
+
+## 🖥️ Rendering Modes: Windowed vs. Off-Screen (OSR)
+
+Kromium supports two distinct rendering pipelines, configurable via `KromiumConfig`:
+
+```kotlin
+val config = KromiumConfig(
+    isOffScreenRenderingEnabled = false // default: Windowed mode
+)
+```
+
+| Feature | Windowed Rendering (`false`, Default) | Off-Screen Rendering (`true`, OSR) |
+|:---|:---|:---|
+| **Underlying Component** | Native OS Window Handle (`HWND`, `NSView`, `X11 Window`) embedded in Swing hierarchy. | Raw memory pixel buffer (`ByteBuffer`) painted onto a Java/Skia surface. |
+| **Performance** | **Maximum 60/120+ FPS**. Direct GPU zero-copy compositing. | Good (CPU-GPU pixel buffer copying overhead). |
+| **Input Handling** | Native OS event dispatching (accelerators, IME Japanese/Chinese inputs, smooth trackpad gestures). | Synthesized mouse and keyboard events forwarded from Compose. |
+| **Compose Overlays** | Native window renders above standard Swing/AWT surfaces unless layered using Compose popup windows. | Seamlessly allows semi-transparent Compose overlays directly on top of the browser view. |
+| **Recommendation** | **Recommended for 99% of desktop use cases** (web browsers, portals, dashboards). | Recommended when custom Compose animations or clipping masks must overlay web content. |
+
+---
+
+## 🧵 Threading Model & Concurrency Guarantees
+
+Desktop applications deal with multiple asynchronous threads. Kromium strictly enforces thread safety:
+
+### 1. The AWT Event Dispatch Thread (EDT)
+All UI interactions, component mounting, and Compose recompositions happen on the Java AWT Event Dispatch Thread.
+- Accessing `browser.getUIComponent()` must occur on the EDT.
+- In Compose Desktop, `KromiumView` automatically schedules mounting operations on the EDT.
+
+### 2. The Chromium UI Thread
+The native Chromium core runs its own internal event loop. Kromium dispatches cross-process calls (such as `loadUrl()`, `goBack()`, and zoom level changes) safely across this boundary without freezing the Java UI.
+
+### 3. Asynchronous Worker Threads (`CompletableFuture` / Kotlin Coroutines)
+All heavy or I/O-bound operations in Kromium are non-blocking:
+- `evaluateJavascriptAsync()` returns a `CompletableFuture<String>` or runs as a suspending function `evaluateJavascript()`.
+- `printToPdfAsync()` generates vector PDF documents asynchronously without blocking the UI thread.
+- File downloads and cookie reads stream asynchronously.
+
+### Safe Concurrency Example (Pure Java)
+
+```java
+package com.example.architecture;
+
+import dev.daviante.kromium.KromiumBrowser;
+import dev.daviante.kromium.KromiumClient;
+import dev.daviante.kromium.KromiumConfig;
+import dev.daviante.kromium.KromiumEngine;
+import java.awt.BorderLayout;
+import java.util.concurrent.CompletableFuture;
+import javax.swing.JFrame;
+import javax.swing.SwingUtilities;
+
+public final class ThreadSafeArchitectureDemo {
+    public static void main(String[] args) {
+        // Step 1: Initialize the Chromium engine
+        KromiumConfig config = new KromiumConfig();
+        KromiumEngine.getInstance().initialize(config);
+
+        // Step 2: Ensure UI creation happens on AWT Event Dispatch Thread
+        SwingUtilities.invokeLater(() -> {
+            KromiumClient client = KromiumEngine.getInstance().createClient();
+            KromiumBrowser browser = client.createBrowser("https://example.com");
+
+            JFrame frame = new JFrame("Kromium Threading Architecture");
+            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            frame.setSize(1024, 768);
+            frame.setLayout(new BorderLayout());
+            frame.add(browser.getUIComponent(), BorderLayout.CENTER);
+            frame.setVisible(true);
+
+            // Step 3: Execute asynchronous operation without blocking the EDT
+            CompletableFuture<String> titleFuture = browser.evaluateJavascriptAsync("document.title");
+            titleFuture.thenAccept(title -> {
+                // Return to EDT to update UI
+                SwingUtilities.invokeLater(() -> frame.setTitle("Page Title: " + title));
+            }).exceptionally(ex -> {
+                System.err.println("JS Evaluation failed: " + ex.getMessage());
+                return null;
+            });
+        });
+    }
+}
 ```
 
 ---
 
-## 📦 Dynamic Engine Provisioning
+## 🔄 Summary of Architectural Guarantees
 
-Traditional CEF wrappers require bundling 200MB+ of native platform binaries directly into your application installer for every target operating system.
-
-Kromium solves this via **On-Demand Engine Provisioning**:
-1. **Platform Fingerprinting**: `PlatformDetector` identifies the OS (Windows, macOS, Linux) and CPU architecture (x64, ARM64 Apple Silicon).
-2. **Release Resolution**: Queries the official JetBrains JCEF release catalog (or your enterprise mirror via `customBundleUrl`).
-3. **Checksum Verification**: Downloads the matching archive and verifies its cryptographic SHA-256 hash.
-4. **Hardened Extraction**: `EngineExtractor` extracts the bundle with strict Zip-Slip protection, restores POSIX execution permissions (`chmod +x`), and generates required macOS Framework symlinks.
-5. **Persistence**: Marks the engine as permanently installed via `.kromium_installed`. Future launches bootstrap in < 50ms without any network calls.
-
----
-
-## ⚙️ Native Library Loading (`CefBootstrapper`)
-
-Once the engine files are verified on disk, `CefBootstrapper` prepares the JVM environment:
-
-### Dynamic System Properties
-* `ALT_CEF_FRAMEWORK_DIR`: Points to the folder containing `libcef` (`Chromium Embedded Framework.framework` on macOS).
-* `ALT_CEF_HELPER_APP_DIR`: Points to the helper subprocess executable (`jcef_helper` or `jcef Helper.app`).
-* `ALT_JCEF_LIB_DIR`: Points to the directory containing `jcef.dll`, `libjcef.dylib`, or `libjcef.so`.
-* `jcef_app_preinit_any=true`: Allows JCEF to perform early native initialization on any thread, preventing deadlocks when bootstrapping off the Swing Event Dispatch Thread (EDT).
-
-### Native Library Link Order
-`CefBootstrapper` loads native binaries into the host JVM in strict topological order:
-1. **Java AWT Native Peer (`jawt`)**: Preloads `jawt.dll` / `libjawt.so` / `libjawt.dylib` from the active JDK `java.home`.
-2. **GPU & Shader Libraries**: Preloads ANGLE/SwiftShader acceleration binaries (`EGL`, `GLESv2`, `vk_swiftshader`) unless `--disable-gpu` is active.
-3. **Chromium Core Framework**:
-   * Windows: Preloads `chrome_elf.dll`, then `libcef.dll`.
-   * Linux: Preloads `libcef.so`.
-   * macOS: Dynamic loader resolves the nested framework bundle.
-4. **CEF JNI Bridge (`jcef`)**: Links the Java-to-C++ JNI adapter.
-
----
-
-## 🧵 Threading Model
-
-Chromium and Swing operate on separate, specialized event loops. Kromium coordinates these safely:
-
-```mermaid
-sequenceDiagram
-    participant User as Application Thread
-    participant Mutex as Kromium Mutex
-    participant CEF as CEF UI/IO Thread
-    participant EDT as Swing EDT
-
-    User->>Mutex: Kromium.initialize()
-    Mutex->>CEF: CefApp.startup() & CefApp.getInstance()
-    CEF-->>Mutex: onInitialization(INITIALIZED)
-    Mutex-->>User: KromiumState.Ready
-
-    User->>EDT: createBrowser()
-    EDT->>CEF: rawClient.createBrowser()
-    CEF-->>EDT: java.awt.Component attached
-```
-
-* **Application Dispatcher**: Coroutines run on `Dispatchers.IO` or `Dispatchers.Default`.
-* **CEF Thread**: Handles network IO, Blink rendering, and Chromium message loops.
-* **Swing EDT**: Handles user input events, focus, painting, and window resizing.
+- **Process Isolation**: Sandboxed renderer processes ensure application stability.
+- **Zero Memory Leaks**: Native C++ CEF reference counts (`CefRefPtr`) are systematically decremented when `browser.close()` and `client.dispose()` are called.
+- **DPI Scaling**: Automatic per-monitor high-DPI scaling across Retina macOS displays, 4K Windows fractional scaling (125%, 150%, 175%), and Linux X11/Wayland configurations.
+- **Headless Capabilities**: Can run fully headless without initializing an AWT display server.

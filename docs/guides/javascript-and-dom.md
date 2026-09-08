@@ -1,138 +1,142 @@
-# JavaScript Bridge & Two-Way IPC
+# JavaScript Execution & DOM Bridge
 
-[Documentation Hub](../README.md) &bull; **Guides** &bull; JavaScript & DOM
+Kromium provides bi-directional interoperability between the JVM host and the Chromium V8 JavaScript runtime:
+1. **JVM to Web**: Asynchronously execute arbitrary JavaScript and inspect DOM elements.
+2. **Web to JVM (IPC)**: Expose native JVM functions that can be invoked from JavaScript via `window.kromiumQuery`.
 
 ---
 
-## ⚡ Suspendable JavaScript Evaluation
+## ⚡ Executing JavaScript from JVM
 
-Kromium features a modern, coroutine-based JavaScript execution pipeline. Instead of callback hell, `evaluateJavaScript` suspends until V8 finishes execution and returns the stringified result directly.
+### Suspending Evaluation (Kotlin Coroutines)
+
+In Kotlin or Compose Desktop, evaluate JavaScript inside a coroutine:
 
 ```kotlin
-// Suspending call in a coroutine
-coroutineScope.launch {
-    // Read page title
-    val pageTitle: String? = browser.evaluateJavaScript("document.title")
-    println("Title: $pageTitle")
+import dev.daviante.kromium.presentation.browser.KromiumBrowser
 
-    // Complex calculation
-    val sum: String? = browser.evaluateJavaScript("1 + 2 + 3")
-    println("Sum: $sum") // "6"
+suspend fun extractPageMetadata(browser: KromiumBrowser) {
+    // 1. Evaluate single expression:
+    val title = browser.evaluateJavaScript("document.title")
+    println("Page title: $title")
+
+    // 2. Evaluate complex IIFE with JSON result:
+    val script = """
+        (function() {
+            return JSON.stringify({
+                headingsCount: document.querySelectorAll("h1, h2, h3").length,
+                linksCount: document.querySelectorAll("a").length,
+                theme: document.body.getAttribute("data-theme") || "light"
+            });
+        })();
+    """.trimIndent()
+
+    val jsonResult = browser.evaluateJavaScript(script)
+    println("Metadata JSON: $jsonResult")
 }
 ```
 
-### Configurable Evaluation Timeouts
-Prevent rogue JavaScript or infinite loops from hanging your coroutines indefinitely:
+### Asynchronous Evaluation with CompletableFuture (Pure Java)
 
-```kotlin
-import dev.daviante.kromium.presentation.js.JsEvaluator
+In pure Java, use `evaluateJavaScriptAsync` which returns a `CompletableFuture<String?>`:
 
-// Set global JavaScript evaluation timeout (default: 10,000ms)
-JsEvaluator.defaultTimeoutMs = 5_000L
+```java
+package com.example.js;
+
+import dev.daviante.kromium.KromiumBrowser;
+import java.util.concurrent.CompletableFuture;
+
+public final class JsEvaluationJavaDemo {
+    public static void runScript(KromiumBrowser browser) {
+        CompletableFuture<String> future = browser.evaluateJavaScriptAsync("document.title");
+
+        future.thenAccept(title -> {
+            System.out.println("Document title evaluated: " + title);
+        }).exceptionally(throwable -> {
+            System.err.println("JS evaluation failed: " + throwable.getMessage());
+            return null;
+        });
+    }
+}
 ```
 
 ---
 
-## 🔄 Two-Way IPC (`CefMessageRouter`)
+## 📄 Built-in DOM Convenience Queries
 
-Communicate between web frontend code and your Kotlin desktop application using CEF's message router pipeline.
+`KromiumBrowser` provides fast convenience helpers for common DOM inspection tasks:
 
-### 1. Registering the Query Router in Kotlin
-Create a `CefMessageRouter` and attach it to your client's raw CEF client:
+| Helper (Kotlin Suspending) | Helper (Java `CompletableFuture`) | What it Evaluates |
+|:---|:---|:---|
+| `browser.getHtml()` | `browser.getHtmlAsync()` | `document.documentElement.outerHTML` |
+| `browser.getText()` | `browser.getTextAsync()` | `document.body ? document.body.innerText : ''` |
+| `browser.getFaviconUrl()` | `browser.getFaviconUrlAsync()` | Resolves `<link rel="icon">` or returns `null` |
+
+---
+
+## 🌉 Bi-Directional IPC: Calling Native JVM Code from Web Pages
+
+You can expose native JVM methods to web pages without needing a local HTTP/WebSocket server.
+
+### 1. Registering the Native Handler (Kotlin & Java)
 
 ```kotlin
-import org.cef.browser.CefBrowser
-import org.cef.browser.CefFrame
-import org.cef.browser.CefMessageRouter
-import org.cef.callback.CefQueryCallback
-import org.cef.handler.CefMessageRouterHandlerAdapter
-
-// 1. Configure the query function name (e.g. window.cefQuery)
-val routerConfig = CefMessageRouter.CefMessageRouterConfig("cefQuery", "cefQueryCancel")
-val messageRouter = CefMessageRouter.create(routerConfig)
-
-// 2. Attach your IPC request handler
-messageRouter.addHandler(object : CefMessageRouterHandlerAdapter() {
-    override fun onQuery(
-        browser: CefBrowser?,
-        frame: CefFrame?,
-        queryId: Long,
-        request: String?,
-        persistent: Boolean,
-        callback: CefQueryCallback?
-    ): Boolean {
-        if (request == null) return false
-
-        when {
-            request.startsWith("FETCH_USER:") -> {
-                val userId = request.removePrefix("FETCH_USER:")
-                // Send JSON payload back to web JavaScript
-                callback?.success("""{"id": "$userId", "name": "Alice Doe", "role": "Admin"}""")
-                return true
-            }
-            request == "GET_APP_VERSION" -> {
-                callback?.success("2.1.150")
-                return true
-            }
-            else -> {
-                callback?.failure(404, "Unknown query command: $request")
-                return true
-            }
-        }
-    }
-}, true)
-
-// 3. Register router with client's raw CEF client
-client.rawClient.addMessageRouter(messageRouter)
+// In Kotlin:
+client.registerFunction("saveUserData") { jsonPayload ->
+    println("Native received: $jsonPayload")
+    // Return a response string back to JavaScript:
+    """{"status":"saved","timestamp":${System.currentTimeMillis()}}"""
+}
 ```
 
-### 2. Sending Queries from JavaScript
-In your frontend HTML/JavaScript:
+```java
+// In Pure Java:
+client.registerFunction("saveUserData", jsonPayload -> {
+    System.out.println("Native received: " + jsonPayload);
+    return "{\"status\":\"saved\",\"timestamp\":" + System.currentTimeMillis() + "}";
+});
+```
+
+### 2. Invoking from JavaScript (Web Page / React / Vue)
+
+Chromium exposes `window.kromiumQuery`:
 
 ```javascript
-// Promise-based wrapper around CEF query router
-function callDesktopApp(command) {
-    return new Promise((resolve, reject) => {
-        window.cefQuery({
-            request: command,
-            persistent: false,
-            onSuccess: function(response) {
-                resolve(response);
-            },
-            onFailure: function(errorCode, errorMessage) {
-                reject(new Error(errorMessage + " (" + errorCode + ")"));
-            }
-        });
+// In frontend JavaScript:
+function sendToNative() {
+    const payload = JSON.stringify({
+        action: "saveUserData",
+        username: "alice",
+        preferences: { darkMode: true }
     });
-}
 
-// Call Kotlin from web app
-async function loadUserData() {
-    try {
-        const response = await callDesktopApp("FETCH_USER:42");
-        const user = JSON.parse(response);
-        console.log("Loaded user:", user.name);
-    } catch (err) {
-        console.error("Desktop bridge error:", err);
-    }
+    window.kromiumQuery({
+        request: payload,
+        onSuccess: function(response) {
+            console.log("Response from JVM:", response);
+            const data = JSON.parse(response);
+            alert("Saved at: " + data.timestamp);
+        },
+        onFailure: function(errorCode, errorMessage) {
+            console.error("Native call failed (" + errorCode + "): " + errorMessage);
+        }
+    });
 }
 ```
 
 ---
 
-## 📄 DOM Extraction Utilities
+## ⏱️ Timeout Handling & Error Recovery
 
-Kromium provides dedicated helper functions on `KromiumBrowser` and `KromiumViewState` to extract DOM properties asynchronously without writing manual JavaScript strings:
+Long-running or infinite loops in untrusted JavaScript can be bounded by setting a timeout:
 
 ```kotlin
-coroutineScope.launch {
-    // Extract full outer HTML of the active frame
-    val html: String = browser.getHtml()
-
-    // Extract raw visible text (stripping tags and scripts)
-    val visibleText: String = browser.getText()
-
-    // Extract active favicon URL
-    val faviconUrl: String? = browser.getFaviconUrl()
+try {
+    val result = browser.evaluateJavaScript(
+        expression = "while(true){}",
+        // timeoutMs parameter:
+    )
+} catch (e: KromiumException.JsEvaluationTimeout) {
+    System.err.println("JavaScript execution timed out after ${e.timeoutMs}ms")
 }
 ```
