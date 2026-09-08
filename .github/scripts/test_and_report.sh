@@ -71,12 +71,14 @@ EOF
 
   # 4. Update documentation coordinates and Maven Central badge
   sed -i -E "s/Maven_Central-v[0-9.]+(-b[0-9]+)?/Maven_Central-v${NEW_VERSION}/g" README.md
-  sed -i -E "s/dev\.daviante:kromium-compose:[0-9.]+(-b[0-9]+)?/dev.daviante:kromium-compose:${NEW_VERSION}/g" README.md docs/*.md
-  sed -i -E "s/dev\.daviante:kromium-core:[0-9.]+(-b[0-9]+)?/dev.daviante:kromium-core:${NEW_VERSION}/g" README.md docs/*.md
+  sed -i -E "s/dev\.daviante:kromium-compose:[0-9.]+(-b[0-9]+)?/dev.daviante:kromium-compose:${NEW_VERSION}/g" README.md docs/README.md docs/*/*.md
+  sed -i -E "s/dev\.daviante:kromium-core:[0-9.]+(-b[0-9]+)?/dev.daviante:kromium-core:${NEW_VERSION}/g" README.md docs/README.md docs/*/*.md
+  sed -i -E "s/<kromium\.version>[0-9.]+(-b[0-9]+)?<\/kromium\.version>/<kromium.version>${NEW_VERSION}<\/kromium.version>/g" README.md docs/README.md docs/*/*.md
+  sed -i -E "s/<version>[0-9.]+(-b[0-9]+)?<\/version>/<version>${NEW_VERSION}<\/version>/g" README.md docs/README.md docs/*/*.md
 
   BRANCH_NAME="update/jcef-${UPSTREAM_VERSION}"
   git checkout -B "$BRANCH_NAME"
-  git add kromium-core/libs/jcef.jar jcef-version.txt build.gradle.kts kromium-core/src/main/kotlin/dev/daviante/kromium/data/engine/EngineRegistry.kt CHANGELOG.md README.md docs/*.md
+  git add kromium-core/libs/jcef.jar jcef-version.txt build.gradle.kts kromium-core/src/main/kotlin/dev/daviante/kromium/data/engine/EngineRegistry.kt CHANGELOG.md README.md docs/
   git commit -m "chore(deps): upgrade JCEF engine to ${UPSTREAM_VERSION} (${NEW_VERSION})
 
 - Downloaded certified jcef.jar from JetBrains Maven (${UPSTREAM_VERSION})
