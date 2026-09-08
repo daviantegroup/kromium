@@ -60,6 +60,8 @@ jobs:
 
       - name: Check Trigger Condition (PR Merge & JAR Update)
         id: check_trigger
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             if [ "${{ github.event.pull_request.merged }}" != "true" ]; then
@@ -81,6 +83,16 @@ jobs:
               echo "proceed=false" >> $GITHUB_OUTPUT
               exit 0
             fi
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            TAG_NAME="${{ github.ref_name }}"
+            echo "Tag push event detected for $TAG_NAME. Checking if release already exists..."
+            if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+              echo "Release $TAG_NAME already created by PR merge. Skipping duplicate tag run."
+              echo "proceed=false" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            echo "New standalone tag push without existing release. Proceeding."
+            echo "proceed=true" >> $GITHUB_OUTPUT
           else
             echo "Direct release or manual workflow dispatch. Proceeding."
             echo "proceed=true" >> $GITHUB_OUTPUT
