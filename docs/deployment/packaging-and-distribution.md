@@ -1,19 +1,20 @@
 # Packaging & Native Distribution
 
-Distributing desktop applications with an embedded Chromium engine requires packaging native binaries (`.dylib`, `.dll`, `.so`) and helper processes alongside the Java runtime.
-
-This guide details best practices for packaging Kromium apps into native desktop installers: **DMG / PKG (macOS)**, **MSI / EXE (Windows)**, and **DEB / RPM (Linux)**.
+> [!NOTE]
+> **Kromium is a developer library/SDK** distributed via Maven Central (`dev.daviante:kromium-compose` and `dev.daviante:kromium-core`). Kromium itself does not distribute standalone installers.
+>
+> This guide is for developers embedding Kromium who are packaging **their own desktop applications** into native installers: **DMG / PKG (macOS)**, **MSI / EXE (Windows)**, and **DEB / RPM (Linux)**.
 
 ---
 
-## 📦 Strategy: Pre-bundled vs. Runtime Download
+## 📦 Packaging Strategies for Your Application
 
-Kromium supports two deployment models:
+When distributing an application that embeds Kromium, you have two options for handling the Chromium native runtime:
 
 | Strategy | Advantages | Trade-offs | Best For |
 |:---|:---|:---|:---|
-| **1. Runtime Auto-Download (Default)** | Installer download is small (~30-50MB). CEF engine downloads on first app launch. | Requires initial internet connection on first start. | Open-source apps, quick demos, consumer tools. |
-| **2. Pre-bundled Offline Binaries** | **Zero network requests** on startup. Immediate offline launch. | Installer bundle is larger (~120-150MB per OS). | **Enterprise, air-gapped, healthcare, and POS applications.** |
+| **1. Runtime Auto-Download (Default)** | Your app's installer remains small (~30-50MB). Kromium downloads the matching CEF runtime automatically on the user's first launch. | End-user requires an initial internet connection on first app start. | Consumer tools, open-source apps, rapid prototypes. |
+| **2. Pre-bundled Offline Binaries** | **Zero network requests** on first run. Completely offline, instant launch. | Your app's installer is larger (~120-150MB per target OS). | **Enterprise, air-gapped, healthcare, and POS applications.** |
 
 ---
 
