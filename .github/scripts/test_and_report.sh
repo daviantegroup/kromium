@@ -32,7 +32,8 @@ if [ $TEST_EXIT_CODE -eq 0 ]; then
   # Example: 150.0.14-g7c1aa68-chromium-150.0.7871.129-api-1.21-263-b11
   CEF_MAJOR=$(echo "$UPSTREAM_VERSION" | grep -oPm1 "(?<=chromium-)[0-9]+" || echo "150")
   BUILD_REV=$(echo "$UPSTREAM_VERSION" | grep -oPm1 "b[0-9]+$" || echo "b11")
-  NEW_VERSION="1.0.${CEF_MAJOR}-${BUILD_REV}"
+  CURRENT_SEMVER_PREFIX=$(grep -oPm1 '(?<=version = ")[0-9]+\.[0-9]+' build.gradle.kts || echo "2.1")
+  NEW_VERSION="${CURRENT_SEMVER_PREFIX}.${CEF_MAJOR}-${BUILD_REV}"
   CACHE_TAG="${CEF_MAJOR}-${BUILD_REV}"
   RELEASE_DATE=$(date +%Y-%m-%d)
 
@@ -42,7 +43,7 @@ if [ $TEST_EXIT_CODE -eq 0 ]; then
   sed -i "s/version = .*/version = \"${NEW_VERSION}\"/" build.gradle.kts
 
   # 2. Update cache folder isolation in EngineRegistry.kt
-  sed -i "s/return File(baseDir, \"jcef-.*\")/return File(baseDir, \"jcef-${CACHE_TAG}\")/" kromium-core/src/main/kotlin/dev/daviante/kromium/data/engine/EngineRegistry.kt
+  sed -i "s/const val DEFAULT_ENGINE_FOLDER = .*/const val DEFAULT_ENGINE_FOLDER = \"jcef-${CACHE_TAG}\"/" kromium-core/src/main/kotlin/dev/daviante/kromium/data/engine/EngineRegistry.kt
 
   # 3. Prepend entry to CHANGELOG.md if not already present
   if ! grep -q "## \[${NEW_VERSION}\]" CHANGELOG.md; then

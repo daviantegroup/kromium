@@ -9,6 +9,7 @@ import java.io.File
 object EngineRegistry {
 
     private const val LOCK_FILE_NAME = "install.lock"
+    const val DEFAULT_ENGINE_FOLDER = "jcef-150-b11"
 
     @JvmStatic
     fun defaultInstallDir(): File {
@@ -23,11 +24,11 @@ object EngineRegistry {
         val platform = PlatformDetector.current()
         val rawHome = System.getProperty("user.home") ?: "."
         if (rawHome.contains("..")) {
-            return File(".kromium/jcef-150-b11").canonicalFile
+            return File(".kromium/$DEFAULT_ENGINE_FOLDER").canonicalFile
         }
         val homeDir = File(rawHome).canonicalFile
         if (homeDir.path.contains("..")) {
-            return File(".kromium/jcef-150-b11").canonicalFile
+            return File(".kromium/$DEFAULT_ENGINE_FOLDER").canonicalFile
         }
 
         val dotKromium = FileUtils.resolveChild(homeDir, ".kromium") ?: homeDir
@@ -69,11 +70,11 @@ object EngineRegistry {
                 }
             }
         }
-        val target = File(baseDir, "jcef-150-b11").canonicalFile
+        val target = File(baseDir, DEFAULT_ENGINE_FOLDER).canonicalFile
         return if (target.canonicalPath.startsWith(baseDir.canonicalPath)) {
             target
         } else {
-            File(homeDir, ".kromium/jcef-150-b11").canonicalFile
+            File(homeDir, ".kromium/$DEFAULT_ENGINE_FOLDER").canonicalFile
         }
     }
 
