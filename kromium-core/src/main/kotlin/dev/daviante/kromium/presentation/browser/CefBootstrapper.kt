@@ -1,16 +1,13 @@
 package dev.daviante.kromium.presentation.browser
 
-import dev.daviante.kromium.domain.model.*
-import dev.daviante.kromium.domain.config.*
-import dev.daviante.kromium.domain.exception.*
-import dev.daviante.kromium.data.engine.*
-import dev.daviante.kromium.data.model.*
-import dev.daviante.kromium.presentation.browser.*
-import dev.daviante.kromium.presentation.handler.*
-import dev.daviante.kromium.presentation.js.*
-import dev.daviante.kromium.presentation.network.*
-import dev.daviante.kromium.core.logging.*
-import dev.daviante.kromium.core.util.*
+import dev.daviante.kromium.core.logging.KromiumLogger
+import dev.daviante.kromium.core.util.FileUtils
+import dev.daviante.kromium.core.util.JvmModuleOpener
+import dev.daviante.kromium.core.util.PlatformDetector
+import dev.daviante.kromium.domain.exception.KromiumException
+import dev.daviante.kromium.domain.model.OperatingSystem
+import dev.daviante.kromium.domain.model.PlatformInfo
+
 
 
 import org.cef.CefApp

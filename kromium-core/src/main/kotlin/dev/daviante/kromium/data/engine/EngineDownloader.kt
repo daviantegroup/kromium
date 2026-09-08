@@ -1,28 +1,33 @@
 package dev.daviante.kromium.data.engine
 
-import dev.daviante.kromium.domain.model.*
-import dev.daviante.kromium.domain.config.*
-import dev.daviante.kromium.domain.exception.*
-import dev.daviante.kromium.data.engine.*
-import dev.daviante.kromium.data.model.*
-import dev.daviante.kromium.presentation.browser.*
-import dev.daviante.kromium.presentation.handler.*
-import dev.daviante.kromium.presentation.js.*
-import dev.daviante.kromium.presentation.network.*
-import dev.daviante.kromium.core.logging.*
-import dev.daviante.kromium.core.util.*
+import dev.daviante.kromium.core.logging.KromiumLogger
+import dev.daviante.kromium.core.util.PlatformDetector
+import dev.daviante.kromium.data.model.GitHubRelease
+import dev.daviante.kromium.domain.exception.KromiumException
+import dev.daviante.kromium.domain.model.Architecture
+import dev.daviante.kromium.domain.model.DownloadProgress
+import dev.daviante.kromium.domain.model.OperatingSystem
+import dev.daviante.kromium.domain.model.PlatformInfo
 
 
-import io.ktor.client.*
-import io.ktor.client.call.*
-import io.ktor.client.engine.okhttp.*
-import io.ktor.client.plugins.*
-import io.ktor.client.plugins.contentnegotiation.*
-import io.ktor.client.request.*
-import io.ktor.client.statement.*
-import io.ktor.http.*
-import io.ktor.serialization.kotlinx.json.*
-import io.ktor.utils.io.*
+
+import io.ktor.client.HttpClient
+import io.ktor.client.call.body
+import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.onDownload
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.request.prepareGet
+import io.ktor.client.statement.bodyAsChannel
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
+import io.ktor.http.isSuccess
+import io.ktor.serialization.kotlinx.json.json
+import io.ktor.utils.io.ByteReadChannel
+import io.ktor.utils.io.readAvailable
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.FileOutputStream

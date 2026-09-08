@@ -1,16 +1,47 @@
 package dev.daviante.kromium.presentation.browser
 
-import dev.daviante.kromium.domain.model.*
-import dev.daviante.kromium.domain.config.*
-import dev.daviante.kromium.domain.exception.*
-import dev.daviante.kromium.data.engine.*
-import dev.daviante.kromium.data.model.*
-import dev.daviante.kromium.presentation.browser.*
-import dev.daviante.kromium.presentation.handler.*
-import dev.daviante.kromium.presentation.js.*
-import dev.daviante.kromium.presentation.network.*
-import dev.daviante.kromium.core.logging.*
-import dev.daviante.kromium.core.util.*
+import dev.daviante.kromium.core.logging.KromiumLogger
+import dev.daviante.kromium.domain.config.KromiumProxy
+import dev.daviante.kromium.domain.exception.KromiumException
+import dev.daviante.kromium.domain.exception.KromiumLoadError
+import dev.daviante.kromium.domain.exception.SslErrorPolicy
+import dev.daviante.kromium.presentation.handler.KromiumAuthListener
+import dev.daviante.kromium.presentation.handler.KromiumAuthRequest
+import dev.daviante.kromium.presentation.handler.KromiumAuthResponse
+import dev.daviante.kromium.presentation.handler.KromiumConsoleMessage
+import dev.daviante.kromium.presentation.handler.KromiumConsoleMessageLevel
+import dev.daviante.kromium.presentation.handler.KromiumDownloadItem
+import dev.daviante.kromium.presentation.handler.KromiumDownloadListener
+import dev.daviante.kromium.presentation.handler.KromiumJsDialog
+import dev.daviante.kromium.presentation.handler.KromiumJsDialogListener
+import dev.daviante.kromium.presentation.handler.KromiumJsDialogType
+import dev.daviante.kromium.presentation.js.KromiumJsHandler
+import dev.daviante.kromium.presentation.network.KromiumAssetFilter
+import dev.daviante.kromium.presentation.network.KromiumHtmlResourceHandler
+import dev.daviante.kromium.presentation.network.KromiumRequestInterceptor
+import dev.daviante.kromium.presentation.network.KromiumWebResourceRequest
+import org.cef.handler.CefContextMenuHandler
+import org.cef.handler.CefContextMenuHandlerAdapter
+import org.cef.handler.CefDisplayHandler
+import org.cef.handler.CefDisplayHandlerAdapter
+import org.cef.handler.CefDownloadHandler
+import org.cef.handler.CefDownloadHandlerAdapter
+import org.cef.handler.CefFocusHandler
+import org.cef.handler.CefFocusHandlerAdapter
+import org.cef.handler.CefJSDialogHandler
+import org.cef.handler.CefJSDialogHandlerAdapter
+import org.cef.handler.CefKeyboardHandler
+import org.cef.handler.CefKeyboardHandlerAdapter
+import org.cef.handler.CefLifeSpanHandler
+import org.cef.handler.CefLifeSpanHandlerAdapter
+import org.cef.handler.CefLoadHandler
+import org.cef.handler.CefLoadHandlerAdapter
+import org.cef.handler.CefRequestHandler
+import org.cef.handler.CefRequestHandlerAdapter
+import org.cef.handler.CefResourceHandler
+import org.cef.handler.CefResourceRequestHandler
+import org.cef.handler.CefResourceRequestHandlerAdapter
+
 
 
 import org.cef.CefClient
@@ -23,7 +54,6 @@ import org.cef.callback.CefBeforeDownloadCallback
 import org.cef.callback.CefDownloadItem
 import org.cef.callback.CefDownloadItemCallback
 import org.cef.callback.CefJSDialogCallback
-import org.cef.handler.*
 import org.cef.misc.BoolRef
 import org.cef.network.CefRequest
 

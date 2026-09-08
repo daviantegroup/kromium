@@ -2,8 +2,9 @@ package dev.daviante.kromium.sample.swing.ui;
 
 import dev.daviante.kromium.presentation.browser.KromiumBrowser;
 
-import javax.swing.*;
-import java.awt.*;
+import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
+import java.awt.BorderLayout;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 

@@ -4,7 +4,8 @@ import kotlin.test.Test
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.test.assertEquals
-import dev.daviante.kromium.domain.model.*
+import dev.daviante.kromium.domain.model.Architecture
+import dev.daviante.kromium.domain.model.OperatingSystem
 
 class PlatformDetectorTest {
 

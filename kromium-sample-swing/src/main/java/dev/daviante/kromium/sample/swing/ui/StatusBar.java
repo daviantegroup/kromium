@@ -3,9 +3,16 @@ package dev.daviante.kromium.sample.swing.ui;
 import dev.daviante.kromium.data.engine.KromiumEngine;
 import dev.daviante.kromium.sample.swing.theme.KromiumTheme;
 
-import javax.swing.*;
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.JButton;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
 import javax.swing.border.EmptyBorder;
-import java.awt.*;
+import java.awt.BorderLayout;
+import java.awt.Cursor;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
 
 /**
  * Bottom status bar providing engine status, zoom controls, and CEF version

@@ -1,6 +1,7 @@
 package dev.daviante.kromium.core.util
 
-import dev.daviante.kromium.core.logging.*
+import dev.daviante.kromium.core.logging.KromiumLogger
+
 import java.io.File
 
 private const val TAG = "FileUtils"

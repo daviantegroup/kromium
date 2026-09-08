@@ -5,9 +5,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.test.assertFalse
 import java.io.File
-import dev.daviante.kromium.domain.model.*
-import dev.daviante.kromium.domain.config.*
-import dev.daviante.kromium.domain.exception.*
+
 
 class EngineRegistryTest {
 

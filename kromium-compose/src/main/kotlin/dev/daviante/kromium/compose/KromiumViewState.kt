@@ -1,19 +1,23 @@
 package dev.daviante.kromium.compose
 
-import dev.daviante.kromium.domain.model.*
-import dev.daviante.kromium.domain.config.*
-import dev.daviante.kromium.domain.exception.*
-import dev.daviante.kromium.data.engine.*
-import dev.daviante.kromium.data.model.*
-import dev.daviante.kromium.presentation.browser.*
-import dev.daviante.kromium.presentation.handler.*
-import dev.daviante.kromium.presentation.js.*
-import dev.daviante.kromium.presentation.network.*
-import dev.daviante.kromium.core.logging.*
-import dev.daviante.kromium.core.util.*
-
-
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import dev.daviante.kromium.domain.exception.KromiumLoadError
+import dev.daviante.kromium.domain.exception.SslErrorPolicy
+import dev.daviante.kromium.presentation.browser.KromiumBrowser
+import dev.daviante.kromium.presentation.browser.KromiumClient
+import dev.daviante.kromium.presentation.handler.KromiumAuthRequest
+import dev.daviante.kromium.presentation.handler.KromiumAuthResponse
+import dev.daviante.kromium.presentation.handler.KromiumConsoleMessage
+import dev.daviante.kromium.presentation.handler.KromiumDownloadItem
+import dev.daviante.kromium.presentation.handler.KromiumJsDialog
+import dev.daviante.kromium.presentation.network.KromiumAssetFilter
+import dev.daviante.kromium.presentation.network.KromiumCookieManager
+import dev.daviante.kromium.presentation.network.KromiumRequestInterceptor
 
 /**
  * High-level state holder representing an active browser session with full Compose reactivity.
