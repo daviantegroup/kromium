@@ -204,6 +204,13 @@ class KromiumBrowser(
     fun getZoom(): Double = browser.zoomLevel
 
     /**
+     * Property providing JavaBeans getter and setter for Java interop (getZoomLevel / setZoomLevel).
+     */
+    var zoomLevel: Double
+        get() = browser.zoomLevel
+        set(value) { browser.zoomLevel = value }
+
+    /**
      * Opens the native Chromium DevTools window for debugging and DOM inspection.
      */
     fun openDevTools() {
@@ -371,6 +378,7 @@ class KromiumBrowser(
     /**
      * Registers a callback invoked when a page has completed loading in the main frame.
      */
+    @JvmSynthetic
     fun onPageFinished(callback: (url: String) -> Unit) {
         val handler = object : org.cef.handler.CefLoadHandlerAdapter() {
             override fun onLoadEnd(cefBrowser: CefBrowser?, frame: CefFrame?, httpStatusCode: Int) {
@@ -393,6 +401,7 @@ class KromiumBrowser(
     /**
      * Registers a callback invoked when the browser URL / address changes.
      */
+    @JvmSynthetic
     fun onAddressChanged(callback: (newUrl: String) -> Unit) {
         val handler = object : org.cef.handler.CefDisplayHandlerAdapter() {
             override fun onAddressChange(cefBrowser: CefBrowser?, frame: CefFrame?, newUrl: String?) {
@@ -415,6 +424,7 @@ class KromiumBrowser(
     /**
      * Registers a callback invoked when the page title changes.
      */
+    @JvmSynthetic
     fun onTitleChanged(callback: (title: String) -> Unit) {
         val handler = object : org.cef.handler.CefDisplayHandlerAdapter() {
             override fun onTitleChange(cefBrowser: CefBrowser?, title: String?) {
@@ -437,6 +447,7 @@ class KromiumBrowser(
     /**
      * Registers a callback invoked when the browser loading state or navigation history changes.
      */
+    @JvmSynthetic
     fun onLoadingChanged(callback: (isLoading: Boolean, canGoBack: Boolean, canGoForward: Boolean) -> Unit) {
         val handler = object : org.cef.handler.CefLoadHandlerAdapter() {
             override fun onLoadingStateChange(
