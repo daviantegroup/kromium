@@ -18,6 +18,9 @@ import dev.daviante.kromium.presentation.handler.KromiumConsoleMessage
 import dev.daviante.kromium.presentation.handler.KromiumDownloadItem
 import dev.daviante.kromium.presentation.handler.KromiumJsDialog
 import dev.daviante.kromium.presentation.handler.KromiumPermissionHandler
+import dev.daviante.kromium.presentation.menu.KromiumContextMenuContext
+import dev.daviante.kromium.presentation.menu.KromiumContextMenuHandler
+import dev.daviante.kromium.presentation.menu.KromiumMenuBuilder
 import dev.daviante.kromium.presentation.network.KromiumAssetFilter
 import dev.daviante.kromium.presentation.network.KromiumCookieManager
 import dev.daviante.kromium.presentation.network.KromiumRequestInterceptor
@@ -75,6 +78,17 @@ class KromiumViewState(initialUrl: String) {
     }
 
     var enableContextMenus: Boolean by mutableStateOf(true)
+
+    var contextMenuHandler: KromiumContextMenuHandler? by mutableStateOf(null)
+
+    /**
+     * Configures the right-click context menu using a declarative Kotlin DSL block.
+     */
+    fun setContextMenu(block: KromiumMenuBuilder.(KromiumContextMenuContext) -> Unit) {
+        contextMenuHandler = KromiumContextMenuHandler { builder, context ->
+            builder.block(context)
+        }
+    }
 
     var onLoadError: ((KromiumLoadError) -> Unit)? by mutableStateOf(null)
 

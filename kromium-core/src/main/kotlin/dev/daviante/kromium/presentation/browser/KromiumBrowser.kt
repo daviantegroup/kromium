@@ -217,6 +217,13 @@ class KromiumBrowser(
     }
 
     /**
+     * Opens the native Chromium DevTools window inspecting the DOM element at the specified coordinates.
+     */
+    fun openDevTools(inspectPoint: java.awt.Point) {
+        browser.openDevTools(inspectPoint)
+    }
+
+    /**
      * Closes the DevTools if open.
      */
     fun closeDevTools() {

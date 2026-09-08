@@ -28,12 +28,20 @@ This document outlines the planned future capabilities and architectural milesto
   - Interactive native OS print dialog invocation via `print()`.
   - Typed error handling with `KromiumException.PdfPrintFailed`.
 
-### 3. Context Menu Customization DSL & Actions
-* **Goal**: Allow host applications to customize, add, remove, or completely replace the browser's right-click context menu.
-* **Scope**:
-  - `CefContextMenuHandler` abstraction with a declarative builder for both Kotlin and Java.
-  - Built-in shortcuts for standard actions: "Inspect Element", "Copy Link", "Save Image As...", "Search Google for Selection".
-  - Custom action callback execution.
+### 3. Context Menu Customization DSL & Actions — ✅ Completed
+* **Goal**: Allow host applications to customize, add, remove, or completely replace the browser's right-click context menu with a declarative builder for both Kotlin and Java.
+* **Delivered Capabilities**:
+  - `KromiumContextMenuParams`: Clean contextual parameter model exposing click coordinates (`x`, `y`), `linkUrl`, `sourceUrl`, `selectionText`, `isEditable`, and convenience predicates (`hasSelection()`, `isLink()`, `hasMedia()`).
+  - `KromiumContextMenuContext`: Context passed to action callbacks providing access to `browser`, `params`, and turnkey action helpers (`copyToClipboard()`, `inspectElement()`, `startDownload()`, `searchWeb()`).
+  - `KromiumMenuBuilder`: Declarative Kotlin DSL and Java fluent builder supporting items, checkboxes, radio items, separators, and submenus with automatic Chromium user command ID namespacing (`MENU_ID_USER_FIRST = 26500`).
+  - Built-in Turnkey Shortcuts:
+    - `inspectElement()`: Opens DevTools targeting the clicked element coordinates `browser.openDevTools(Point(x, y))`.
+    - `copyLink()`: Copies target hyperlink URL to clipboard.
+    - `saveImageAs()` & `copyImageUrl()`: Downloads media or copies image URL to clipboard.
+    - `searchWeb()`: URL-encodes highlighted selection and opens query in default system desktop browser or embedded browser.
+    - Native Chromium shortcuts: `copy()`, `cut()`, `paste()`, `selectAll()`, `back()`, `forward()`, `reload()`, `print()`, `viewSource()`.
+  - `KromiumContextMenuHandler`: SAM functional interface with turnkey presets (`disabled()`, `defaultMenu()`, `devToolsOnly()`, `minimalEditing()`).
+  - Compose & Swing Integration: `state.setContextMenu { ... }` in Compose, `client.setContextMenu { ... }` in Swing/Java, and full lifecycle cleanup on `onContextMenuDismissed`.
 
 ### 4. Native OS Titlebar & Window Chrome Helper (`KromiumWindowChrome`)
 * **Goal**: Provide an optional, turnkey helper for embedding native macOS traffic lights and Windows/Linux titlebar controls directly into custom browser tab strips.

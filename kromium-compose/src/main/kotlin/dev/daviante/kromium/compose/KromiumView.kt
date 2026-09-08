@@ -66,6 +66,7 @@ fun KromiumView(
         effectiveClient.permissionHandler = state.permissionHandler
         effectiveClient.rememberPermissions = state.rememberPermissions
         effectiveClient.enableContextMenus = state.enableContextMenus
+        effectiveClient.contextMenuHandler = state.contextMenuHandler
         effectiveClient.loadErrorListener = state.onLoadError
         effectiveClient.shouldOverrideUrlLoading = state.shouldOverrideUrlLoading
         effectiveClient.sslErrorPolicy = state.sslErrorPolicy

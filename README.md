@@ -472,6 +472,68 @@ client.setPermissionHandler(KromiumPermissionHandler.forOrigins("meet.google.com
 client.clearPermissionCache();
 ```
 
+### 🖱️ Right-Click Context Menu Customization DSL
+
+Customize, filter, or completely replace Chromium's right-click context menu with high-level actions, custom callbacks, and built-in shortcuts (Inspect Element, Copy Link, Web Search, Save Image) without manual integer command ID plumbing.
+
+#### Kotlin & Compose Desktop
+```kotlin
+import dev.daviante.kromium.presentation.menu.KromiumContextMenuHandler
+
+// In Compose KromiumViewState or KromiumClient:
+state.setContextMenu { ctx ->
+    clear() // Remove default browser items (View Source, etc.)
+
+    if (ctx.params.isLink()) {
+        copyLink("Copy Target Link")
+        separator()
+    }
+
+    if (ctx.params.hasSelection()) {
+        copy("Copy")
+        searchWeb() // Turnkey: "Search Google for ..."
+        separator()
+    }
+
+    item("Custom App Action") { context ->
+        println("User triggered custom tool on: ${context.params.pageUrl}")
+    }
+
+    subMenu("Developer") {
+        inspectElement() // Opens DevTools targeting clicked coordinates
+        viewSource()
+    }
+}
+
+// Or use ready-made turnkey presets:
+state.contextMenuHandler = KromiumContextMenuHandler.minimalEditing(includeInspectElement = true)
+state.contextMenuHandler = KromiumContextMenuHandler.devToolsOnly()
+state.contextMenuHandler = KromiumContextMenuHandler.disabled() // Suppresses menu completely
+```
+
+#### Pure Java (Swing / Enterprise)
+```java
+import dev.daviante.kromium.presentation.menu.KromiumContextMenuHandler;
+
+// Fluent builder with custom actions and built-in shortcuts
+client.setContextMenuHandler((builder, ctx) -> {
+    builder.clearDefaults();
+
+    if (ctx.getParams().hasSelection()) {
+        builder.copy();
+        builder.searchWeb();
+        builder.addSeparator();
+    }
+
+    builder.inspectElement();
+    builder.addItem("Export Data", c -> exportSelection(c.getParams().getSelectionText()));
+});
+
+// Turnkey presets
+client.setContextMenuHandler(KromiumContextMenuHandler.minimalEditing(true));
+client.setContextMenuHandler(KromiumContextMenuHandler.devToolsOnly());
+```
+
 ---
 
 ## 💻 Supported Platforms & Systems

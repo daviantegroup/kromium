@@ -20,6 +20,10 @@ import dev.daviante.kromium.presentation.handler.KromiumPermissionDecision;
 import dev.daviante.kromium.presentation.handler.KromiumPermissionHandler;
 import dev.daviante.kromium.presentation.handler.KromiumPermissionRequest;
 import dev.daviante.kromium.presentation.handler.KromiumPermissionType;
+import dev.daviante.kromium.presentation.menu.KromiumContextMenuContext;
+import dev.daviante.kromium.presentation.menu.KromiumContextMenuHandler;
+import dev.daviante.kromium.presentation.menu.KromiumContextMenuParams;
+import dev.daviante.kromium.presentation.menu.KromiumMenuBuilder;
 import dev.daviante.kromium.presentation.network.KromiumCookieManager;
 import org.junit.Test;
 
@@ -311,5 +315,40 @@ public class KromiumJavaInteropTest {
 
         KromiumPermissionHandler denyHandler = KromiumPermissionHandler.denyAll();
         assertEquals(KromiumPermissionDecision.DENY, denyHandler.onRequestPermission(request));
+    }
+
+    @Test
+    public void testContextMenuErgonomics() {
+        // Presets
+        KromiumContextMenuHandler disabledHandler = KromiumContextMenuHandler.disabled();
+        assertNotNull(disabledHandler);
+
+        KromiumContextMenuHandler defaultHandler = KromiumContextMenuHandler.defaultMenu();
+        assertNotNull(defaultHandler);
+
+        KromiumContextMenuHandler devToolsHandler = KromiumContextMenuHandler.devToolsOnly();
+        assertNotNull(devToolsHandler);
+
+        KromiumContextMenuHandler minimalHandler = KromiumContextMenuHandler.minimalEditing(true);
+        assertNotNull(minimalHandler);
+
+        // Parameters model
+        KromiumContextMenuParams params = KromiumContextMenuParams.from(null);
+        assertEquals(0, params.getX());
+        assertEquals(0, params.getY());
+        assertFalse(params.hasSelection());
+        assertFalse(params.isLink());
+        assertFalse(params.hasMedia());
+
+        // Java SAM Lambda
+        KromiumContextMenuHandler customHandler = (builder, ctx) -> {
+            builder.clearDefaults()
+                   .inspectElement()
+                   .copyLink()
+                   .searchWeb()
+                   .addSeparator()
+                   .addItem("Java Action", c -> c.copyToClipboard("Hello from Java"));
+        };
+        assertNotNull(customHandler);
     }
 }

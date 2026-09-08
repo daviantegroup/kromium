@@ -19,6 +19,10 @@ import dev.daviante.kromium.presentation.handler.KromiumPermissionDecision
 import dev.daviante.kromium.presentation.handler.KromiumPermissionHandler
 import dev.daviante.kromium.presentation.handler.KromiumPermissionRequest
 import dev.daviante.kromium.presentation.handler.KromiumPermissionType
+import dev.daviante.kromium.presentation.menu.KromiumContextMenuContext
+import dev.daviante.kromium.presentation.menu.KromiumContextMenuHandler
+import dev.daviante.kromium.presentation.menu.KromiumContextMenuParams
+import dev.daviante.kromium.presentation.menu.KromiumMenuBuilder
 import dev.daviante.kromium.presentation.js.KromiumJsHandler
 import dev.daviante.kromium.presentation.network.KromiumAssetFilter
 import dev.daviante.kromium.presentation.network.KromiumHtmlResourceHandler
@@ -179,6 +183,19 @@ class KromiumClient(
     }
 
     @Volatile var enableContextMenus: Boolean = true
+    @Volatile var contextMenuHandler: KromiumContextMenuHandler? = null
+    private val contextMenuActions = java.util.concurrent.ConcurrentHashMap<Int, (KromiumContextMenuContext) -> Unit>()
+    private var activeContextMenuContext: KromiumContextMenuContext? = null
+
+    /**
+     * Configures the context menu using a declarative Kotlin DSL block.
+     */
+    fun setContextMenu(block: KromiumMenuBuilder.(KromiumContextMenuContext) -> Unit) {
+        contextMenuHandler = KromiumContextMenuHandler { builder, context ->
+            builder.block(context)
+        }
+    }
+
     @Volatile var loadErrorListener: ((KromiumLoadError) -> Unit)? = null
 
     /** Sets the load error listener using a Java [java.util.function.Consumer]. */
@@ -1001,7 +1018,25 @@ class KromiumClient(
             ) {
                 if (!enableContextMenus) {
                     model?.clear()
+                    return
                 }
+
+                val customHandler = contextMenuHandler
+                if (customHandler != null && model != null) {
+                    contextMenuActions.clear()
+                    val contextParams = KromiumContextMenuParams.from(params)
+                    val kBrowser = browser?.let { KromiumBrowser(this@KromiumClient, it) }
+                    val ctx = KromiumContextMenuContext(kBrowser, browser, contextParams, frame)
+                    activeContextMenuContext = ctx
+
+                    val builder = KromiumMenuBuilder(model, ctx, contextMenuActions)
+                    try {
+                        customHandler.onBuildContextMenu(builder, ctx)
+                    } catch (e: Throwable) {
+                        KromiumLogger.e(TAG, "Exception in contextMenuHandler", e)
+                    }
+                }
+
                 for (h in contextMenuHandlers) {
                     try { h.onBeforeContextMenu(browser, frame, params, model) } catch (e: Throwable) {
                         KromiumLogger.e(TAG, "Exception in onBeforeContextMenu handler", e)
@@ -1016,6 +1051,22 @@ class KromiumClient(
                 commandId: Int,
                 eventFlags: Int
             ): Boolean {
+                val action = contextMenuActions[commandId]
+                if (action != null) {
+                    val ctx = activeContextMenuContext ?: KromiumContextMenuContext(
+                        browser = browser?.let { KromiumBrowser(this@KromiumClient, it) },
+                        rawBrowser = browser,
+                        params = KromiumContextMenuParams.from(params),
+                        frame = frame
+                    )
+                    try {
+                        action.invoke(ctx)
+                    } catch (e: Throwable) {
+                        KromiumLogger.e(TAG, "Exception in context menu action", e)
+                    }
+                    return true
+                }
+
                 var handled = false
                 for (h in contextMenuHandlers) {
                     try {
@@ -1028,6 +1079,8 @@ class KromiumClient(
             }
 
             override fun onContextMenuDismissed(browser: CefBrowser?, frame: CefFrame?) {
+                contextMenuActions.clear()
+                activeContextMenuContext = null
                 for (h in contextMenuHandlers) {
                     try { h.onContextMenuDismissed(browser, frame) } catch (e: Throwable) {
                         KromiumLogger.e(TAG, "Exception in onContextMenuDismissed handler", e)
@@ -1193,6 +1246,8 @@ class KromiumClient(
             displayHandlers.clear()
             lifeSpanHandlers.clear()
             contextMenuHandlers.clear()
+            contextMenuActions.clear()
+            activeContextMenuContext = null
             focusHandlers.clear()
             keyboardHandlers.clear()
             permissionHandlers.clear()
