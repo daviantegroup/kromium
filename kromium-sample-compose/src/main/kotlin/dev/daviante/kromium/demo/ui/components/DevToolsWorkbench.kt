@@ -67,6 +67,7 @@ import dev.daviante.kromium.demo.model.ConsoleEntryType
 import dev.daviante.kromium.demo.model.WorkbenchTab
 import dev.daviante.kromium.demo.state.WorkspaceState
 import dev.daviante.kromium.demo.theme.KromiumColors
+import dev.daviante.kromium.demo.util.formatBytes
 import java.io.File
 import javax.imageio.ImageIO
 
@@ -926,9 +927,9 @@ private fun DownloadCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 val sizeText = if (item.totalBytes > 0) {
-                    "${formatDownloadBytes(item.receivedBytes)} / ${formatDownloadBytes(item.totalBytes)}"
+                    "${formatBytes(item.receivedBytes)} / ${formatBytes(item.totalBytes)}"
                 } else {
-                    formatDownloadBytes(item.receivedBytes)
+                    formatBytes(item.receivedBytes)
                 }
                 Text(
                     text = sizeText,
@@ -938,7 +939,7 @@ private fun DownloadCard(
 
                 if (item.isInProgress && item.speed > 0) {
                     Text(
-                        text = "${formatDownloadBytes(item.speed)}/s",
+                        text = "${formatBytes(item.speed)}/s",
                         fontSize = 10.sp,
                         color = KromiumColors.Cyan
                     )
@@ -1034,14 +1035,6 @@ private fun DownloadCard(
             }
         }
     }
-}
-
-private fun formatDownloadBytes(bytes: Long): String {
-    if (bytes < 1024) return "$bytes B"
-    val kb = bytes / 1024.0
-    if (kb < 1024) return "${kb.toInt()} KB"
-    val mb = kb / 1024.0
-    return "${(mb * 10).toInt() / 10.0} MB"
 }
 
 @Composable

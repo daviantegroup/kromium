@@ -26,7 +26,6 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
-import java.awt.Desktop;
 import java.awt.FlowLayout;
 import java.awt.Frame;
 import java.awt.event.MouseAdapter;
@@ -305,13 +304,7 @@ public class DownloadManagerDialog extends JDialog {
         if (entry != null && entry.getFullPath() != null) {
             File file = new File(entry.getFullPath());
             File dir = file.isDirectory() ? file : file.getParentFile();
-            if (dir != null && dir.exists() && Desktop.isDesktopSupported()) {
-                try {
-                    Desktop.getDesktop().open(dir);
-                } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(this, "Could not open folder: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-                }
-            }
+            BrowserFrame.openDirectory(this, dir);
         }
     }
 

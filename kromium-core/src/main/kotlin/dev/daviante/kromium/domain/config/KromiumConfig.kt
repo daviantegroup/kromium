@@ -27,26 +27,8 @@ class KromiumConfig {
     /** Directory where the JCEF engine binaries will be installed. */
     var installDir: File = EngineRegistry.defaultInstallDir()
         set(value) {
-            val rawPath = value.path
-            if (rawPath.contains("..")) {
-                throw IllegalArgumentException("Path traversal sequence detected in: $rawPath")
-            }
-            val canonical = value.canonicalFile
-            val canonicalPath = canonical.canonicalPath
-            if (canonicalPath.contains("..")) {
-                throw IllegalArgumentException("Path traversal sequence detected in: $canonicalPath")
-            }
-            val roots = File.listRoots() ?: emptyArray()
-            val root = roots.firstOrNull { r ->
-                val rPath = r.canonicalPath
-                canonicalPath.startsWith(rPath) && canonicalPath.length > rPath.length
-            } ?: throw IllegalArgumentException("Install directory outside filesystem root: $canonicalPath")
-            if (!canonicalPath.startsWith(root.canonicalPath)) {
-                throw IllegalArgumentException("Root validation failed for: $canonicalPath")
-            }
-            val sanitized = FileUtils.sanitizeDirectory(canonical)
+            field = FileUtils.sanitizeDirectory(value)
                 ?: throw IllegalArgumentException("Invalid or unsafe install directory: ${value.path}")
-            field = sanitized
         }
 
     /** Path for the CEF cache (cookies, localStorage, etc.). Null uses an in-memory cache. */

@@ -141,33 +141,7 @@ object EngineExtractor {
             }
         }
 
-        // Resolve any symlinks that could not be created directly
-        for ((linkPath, targetPath) in deferredSymlinks) {
-            try {
-                if (java.nio.file.Files.exists(targetPath)) {
-                    val linkFile = linkPath.toFile()
-                    val target = targetPath.toFile()
-                    if (target.isDirectory) {
-                        target.copyRecursively(linkFile, overwrite = true)
-                    } else {
-                        java.nio.file.Files.copy(targetPath, linkPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
-                    }
-                }
-            } catch (e: Exception) {
-                KromiumLogger.w(TAG, "Could not resolve symlink fallback for: $linkPath -> $targetPath", e)
-            }
-        }
-
-        // If the archive unpacked into a single nested subdirectory, flatten it
-        flattenIfSingleChild(safeDestination)
-
-        // Ensure all executables and native libraries have proper execute permissions
-        ensureExecutablePermissions(safeDestination)
-
-        // Ensure macOS framework symlinks are present
-        if (PlatformDetector.current().os.isMacOS) {
-            OperatingSystem.MacOS.ensureMacFrameworkLinks(safeDestination)
-        }
+        finalizeExtraction(safeDestination, deferredSymlinks)
     }
 
     fun extractTarGz(archiveFile: File, destinationDir: File, bufferSize: Int = 32 * 1024) {
@@ -257,6 +231,13 @@ object EngineExtractor {
             }
         }
 
+        finalizeExtraction(safeDestination, deferredSymlinks)
+    }
+
+    private fun finalizeExtraction(
+        destination: File,
+        deferredSymlinks: List<Pair<java.nio.file.Path, java.nio.file.Path>>
+    ) {
         // Resolve any symlinks that could not be created directly (e.g. Windows symlink restrictions)
         for ((linkPath, targetPath) in deferredSymlinks) {
             try {
@@ -275,14 +256,14 @@ object EngineExtractor {
         }
 
         // If the archive unpacked into a single nested subdirectory, flatten it
-        flattenIfSingleChild(safeDestination)
+        flattenIfSingleChild(destination)
 
         // Ensure all executables and native libraries have proper execute permissions
-        ensureExecutablePermissions(safeDestination)
+        ensureExecutablePermissions(destination)
 
         // Ensure macOS framework symlinks are present
         if (PlatformDetector.current().os.isMacOS) {
-            OperatingSystem.MacOS.ensureMacFrameworkLinks(safeDestination)
+            OperatingSystem.MacOS.ensureMacFrameworkLinks(destination)
         }
     }
 

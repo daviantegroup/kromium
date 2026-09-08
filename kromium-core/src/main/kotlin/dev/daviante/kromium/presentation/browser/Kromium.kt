@@ -148,14 +148,8 @@ object Kromium {
             is KromiumState.Locating, is KromiumState.Downloading -> {
                 // Another coroutine is initializing — wait outside the mutex to avoid deadlock
                 KromiumLogger.i(TAG, "Initialization already in progress, waiting for completion...")
-                val finalState = _state.first {
-                    it is KromiumState.Ready || it is KromiumState.Error || it is KromiumState.Disposed
-                }
-                when (finalState) {
-                    is KromiumState.Error -> throw finalState.cause
-                    is KromiumState.Disposed -> throw KromiumException.Disposed
-                    else -> return@withContext
-                }
+                awaitReadyState()
+                return@withContext
             }
             else -> { /* Proceed to acquire mutex */ }
         }
@@ -268,14 +262,7 @@ object Kromium {
 
         // If we exited withLock due to the in-progress safety net, wait here
         if (_state.value !is KromiumState.Ready) {
-            val finalState = _state.first {
-                it is KromiumState.Ready || it is KromiumState.Error || it is KromiumState.Disposed
-            }
-            when (finalState) {
-                is KromiumState.Error -> throw finalState.cause
-                is KromiumState.Disposed -> throw KromiumException.Disposed
-                else -> { /* Ready */ }
-            }
+            awaitReadyState()
         }
     }
 
@@ -324,14 +311,7 @@ object Kromium {
             throw KromiumException.Disposed
         }
         if (!isReady) {
-            val finalState = _state.first {
-                it is KromiumState.Ready || it is KromiumState.Error || it is KromiumState.Disposed
-            }
-            when (finalState) {
-                is KromiumState.Error -> throw finalState.cause
-                is KromiumState.Disposed -> throw KromiumException.Disposed
-                else -> { /* Ready */ }
-            }
+            awaitReadyState()
         }
         return newClient()
     }
@@ -462,6 +442,18 @@ object Kromium {
         KromiumLogger.i(TAG, "Disposing Kromium...")
         disposeInternal()
         _state.value = KromiumState.Disposed
+    }
+
+    private suspend fun awaitReadyState(): KromiumState.Ready {
+        val finalState = _state.first {
+            it is KromiumState.Ready || it is KromiumState.Error || it is KromiumState.Disposed
+        }
+        return when (finalState) {
+            is KromiumState.Ready -> finalState
+            is KromiumState.Error -> throw finalState.cause
+            is KromiumState.Disposed -> throw KromiumException.Disposed
+            else -> throw IllegalStateException("Unexpected state: $finalState")
+        }
     }
 
     private fun disposeInternal() {

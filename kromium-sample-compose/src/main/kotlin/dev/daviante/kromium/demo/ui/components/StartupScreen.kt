@@ -37,15 +37,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.daviante.kromium.demo.theme.KromiumColors
+import dev.daviante.kromium.demo.util.formatBytes
 import dev.daviante.kromium.domain.model.KromiumState
-
-private fun formatBytes(bytes: Long): String {
-    if (bytes < 1024) return "$bytes B"
-    val kb = bytes / 1024.0
-    if (kb < 1024) return "%.1f KB".format(kb)
-    val mb = kb / 1024.0
-    return "%.1f MB".format(mb)
-}
 
 @Composable
 fun StartupScreen(

@@ -1154,14 +1154,7 @@ class KromiumClient(
 
         @JvmStatic
         fun resolveDefaultDownloadDirectory(): java.io.File {
-            val rawHome = System.getProperty("user.home") ?: "."
-            if (rawHome.contains("..")) {
-                return java.io.File("Downloads").canonicalFile.apply { mkdirs() }
-            }
-            val homeDir = java.io.File(rawHome).canonicalFile
-            if (homeDir.path.contains("..")) {
-                return java.io.File("Downloads").canonicalFile.apply { mkdirs() }
-            }
+            val homeDir = getSafeUserHome() ?: return java.io.File("Downloads").canonicalFile.apply { mkdirs() }
             val userDownloads = java.io.File(homeDir, "Downloads").canonicalFile
             if (!userDownloads.canonicalPath.startsWith(homeDir.canonicalPath)) {
                 return getFallbackDownloadDirectory()
@@ -1179,20 +1172,20 @@ class KromiumClient(
         }
 
         private fun getFallbackDownloadDirectory(): java.io.File {
-            val rawHome = System.getProperty("user.home") ?: "."
-            if (rawHome.contains("..")) {
-                return java.io.File("KromiumDownloads").canonicalFile.apply { mkdirs() }
-            }
-            val homeDir = java.io.File(rawHome).canonicalFile
-            if (homeDir.path.contains("..")) {
-                return java.io.File("KromiumDownloads").canonicalFile.apply { mkdirs() }
-            }
+            val homeDir = getSafeUserHome() ?: return java.io.File("KromiumDownloads").canonicalFile.apply { mkdirs() }
             val fallback = java.io.File(homeDir, "KromiumDownloads").canonicalFile
             if (!fallback.canonicalPath.startsWith(homeDir.canonicalPath)) {
                 return java.io.File("KromiumDownloads").canonicalFile.apply { mkdirs() }
             }
             if (!fallback.exists()) fallback.mkdirs()
             return fallback
+        }
+
+        private fun getSafeUserHome(): java.io.File? {
+            val rawHome = System.getProperty("user.home") ?: return null
+            if (rawHome.contains("..")) return null
+            val homeDir = java.io.File(rawHome).canonicalFile
+            return if (homeDir.path.contains("..")) null else homeDir
         }
     }
 }

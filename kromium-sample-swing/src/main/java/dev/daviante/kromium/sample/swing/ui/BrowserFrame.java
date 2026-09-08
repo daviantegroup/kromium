@@ -23,6 +23,7 @@ import javax.swing.border.EmptyBorder;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Desktop;
 import java.awt.Dimension;
@@ -290,13 +291,7 @@ public class BrowserFrame extends JFrame {
         JMenuItem openDownloadsFolder = new JMenuItem("Open Downloads Folder");
         openDownloadsFolder.addActionListener(e -> {
             File dir = client.getDownloadDirectory();
-            if (dir != null && dir.exists() && Desktop.isDesktopSupported()) {
-                try {
-                    Desktop.getDesktop().open(dir);
-                } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(this, "Could not open folder: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-                }
-            }
+            openDirectory(this, dir);
         });
 
         JMenuItem testDownloadItem = new JMenuItem("Start Test Download (50 MB)");
@@ -340,5 +335,15 @@ public class BrowserFrame extends JFrame {
     private static String truncateTitle(String title) {
         if (title == null) return "New Tab";
         return title.length() > 24 ? title.substring(0, 22) + "…" : title;
+    }
+
+    public static void openDirectory(Component parent, File dir) {
+        if (dir != null && dir.exists() && Desktop.isDesktopSupported()) {
+            try {
+                Desktop.getDesktop().open(dir);
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(parent, "Could not open folder: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
     }
 }

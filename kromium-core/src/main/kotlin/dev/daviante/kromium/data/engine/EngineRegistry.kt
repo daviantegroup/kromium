@@ -30,6 +30,7 @@ object EngineRegistry {
             return File(".kromium/jcef-150-b11").canonicalFile
         }
 
+        val dotKromium = FileUtils.resolveChild(homeDir, ".kromium") ?: homeDir
         val baseDir = when (platform.os) {
             OperatingSystem.Windows -> {
                 val rawAppData = System.getenv("APPDATA")
@@ -39,13 +40,9 @@ object EngineRegistry {
                 } else null
                 if (appDataDir != null) {
                     val kDir = File(appDataDir, "Kromium").canonicalFile
-                    if (kDir.canonicalPath.startsWith(appDataDir.canonicalPath)) kDir else {
-                        val fallback = File(homeDir, ".kromium").canonicalFile
-                        if (fallback.canonicalPath.startsWith(homeDir.canonicalPath)) fallback else homeDir
-                    }
+                    if (kDir.canonicalPath.startsWith(appDataDir.canonicalPath)) kDir else dotKromium
                 } else {
-                    val fallback = File(homeDir, ".kromium").canonicalFile
-                    if (fallback.canonicalPath.startsWith(homeDir.canonicalPath)) fallback else homeDir
+                    dotKromium
                 }
             }
             OperatingSystem.MacOS -> {
@@ -54,8 +51,7 @@ object EngineRegistry {
                     val kDir = File(appSupport, "Kromium").canonicalFile
                     if (kDir.canonicalPath.startsWith(appSupport.canonicalPath)) kDir else homeDir
                 } else {
-                    val fallback = File(homeDir, ".kromium").canonicalFile
-                    if (fallback.canonicalPath.startsWith(homeDir.canonicalPath)) fallback else homeDir
+                    dotKromium
                 }
             }
             OperatingSystem.Linux -> {
@@ -64,15 +60,12 @@ object EngineRegistry {
                     val f = File(rawXdg).canonicalFile
                     if (!f.path.contains("..")) f else null
                 } else null
+                val localShare = FileUtils.resolveChild(homeDir, ".local/share/kromium") ?: homeDir
                 if (xdgDir != null) {
                     val kDir = File(xdgDir, "kromium").canonicalFile
-                    if (kDir.canonicalPath.startsWith(xdgDir.canonicalPath)) kDir else {
-                        val fallback = File(homeDir, ".local/share/kromium").canonicalFile
-                        if (fallback.canonicalPath.startsWith(homeDir.canonicalPath)) fallback else homeDir
-                    }
+                    if (kDir.canonicalPath.startsWith(xdgDir.canonicalPath)) kDir else localShare
                 } else {
-                    val fallback = File(homeDir, ".local/share/kromium").canonicalFile
-                    if (fallback.canonicalPath.startsWith(homeDir.canonicalPath)) fallback else homeDir
+                    localShare
                 }
             }
         }

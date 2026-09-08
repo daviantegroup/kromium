@@ -74,6 +74,15 @@ fun NavigationToolbar(
     var isFocused by remember { mutableStateOf(false) }
     var isBookmarked by remember(currentUrl) { mutableStateOf(false) }
 
+    val submitNavigation = {
+        val trimmed = inputUrl.trim()
+        if (trimmed.isNotBlank()) {
+            val target = WorkspaceState.resolveNavigationTarget(trimmed)
+            inputUrl = target
+            workspaceState.navigate(target)
+        }
+    }
+
     Surface(
         color = KromiumColors.SurfaceElevated,
         modifier = modifier.fillMaxWidth()
@@ -204,18 +213,7 @@ fun NavigationToolbar(
                             cursorBrush = SolidColor(KromiumColors.Cyan),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
                             keyboardActions = KeyboardActions(
-                                onGo = {
-                                    val trimmed = inputUrl.trim()
-                                    val target = if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("file://") || trimmed.startsWith("kromium:")) {
-                                        trimmed
-                                    } else if (trimmed.contains(".") && !trimmed.contains(" ")) {
-                                        "https://$trimmed"
-                                    } else {
-                                        "https://duckduckgo.com/?q=${trimmed.replace(" ", "+")}"
-                                    }
-                                    inputUrl = target
-                                    workspaceState.navigate(target)
-                                }
+                                onGo = { submitNavigation() }
                             ),
                             modifier = Modifier
                                 .weight(1f)
@@ -287,18 +285,7 @@ fun NavigationToolbar(
 
                         // Go / Navigate Button
                         IconButton(
-                            onClick = {
-                                val trimmed = inputUrl.trim()
-                                val target = if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("file://") || trimmed.startsWith("kromium:")) {
-                                    trimmed
-                                } else if (trimmed.contains(".") && !trimmed.contains(" ")) {
-                                    "https://$trimmed"
-                                } else {
-                                    "https://duckduckgo.com/?q=${trimmed.replace(" ", "+")}"
-                                }
-                                inputUrl = target
-                                workspaceState.navigate(target)
-                            },
+                            onClick = { submitNavigation() },
                             modifier = Modifier.size(26.dp)
                         ) {
                             Icon(
