@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.0.150-b11] - 2026-09-09 [Major Release]
+
+Major release establishing first-class **100% Pure Java & Swing enterprise dual ergonomics**, delivering all 5 strategic roadmap milestones (virtual custom schemes, asynchronous vector PDF export, declarative context menu DSL, native window chrome insets, WebRTC device permissions), and rebuilding the technical documentation suite from scratch under the Diátaxis framework.
+
+### Added
+- **Virtual Asset Streaming & Custom Schemes (`app://`)**:
+  - Added `KromiumSchemeHandler` and `KromiumEngine.registerSchemeHandler` to stream Single Page Applications (React, Vue, Vite) and bundled JAR assets with full Web API support (`localStorage`, `IndexedDB`, Web Workers) without localhost servers or CORS restrictions.
+  - Added configurable scheme registration options (`isStandard`, `isSecure`, `isCorsEnabled`, `isLocal`).
+- **Asynchronous Vector PDF Export & Native Print Dialog**:
+  - Added `browser.printToPdf(targetFile, settings)` (Kotlin Coroutines) and `browser.printToPdfAsync(targetFile, settings)` (`CompletableFuture<File>`) with full page dimension, margin, and header/footer layout controls (`KromiumPdfSettings`).
+  - Added interactive native OS print dialog via `browser.print()`.
+- **Declarative Context Menu Customization DSL**:
+  - Added `KromiumContextMenuHandler` and `KromiumMenuBuilder` with declarative Kotlin DSL (`state.setContextMenu { ... }`) and pure Java fluent chaining (`client.setContextMenuHandler(...)`).
+  - Added turnkey context actions: `addInspectElement()`, `addSearchWeb()`, `addCopyLink()`, `addCopySelection()`, and `addSaveImageAs()`.
+- **Native Window Chrome & Custom Tab Strip Insets**:
+  - Added `KromiumWindowChrome` and `KromiumChromeConfig` providing turnkey macOS traffic light insets (`macTrafficLightsWidth`, `macTrafficLightsHeight`), window title suppression, and draggable window titlebar regions.
+- **WebRTC Media & Hardware Device Permissions**:
+  - Added `KromiumPermissionHandler`, `KromiumPermissionRequest`, and `KromiumPermissionType` supporting audio capture, video capture, geolocation, and DRM identifiers with session decision caching (`clearPermissionCache()`).
+- **100% Pure Java Swing Interoperability & Dual Ergonomics**:
+  - Complete Java 8+ ergonomics across `kromium-core`: standard `java.util.concurrent.CompletableFuture`, JavaBeans properties (`zoomLevel`, `activeProxy`), SAM functional interfaces, and fluent builders.
+  - Added `client.updateProxy(proxy)` returning `boolean` to bypass Kotlin `Result` value-class ABI mangling for pure Java callers.
+  - Added `KromiumConfig.Builder` and `KromiumChromeConfig.Builder` for Java application bootstrapping.
+- **Rebuilt Diátaxis Documentation Hub**:
+  - Rebuilt the entire `docs/` documentation directory from scratch across 22 guides covering Getting Started, Core Concepts, Guides, Reference, and Deployment with paired Compose Multiplatform and Pure Java examples.
+
+---
+
 ## [2.1.150-b11] - 2026-09-08
 
 Security release resolving all 26 GitHub CodeQL High-severity path-injection alerts (CWE-022 / CWE-073) and streamlining repository branding.

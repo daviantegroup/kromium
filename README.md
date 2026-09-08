@@ -60,10 +60,10 @@ repositories {
 
 dependencies {
     // For Compose Multiplatform Desktop:
-    implementation("dev.daviante:kromium-compose:2.1.150-b11")
+    implementation("dev.daviante:kromium-compose:3.0.150-b11")
 
     // Or for Pure Java / Swing / Headless JVM:
-    implementation("dev.daviante:kromium-core:2.1.150-b11")
+    implementation("dev.daviante:kromium-core:3.0.150-b11")
 }
 ```
 
@@ -77,8 +77,8 @@ repositories {
 }
 
 dependencies {
-    implementation 'dev.daviante:kromium-compose:2.1.150-b11'
-    // or: implementation 'dev.daviante:kromium-core:2.1.150-b11'
+    implementation 'dev.daviante:kromium-compose:3.0.150-b11'
+    // or: implementation 'dev.daviante:kromium-core:3.0.150-b11'
 }
 ```
 
@@ -88,7 +88,7 @@ dependencies {
 <dependency>
     <groupId>dev.daviante</groupId>
     <artifactId>kromium-core</artifactId>
-    <version>2.1.150-b11</version>
+    <version>3.0.150-b11</version>
 </dependency>
 ```
 

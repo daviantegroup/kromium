@@ -10,8 +10,8 @@ Kromium artifacts are published to **Maven Central** under the group ID `dev.dav
 
 | Artifact | Purpose | Best For |
 |:---|:---|:---|
-| **`dev.daviante:kromium-compose:2.1.150-b11`** | `@Composable KromiumView`, reactive `KromiumViewState`, and Compose Multiplatform desktop integration. | Jetpack / JetBrains Compose Desktop applications. |
-| **`dev.daviante:kromium-core:2.1.150-b11`** | Pure JVM engine, `KromiumClient`, `KromiumBrowser`, headless automation, and pure Java APIs (`CompletableFuture`, SAM callbacks). | Pure Java, Swing, JavaFX, CLI, and headless servers. |
+| **`dev.daviante:kromium-compose:3.0.150-b11`** | `@Composable KromiumView`, reactive `KromiumViewState`, and Compose Multiplatform desktop integration. | Jetpack / JetBrains Compose Desktop applications. |
+| **`dev.daviante:kromium-core:3.0.150-b11`** | Pure JVM engine, `KromiumClient`, `KromiumBrowser`, headless automation, and pure Java APIs (`CompletableFuture`, SAM callbacks). | Pure Java, Swing, JavaFX, CLI, and headless servers. |
 
 ---
 
@@ -35,10 +35,10 @@ repositories {
 
 dependencies {
     // For Compose Desktop:
-    implementation("dev.daviante:kromium-compose:2.1.150-b11")
+    implementation("dev.daviante:kromium-compose:3.0.150-b11")
 
     // Or for Pure Java / Swing / Headless:
-    implementation("dev.daviante:kromium-core:2.1.150-b11")
+    implementation("dev.daviante:kromium-core:3.0.150-b11")
 }
 
 kotlin {
@@ -61,8 +61,8 @@ repositories {
 }
 
 dependencies {
-    implementation 'dev.daviante:kromium-compose:2.1.150-b11'
-    // or: implementation 'dev.daviante:kromium-core:2.1.150-b11'
+    implementation 'dev.daviante:kromium-compose:3.0.150-b11'
+    // or: implementation 'dev.daviante:kromium-core:3.0.150-b11'
 }
 
 java {
@@ -87,7 +87,7 @@ java {
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
-        <kromium.version>2.1.150-b11</kromium.version>
+        <kromium.version>3.0.150-b11</kromium.version>
     </properties>
 
     <dependencies>

@@ -8,7 +8,7 @@ plugins {
 
 allprojects {
     group = "dev.daviante"
-    version = "2.1.150-b11"
+    version = "3.0.150-b11"
 
     repositories {
         mavenCentral()
