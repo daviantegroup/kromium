@@ -31,7 +31,7 @@ public class BrowserFrame extends JFrame {
     public BrowserFrame(KromiumClient client) {
         super(KromiumSwingApp.APP_NAME);
         this.client = client;
-        this.downloadDialog = new DownloadManagerDialog(this);
+        this.downloadDialog = new DownloadManagerDialog(this, this::triggerTestDownload);
 
         setIconImages(KromiumSwingApp.getAppIcons());
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
@@ -280,6 +280,9 @@ public class BrowserFrame extends JFrame {
             }
         });
 
+        JMenuItem testDownloadItem = new JMenuItem("Start Test Download (50 MB)");
+        testDownloadItem.addActionListener(e -> triggerTestDownload());
+        toolsMenu.add(testDownloadItem);
         toolsMenu.add(clearCookiesItem);
         toolsMenu.add(openDownloadsFolder);
 
@@ -287,6 +290,22 @@ public class BrowserFrame extends JFrame {
         menuBar.add(viewMenu);
         menuBar.add(toolsMenu);
         setJMenuBar(menuBar);
+    }
+
+    public BrowserTab getActiveTab() {
+        int selected = tabbedPane.getSelectedIndex();
+        if (selected >= 0 && selected < tabs.size()) {
+            return tabs.get(selected);
+        }
+        return !tabs.isEmpty() ? tabs.get(0) : null;
+    }
+
+    public void triggerTestDownload() {
+        BrowserTab active = getActiveTab();
+        if (active != null) {
+            active.getBrowser().startDownload("https://speed.cloudflare.com/__down?bytes=50000000");
+            downloadDialog.setVisible(true);
+        }
     }
 
     private void disposeBrowserAndExit() {

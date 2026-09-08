@@ -54,6 +54,22 @@ public class DownloadEntry {
     public boolean isCanceled() { return canceled; }
     public boolean isPaused() { return paused; }
 
+    public void setPaused(boolean paused) {
+        this.paused = paused;
+        if (paused) {
+            this.speed = 0;
+        }
+    }
+
+    public void setCanceled(boolean canceled) {
+        this.canceled = canceled;
+        if (canceled) {
+            this.inProgress = false;
+            this.paused = false;
+            this.speed = 0;
+        }
+    }
+
     public String getStatusText() {
         if (complete) return "Completed";
         if (canceled) return "Canceled";
