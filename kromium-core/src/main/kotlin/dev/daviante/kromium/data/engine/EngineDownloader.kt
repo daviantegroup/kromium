@@ -9,8 +9,6 @@ import dev.daviante.kromium.domain.model.DownloadProgress
 import dev.daviante.kromium.domain.model.OperatingSystem
 import dev.daviante.kromium.domain.model.PlatformInfo
 
-
-
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.okhttp.OkHttp

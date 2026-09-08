@@ -2,8 +2,6 @@ package dev.daviante.kromium.presentation.js
 
 import dev.daviante.kromium.core.logging.KromiumLogger
 
-
-
 import org.cef.browser.CefBrowser
 import org.cef.browser.CefFrame
 import org.cef.callback.CefQueryCallback

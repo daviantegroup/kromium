@@ -1,7 +1,5 @@
 package dev.daviante.kromium.presentation.network
 
-
-
 /**
  * Represents an outgoing web resource request.
  */

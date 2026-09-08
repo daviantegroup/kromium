@@ -1,7 +1,5 @@
 package dev.daviante.kromium.core.logging
 
-
-
 /**
  * A no-op logger that discards all messages. Useful for tests or production silence.
  */

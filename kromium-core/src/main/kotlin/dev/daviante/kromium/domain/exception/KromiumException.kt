@@ -1,7 +1,5 @@
 package dev.daviante.kromium.domain.exception
 
-
-
 /**
  * Sealed exception hierarchy for all Kromium-specific errors.
  *

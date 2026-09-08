@@ -6,7 +6,6 @@ import dev.daviante.kromium.core.util.PlatformDetector
 import dev.daviante.kromium.domain.exception.KromiumException
 import dev.daviante.kromium.domain.model.OperatingSystem
 
-
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry

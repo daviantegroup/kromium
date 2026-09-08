@@ -6,7 +6,6 @@ import kotlin.test.assertTrue
 import kotlin.test.assertFalse
 import java.io.File
 
-
 class EngineRegistryTest {
 
     @Test
@@ -29,7 +28,7 @@ class EngineRegistryTest {
             assertFalse(EngineRegistry.isInstalled(tempDir), "Should not be installed initially")
 
             EngineRegistry.markInstalled(tempDir)
-            
+
             // Create dummy files to simulate a real installation based on OS
             File(tempDir, "jcef.dll").createNewFile()
             File(tempDir, "libcef.so").createNewFile()

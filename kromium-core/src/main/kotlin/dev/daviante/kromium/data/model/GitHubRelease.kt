@@ -1,7 +1,5 @@
 package dev.daviante.kromium.data.model
 
-
-
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 

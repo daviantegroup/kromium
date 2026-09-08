@@ -1,7 +1,5 @@
 package dev.daviante.kromium.presentation.handler
 
-
-
 /**
  * Listener for authentication requests.
  */

@@ -4,7 +4,6 @@ import dev.daviante.kromium.core.util.FileUtils
 import dev.daviante.kromium.core.util.PlatformDetector
 import dev.daviante.kromium.domain.model.OperatingSystem
 
-
 import java.io.File
 
 object EngineRegistry {

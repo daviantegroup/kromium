@@ -1,7 +1,5 @@
 package dev.daviante.kromium.domain.exception
 
-
-
 /**
  * SSL error handling policy for [KromiumClient].
  *

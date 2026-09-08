@@ -4,8 +4,6 @@ import dev.daviante.kromium.core.logging.KromiumLogger
 import dev.daviante.kromium.core.util.FutureBridge
 import dev.daviante.kromium.domain.exception.KromiumException
 
-
-
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import org.cef.browser.CefBrowser

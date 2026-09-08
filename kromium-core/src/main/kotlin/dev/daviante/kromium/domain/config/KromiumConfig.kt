@@ -5,11 +5,8 @@ import dev.daviante.kromium.core.util.FileUtils
 import dev.daviante.kromium.data.engine.EngineRegistry
 import dev.daviante.kromium.domain.exception.KromiumException
 
-
-
 import org.cef.CefSettings
 import java.io.File
-
 
 private const val TAG = "KromiumConfig"
 

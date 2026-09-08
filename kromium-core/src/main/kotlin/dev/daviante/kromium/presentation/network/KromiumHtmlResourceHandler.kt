@@ -1,7 +1,5 @@
 package dev.daviante.kromium.presentation.network
 
-
-
 import org.cef.callback.CefCallback
 import org.cef.handler.CefResourceHandlerAdapter
 import org.cef.misc.BoolRef
@@ -14,7 +12,7 @@ class KromiumHtmlResourceHandler(
     private val htmlContent: String,
     private val mimeType: String = "text/html"
 ) : CefResourceHandlerAdapter() {
-    
+
     private var offset = 0
     private val bytes = htmlContent.toByteArray(Charsets.UTF_8)
 

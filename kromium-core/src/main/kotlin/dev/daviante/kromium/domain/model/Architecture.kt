@@ -1,7 +1,5 @@
 package dev.daviante.kromium.domain.model
 
-
-
 import java.util.Locale
 
 /**

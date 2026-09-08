@@ -6,8 +6,6 @@ import dev.daviante.kromium.presentation.js.JsEvaluator
 import dev.daviante.kromium.presentation.network.KromiumAssetFilter
 import dev.daviante.kromium.presentation.network.KromiumCookieManager
 
-
-
 import org.cef.browser.CefBrowser
 import org.cef.browser.CefFrame
 import java.awt.Component

@@ -1,7 +1,5 @@
 package dev.daviante.kromium.presentation.handler
 
-
-
 /**
  * Types of JavaScript dialogs emitted by web pages.
  */

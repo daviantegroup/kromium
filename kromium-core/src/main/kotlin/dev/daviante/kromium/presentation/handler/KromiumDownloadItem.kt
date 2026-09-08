@@ -1,7 +1,5 @@
 package dev.daviante.kromium.presentation.handler
 
-
-
 /**
  * Metadata representing a file download event from Chromium.
  */

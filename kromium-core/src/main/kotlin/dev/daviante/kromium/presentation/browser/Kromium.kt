@@ -13,8 +13,6 @@ import dev.daviante.kromium.domain.exception.KromiumException
 import dev.daviante.kromium.domain.model.DownloadProgress
 import dev.daviante.kromium.domain.model.KromiumState
 
-
-
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow

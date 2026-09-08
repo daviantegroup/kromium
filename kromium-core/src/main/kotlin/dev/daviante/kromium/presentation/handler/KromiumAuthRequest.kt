@@ -1,7 +1,5 @@
 package dev.daviante.kromium.presentation.handler
 
-
-
 /**
  * Details of an authentication request made by a server or proxy.
  */

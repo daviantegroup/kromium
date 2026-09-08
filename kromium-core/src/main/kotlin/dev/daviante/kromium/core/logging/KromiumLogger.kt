@@ -1,7 +1,5 @@
 package dev.daviante.kromium.core.logging
 
-
-
 import java.util.logging.Level
 import java.util.logging.Logger
 
@@ -37,4 +35,3 @@ interface KromiumLogger {
         @JvmStatic fun e(tag: String, message: String, throwable: Throwable? = null) = instance.error(tag, message, throwable)
     }
 }
-

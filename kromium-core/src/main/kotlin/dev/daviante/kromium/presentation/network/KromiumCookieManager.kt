@@ -3,8 +3,6 @@ package dev.daviante.kromium.presentation.network
 import dev.daviante.kromium.core.logging.KromiumLogger
 import dev.daviante.kromium.core.util.FutureBridge
 
-
-
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import org.cef.callback.CefCookieVisitor

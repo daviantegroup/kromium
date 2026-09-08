@@ -42,8 +42,6 @@ import org.cef.handler.CefResourceHandler
 import org.cef.handler.CefResourceRequestHandler
 import org.cef.handler.CefResourceRequestHandlerAdapter
 
-
-
 import org.cef.CefClient
 import org.cef.browser.CefBrowser
 import org.cef.browser.CefFrame
@@ -56,7 +54,6 @@ import org.cef.callback.CefDownloadItemCallback
 import org.cef.callback.CefJSDialogCallback
 import org.cef.misc.BoolRef
 import org.cef.network.CefRequest
-
 
 private const val TAG = "KromiumClient"
 

@@ -8,8 +8,6 @@ import dev.daviante.kromium.domain.exception.KromiumException
 import dev.daviante.kromium.domain.model.OperatingSystem
 import dev.daviante.kromium.domain.model.PlatformInfo
 
-
-
 import org.cef.CefApp
 import org.cef.CefSettings
 import org.cef.SystemBootstrap

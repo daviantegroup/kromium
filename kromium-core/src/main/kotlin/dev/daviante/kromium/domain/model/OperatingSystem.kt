@@ -3,8 +3,6 @@ package dev.daviante.kromium.domain.model
 import dev.daviante.kromium.core.logging.KromiumLogger
 import dev.daviante.kromium.core.util.FileUtils
 
-
-
 import java.io.File
 import java.util.Locale
 
@@ -213,4 +211,3 @@ sealed class OperatingSystem(val name: String, private vararg val aliases: Strin
         }
     }
 }
-

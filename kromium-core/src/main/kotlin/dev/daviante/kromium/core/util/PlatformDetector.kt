@@ -4,8 +4,6 @@ import dev.daviante.kromium.domain.model.Architecture
 import dev.daviante.kromium.domain.model.OperatingSystem
 import dev.daviante.kromium.domain.model.PlatformInfo
 
-
-
 object PlatformDetector {
     @Volatile
     private var cachedPlatform: PlatformInfo? = null
