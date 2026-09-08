@@ -87,4 +87,10 @@ sealed class KromiumException(
     data class ProxyError(
         val detail: String
     ) : KromiumException("Proxy error: $detail")
+
+    /** Failed to print web page to PDF. */
+    data class PdfPrintFailed(
+        val path: String,
+        override val cause: Throwable? = null
+    ) : KromiumException("Failed to print web page to PDF: $path", cause)
 }

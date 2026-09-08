@@ -17,12 +17,16 @@ This document outlines the planned future capabilities and architectural milesto
   - Built-in `MimeTypes` resolving 50+ modern formats (WASM, ES Modules, SVG, WebP, WOFF2).
   - Dual Kotlin & pure Java ergonomics with SAM lambdas and `@JvmStatic` helpers.
 
-### 2. Print to PDF & Native Print Dialog (`printToPdfAsync`)
+### 2. Print to PDF & Native Print Dialog (`printToPdfAsync`) — ✅ Completed
 * **Goal**: Provide automated, headless, and interactive document printing capabilities.
-* **Scope**:
-  - `CompletableFuture<File> printToPdfAsync(File targetPdf, PdfPrintSettings settings)` for Java.
-  - Suspending `printToPdf(targetPdf, settings)` for Kotlin.
-  - Support for header/footer customization, background graphics, page margins, and orientation.
+* **Delivered Capabilities**:
+  - `KromiumPaperSize`: ISO & North American dimensions (A4, Letter, Legal, Tabloid, A3, A5) with millimeter/inch converters.
+  - `KromiumPdfMargins`: Margin configurations (`Default`, `None`, `Minimum`, `Custom` in mm or inches).
+  - `KromiumPdfSettings`: Full layout controls (orientation, background graphics, scale, page ranges, HTML header/footer templates, accessible tagged PDF, outline bookmarks, and directory creation).
+  - Suspending `printToPdf(targetFile, settings): File` for Kotlin Coroutines in both `KromiumBrowser` and Compose `KromiumViewState`.
+  - Non-blocking `printToPdfAsync(targetFile, settings): CompletableFuture<File>` with fluent Java builder for pure Java desktop apps.
+  - Interactive native OS print dialog invocation via `print()`.
+  - Typed error handling with `KromiumException.PdfPrintFailed`.
 
 ### 3. Context Menu Customization DSL & Actions
 * **Goal**: Allow host applications to customize, add, remove, or completely replace the browser's right-click context menu.

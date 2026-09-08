@@ -6,8 +6,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import dev.daviante.kromium.domain.exception.KromiumException
 import dev.daviante.kromium.domain.exception.KromiumLoadError
 import dev.daviante.kromium.domain.exception.SslErrorPolicy
+import dev.daviante.kromium.domain.model.KromiumPdfSettings
 import dev.daviante.kromium.presentation.browser.KromiumBrowser
 import dev.daviante.kromium.presentation.browser.KromiumClient
 import dev.daviante.kromium.presentation.handler.KromiumAuthRequest
@@ -135,6 +137,38 @@ class KromiumViewState(initialUrl: String) {
     suspend fun getText(): String {
         return browser?.getText() ?: ""
     }
+
+    /**
+     * Triggers the operating system's native interactive print dialog for the current page.
+     */
+    fun print() {
+        browser?.print()
+    }
+
+    /**
+     * Asynchronously prints the current web page to a vector PDF file using Kotlin coroutines.
+     *
+     * @param targetFile The output PDF destination [java.io.File].
+     * @param settings The PDF layout and rendering configurations.
+     * @return The generated PDF [java.io.File].
+     * @throws KromiumException.NotInitialized if the browser is not active yet.
+     * @throws KromiumException.PdfPrintFailed if Chromium fails to render or write the PDF.
+     */
+    suspend fun printToPdf(
+        targetFile: java.io.File,
+        settings: KromiumPdfSettings = KromiumPdfSettings.Default
+    ): java.io.File {
+        val b = browser ?: throw KromiumException.NotInitialized
+        return b.printToPdf(targetFile, settings)
+    }
+
+    /**
+     * Asynchronously prints the current web page to a vector PDF file path using Kotlin coroutines.
+     */
+    suspend fun printToPdf(
+        targetPath: String,
+        settings: KromiumPdfSettings = KromiumPdfSettings.Default
+    ): java.io.File = printToPdf(java.io.File(targetPath), settings)
 
     fun setZoom(level: Double) {
         browser?.setZoom(level)

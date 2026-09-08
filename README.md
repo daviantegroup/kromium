@@ -360,15 +360,64 @@ coroutineScope.launch {
 ```
 
 ### 📸 Screenshots & PDF Printing
+
+#### Kotlin (Coroutines & Compose)
 ```kotlin
-// Capture an in-memory BufferedImage screenshot
+import dev.daviante.kromium.domain.model.KromiumPaperSize
+import dev.daviante.kromium.domain.model.KromiumPdfMargins
+import dev.daviante.kromium.domain.model.KromiumPdfSettings
+import java.io.File
+
+// 1. Capture an in-memory BufferedImage screenshot
 val screenshot: BufferedImage? = browser.takeScreenshot()
 if (screenshot != null) {
     ImageIO.write(screenshot, "PNG", File("page.png"))
 }
 
-// Export page to a vectorized PDF
-browser.printToPdf("report.pdf")
+// 2. Export page to vector PDF asynchronously with custom layout
+val pdfFile: File = browser.printToPdf(
+    targetFile = File("exports/invoice.pdf"),
+    settings = KromiumPdfSettings(
+        paperSize = KromiumPaperSize.A4,
+        landscape = false,
+        printBackground = true,
+        margins = KromiumPdfMargins.fromMillimeters(10.0, 10.0, 10.0, 10.0),
+        displayHeaderFooter = true,
+        headerTemplate = "<span class=\"title\"></span>",
+        footerTemplate = "<span class=\"pageNumber\"></span> / <span class=\"totalPages\"></span>",
+        createDirectories = true
+    )
+)
+
+// 3. Or trigger the native OS print dialog directly:
+state.print() // in Compose KromiumViewState
+// or: browser.print()
+```
+
+#### Pure Java (CompletableFuture)
+```java
+import dev.daviante.kromium.domain.model.KromiumPaperSize;
+import dev.daviante.kromium.domain.model.KromiumPdfMargins;
+import dev.daviante.kromium.domain.model.KromiumPdfSettings;
+import java.io.File;
+
+KromiumPdfSettings settings = KromiumPdfSettings.builder()
+    .paperSize(KromiumPaperSize.Letter)
+    .printBackground(true)
+    .margins(KromiumPdfMargins.None.INSTANCE)
+    .createDirectories(true)
+    .build();
+
+// Non-blocking async PDF generation returning CompletableFuture<File>
+browser.printToPdfAsync(new File("exports/report.pdf"), settings)
+    .thenAccept(file -> System.out.println("Generated PDF at: " + file.getAbsolutePath()))
+    .exceptionally(ex -> {
+        System.err.println("Printing failed: " + ex.getMessage());
+        return null;
+    });
+
+// Interactive native print dialog
+browser.print();
 ```
 
 ---

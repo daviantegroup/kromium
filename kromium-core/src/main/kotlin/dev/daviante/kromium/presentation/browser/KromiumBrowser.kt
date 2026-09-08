@@ -2,19 +2,25 @@ package dev.daviante.kromium.presentation.browser
 
 import dev.daviante.kromium.core.logging.KromiumLogger
 import dev.daviante.kromium.core.util.FutureBridge
+import dev.daviante.kromium.domain.exception.KromiumException
+import dev.daviante.kromium.domain.model.KromiumPdfSettings
 import dev.daviante.kromium.presentation.js.JsEvaluator
 import dev.daviante.kromium.presentation.network.KromiumAssetFilter
 import dev.daviante.kromium.presentation.network.KromiumCookieManager
-
+import kotlinx.coroutines.suspendCancellableCoroutine
 import org.cef.browser.CefBrowser
 import org.cef.browser.CefFrame
+import org.cef.callback.CefPdfPrintCallback
 import java.awt.Component
-import java.awt.Point
-import java.awt.image.BufferedImage
 import java.awt.Graphics2D
+import java.awt.Point
 import java.awt.event.MouseEvent
+import java.awt.image.BufferedImage
+import java.io.File
 import java.util.concurrent.CompletableFuture
 import java.util.function.Consumer
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 private const val TAG = "KromiumBrowser"
 
@@ -232,11 +238,87 @@ class KromiumBrowser(
     }
 
     /**
-     * Prints the current page to a PDF file.
+     * Triggers the operating system's native interactive print dialog for the current page.
      */
-    fun printToPdf(filePath: String) {
+    fun print() {
+        browser.print()
+    }
+
+    /**
+     * Asynchronously prints the current web page to a vector PDF file using Kotlin coroutines.
+     *
+     * @param targetFile The output PDF destination [File].
+     * @param settings The PDF layout and rendering configurations.
+     * @return The generated PDF [File].
+     * @throws KromiumException.PdfPrintFailed if Chromium fails to render or write the PDF.
+     */
+    @JvmOverloads
+    suspend fun printToPdf(
+        targetFile: File,
+        settings: KromiumPdfSettings = KromiumPdfSettings.Default
+    ): File = suspendCancellableCoroutine { continuation ->
+        if (settings.createDirectories) {
+            targetFile.parentFile?.mkdirs()
+        }
+
+        val canonicalPath = targetFile.canonicalPath
+        val cefSettings = settings.toCefPdfPrintSettings()
+
+        val callback = CefPdfPrintCallback { path, success ->
+            if (success) {
+                continuation.resume(File(path))
+            } else {
+                continuation.resumeWithException(
+                    KromiumException.PdfPrintFailed(path)
+                )
+            }
+        }
+
+        browser.printToPDF(canonicalPath, cefSettings, callback)
+    }
+
+    /**
+     * Asynchronously prints the current web page to a vector PDF file path using Kotlin coroutines.
+     */
+    @JvmOverloads
+    suspend fun printToPdf(
+        targetPath: String,
+        settings: KromiumPdfSettings = KromiumPdfSettings.Default
+    ): File = printToPdf(File(targetPath), settings)
+
+    /**
+     * Asynchronously prints the current web page to a vector PDF file returning a Java [CompletableFuture].
+     *
+     * @param targetFile The output PDF destination [File].
+     * @param settings The PDF layout and rendering configurations.
+     * @return A [CompletableFuture] resolving to the written PDF [File].
+     */
+    @JvmOverloads
+    fun printToPdfAsync(
+        targetFile: File,
+        settings: KromiumPdfSettings = KromiumPdfSettings.Default
+    ): CompletableFuture<File> {
+        return FutureBridge.toCompletableFuture {
+            printToPdf(targetFile, settings)
+        }
+    }
+
+    /**
+     * Asynchronously prints the current web page to a vector PDF file path returning a Java [CompletableFuture].
+     */
+    @JvmOverloads
+    fun printToPdfAsync(
+        targetPath: String,
+        settings: KromiumPdfSettings = KromiumPdfSettings.Default
+    ): CompletableFuture<File> = printToPdfAsync(File(targetPath), settings)
+
+    /**
+     * Fire-and-forget print to PDF for Java callers without async tracking.
+     * For completion tracking and error handling, use [printToPdfAsync].
+     */
+    @JvmName("printToPdf")
+    fun printToPdfFireAndForget(filePath: String) {
         val settings = org.cef.misc.CefPdfPrintSettings()
-        // Default settings (A4, etc)
         browser.printToPDF(filePath, settings, null)
     }
 
