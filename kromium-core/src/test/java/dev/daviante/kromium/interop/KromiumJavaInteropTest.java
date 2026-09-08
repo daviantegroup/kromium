@@ -52,12 +52,14 @@ public class KromiumJavaInteropTest {
                 .proxy(KromiumProxy.direct())
                 .addArgs("--test-arg-1", "--test-arg-2")
                 .authServerAllowlist(List.of("*.corp.internal"))
+                .autoDownload(false)
                 .build();
 
         assertNotNull(config);
         assertEquals(customDir.getCanonicalFile(), config.getInstallDir());
         assertEquals("Kromium-Enterprise-Java/1.0", config.getUserAgent());
         assertEquals(9222, config.getRemoteDebuggingPort());
+        assertFalse(config.getAutoDownload());
         assertTrue(config.getSandboxEnabled());
         assertTrue(config.getBlockRegistryAndTelemetry());
         assertTrue(config.getCommandLineArgs().contains("--test-arg-1"));

@@ -191,6 +191,9 @@ object Kromium {
                 KromiumLogger.i(TAG, "Install directory: ${installDir.absolutePath}")
 
                 if (!EngineRegistry.isInstalled(installDir)) {
+                    if (!config.autoDownload) {
+                        throw KromiumException.AutoDownloadDisabled(installDir.absolutePath)
+                    }
                     if (installDir.exists()) {
                         KromiumLogger.i(TAG, "Cleaning incomplete engine directory before installation: ${installDir.absolutePath}")
                         EngineRegistry.clearInstallation(installDir)

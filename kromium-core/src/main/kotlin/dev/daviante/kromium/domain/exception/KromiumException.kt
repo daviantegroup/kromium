@@ -42,6 +42,11 @@ sealed class KromiumException(
         override val cause: Throwable? = null
     ) : KromiumException("Failed to prepare installation directory: $directory", cause)
 
+    /** Auto-download is disabled and no pre-installed JCEF engine was found in the target directory. */
+    data class AutoDownloadDisabled(
+        val directory: String
+    ) : KromiumException("Auto-download is disabled (autoDownload = false), and no valid JCEF engine binaries were found at: $directory")
+
     /** No compatible JCEF bundle was found for the current platform in the release. */
     data class NoBundleAvailable(
         val platform: String,

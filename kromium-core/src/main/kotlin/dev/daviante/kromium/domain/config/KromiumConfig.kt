@@ -86,6 +86,20 @@ class KromiumConfig {
     var logSeverity: CefSettings.LogSeverity = CefSettings.LogSeverity.LOGSEVERITY_DEFAULT
 
     /**
+     * Whether Kromium is allowed to automatically download the JCEF engine binaries if they are missing from [installDir].
+     *
+     * Set to `false` in enterprise, offline, or pre-bundled environments where automatic network downloads
+     * are strictly forbidden. If `false` and the engine binaries are not found at [installDir], initialization
+     * will immediately throw [dev.daviante.kromium.domain.exception.KromiumException.AutoDownloadDisabled]
+     * without attempting any network connection.
+     *
+     * Can also be configured globally via the `-Dkromium.auto.download=false` JVM system property.
+     *
+     * Defaults to `true`.
+     */
+    var autoDownload: Boolean = System.getProperty("kromium.auto.download")?.toBooleanStrictOrNull() ?: true
+
+    /**
      * Enable the Chromium sandbox for renderer and GPU sub-processes.
      *
      * **Strongly recommended** for applications that load untrusted web content.
@@ -341,6 +355,7 @@ class KromiumConfig {
         fun customBundleUrl(url: String?) = apply { config.customBundleUrl = url }
         fun customChecksumUrl(url: String?) = apply { config.customChecksumUrl = url }
         fun logSeverity(severity: CefSettings.LogSeverity) = apply { config.logSeverity = severity }
+        fun autoDownload(autoDownload: Boolean) = apply { config.autoDownload = autoDownload }
         fun sandboxEnabled(enabled: Boolean) = apply { config.sandboxEnabled = enabled }
         fun proxy(proxy: KromiumProxy) = apply { config.proxy = proxy }
         fun blockRegistryAndTelemetry(block: Boolean) = apply { config.blockRegistryAndTelemetry = block }

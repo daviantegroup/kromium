@@ -106,4 +106,18 @@ class KromiumConfigTest {
         assertTrue(config.commandLineArgs.any { it == "--root-cache-path=C:/tmp/kromium-cache" })
         assertTrue(config.commandLineArgs.any { it == "--user-data-dir=C:/tmp/kromium-cache" })
     }
+
+    @Test
+    fun testAutoDownloadDefaultsAndToggling() {
+        val config = KromiumConfig()
+        assertTrue(config.autoDownload, "autoDownload should be enabled by default")
+
+        config.autoDownload = false
+        assertFalse(config.autoDownload, "autoDownload should be configurable to false")
+
+        val builtConfig = KromiumConfig.builder()
+            .autoDownload(false)
+            .build()
+        assertFalse(builtConfig.autoDownload, "Builder should properly configure autoDownload")
+    }
 }
