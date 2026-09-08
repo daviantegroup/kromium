@@ -22,7 +22,7 @@ import dev.daviante.kromium.core.util.*
 sealed class KromiumException(
     override val message: String,
     override val cause: Throwable? = null
-) : Exception(message, cause) {
+) : RuntimeException(message, cause) {
 
     /** Kromium has not been initialized. Call [Kromium.initialize] first. */
     data object NotInitialized : KromiumException("Kromium is not initialized. Call Kromium.initialize() first.")

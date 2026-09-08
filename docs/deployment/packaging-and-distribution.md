@@ -68,8 +68,8 @@ compose.desktop {
 }
 ```
 
-### Reference: How `kromium-demo` is Packaged
-For a real-world reference, see the included [`kromium-demo/build.gradle.kts`](../../kromium-demo/build.gradle.kts):
+### Reference: How `kromium-sample-compose` is Packaged
+For a real-world reference, see the included [`kromium-sample-compose/build.gradle.kts`](../../kromium-sample-compose/build.gradle.kts):
 
 ```kotlin
 compose.desktop {

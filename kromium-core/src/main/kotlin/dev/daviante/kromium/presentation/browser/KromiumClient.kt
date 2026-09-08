@@ -82,12 +82,27 @@ class KromiumClient(
         }
     }
 
+    /**
+     * Dynamically updates the client proxy returning a boolean.
+     * Provides 100% clean Java compatibility bypassing Kotlin Result value class mangling.
+     */
+    @JvmName("updateProxy")
+    fun updateProxy(proxy: KromiumProxy): Boolean {
+        return setProxy(proxy).isSuccess
+    }
+
     internal val jsHandler = KromiumJsHandler()
 
     @Volatile var requestInterceptor: KromiumRequestInterceptor? = null
     @Volatile var downloadListener: KromiumDownloadListener? = null
     @Volatile var downloadDirectory: java.io.File = resolveDefaultDownloadDirectory()
     @Volatile var onBeforeDownloadListener: ((item: KromiumDownloadItem, suggestedFileName: String) -> String?)? = null
+
+    /** Sets the onBeforeDownloadListener using a Java [java.util.function.BiFunction]. */
+    fun setOnBeforeDownloadListener(listener: java.util.function.BiFunction<KromiumDownloadItem, String, String?>?) {
+        onBeforeDownloadListener = if (listener != null) { { item, name -> listener.apply(item, name) } } else null
+    }
+
     fun cancelDownload(downloadId: Int): Boolean = cancelDownloadGlobally(downloadId)
 
     fun pauseDownload(downloadId: Int): Boolean = pauseDownloadGlobally(downloadId)
@@ -98,13 +113,42 @@ class KromiumClient(
 
     @Volatile var jsDialogListener: KromiumJsDialogListener? = null
     @Volatile var consoleMessageListener: ((KromiumConsoleMessage) -> Unit)? = null
+
+    /** Sets the console message listener using a Java [java.util.function.Consumer]. */
+    fun setConsoleMessageListener(listener: java.util.function.Consumer<KromiumConsoleMessage>?) {
+        consoleMessageListener = if (listener != null) { { msg -> listener.accept(msg) } } else null
+    }
+
     @Volatile var authListener: KromiumAuthListener? = null
     @Volatile var onPopupListener: ((url: String) -> Boolean)? = null
+
+    /** Sets the popup listener using a Java [java.util.function.Predicate]. */
+    fun setOnPopupListener(listener: java.util.function.Predicate<String>?) {
+        onPopupListener = if (listener != null) { { url -> listener.test(url) } } else null
+    }
+
     @Volatile var onPermissionRequest: ((url: String) -> Boolean)? = null
+
+    /** Sets the permission request listener using a Java [java.util.function.Predicate]. */
+    fun setOnPermissionRequest(listener: java.util.function.Predicate<String>?) {
+        onPermissionRequest = if (listener != null) { { url -> listener.test(url) } } else null
+    }
+
     @Volatile var enableContextMenus: Boolean = true
     @Volatile var loadErrorListener: ((KromiumLoadError) -> Unit)? = null
+
+    /** Sets the load error listener using a Java [java.util.function.Consumer]. */
+    fun setLoadErrorListener(listener: java.util.function.Consumer<KromiumLoadError>?) {
+        loadErrorListener = if (listener != null) { { err -> listener.accept(err) } } else null
+    }
+
     @Volatile var customUserAgent: String? = null
     @Volatile var shouldOverrideUrlLoading: ((url: String) -> Boolean)? = null
+
+    /** Sets the URL loading override using a Java [java.util.function.Predicate]. */
+    fun setShouldOverrideUrlLoading(listener: java.util.function.Predicate<String>?) {
+        shouldOverrideUrlLoading = if (listener != null) { { url -> listener.test(url) } } else null
+    }
 
     /**
      * Asset filter configuration for blocking media, images, fonts, and stylesheets.
@@ -573,6 +617,7 @@ class KromiumClient(
      * This provides 100% reliable, zero-dependency background page loading, JavaScript evaluation,
      * DOM extraction, and rendering without requiring JOGL native libraries on the classpath.
      */
+    @JvmOverloads
     fun createHeadlessBrowser(
         url: String? = "about:blank",
         width: Int = 1280,
@@ -618,10 +663,21 @@ class KromiumClient(
         return KromiumBrowser(this, browser, hostPeer = hostWindow)
     }
 
+    fun createBrowser(): KromiumBrowser = createBrowser("about:blank")
+
+    fun createBrowser(url: String?): KromiumBrowser =
+        createBrowser(url = url, isOffScreenRendered = false, isTransparent = false, requestContext = null)
+
     fun createBrowser(
         url: String?,
         isTransparent: Boolean
     ): KromiumBrowser = createBrowser(url = url, isOffScreenRendered = false, isTransparent = isTransparent)
+
+    fun createBrowser(
+        url: String?,
+        isOffScreenRendered: Boolean,
+        isTransparent: Boolean
+    ): KromiumBrowser = createBrowser(url = url, isOffScreenRendered = isOffScreenRendered, isTransparent = isTransparent, requestContext = null)
 
     fun addLoadHandler(handler: CefLoadHandler) = apply { loadHandlers.add(handler) }
     fun removeLoadHandler(handler: CefLoadHandler) = apply { loadHandlers.remove(handler) }
@@ -1014,6 +1070,7 @@ class KromiumClient(
          * Checks whether JOGL (Java OpenGL) runtime classes are present on the classpath.
          * Required for CEF native offscreen rendering (OSR); if absent, headless mode safely falls back to Swing native peer.
          */
+        @JvmStatic
         val hasJoglSupport: Boolean by lazy {
             try {
                 Class.forName("com.jogamp.opengl.GLEventListener")
@@ -1068,6 +1125,7 @@ class KromiumClient(
         @JvmStatic
         fun isDownloadPausedGlobally(downloadId: Int): Boolean = pausedDownloads.contains(downloadId)
 
+        @JvmStatic
         fun resolveDefaultDownloadDirectory(): java.io.File {
             val rawHome = System.getProperty("user.home") ?: "."
             if (rawHome.contains("..")) {

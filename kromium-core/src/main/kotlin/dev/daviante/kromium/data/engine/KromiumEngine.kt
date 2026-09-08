@@ -23,6 +23,8 @@ object KromiumEngine {
      * Note: Version strings are currently hardcoded to the target JCEF bundle (CEF 150).
      * In a future update, these will be dynamically parsed from the bundle metadata.
      */
+    @JvmStatic
+    @JvmOverloads
     fun getInfo(installDir: File = EngineRegistry.defaultInstallDir()): KromiumEngineInfo {
         return KromiumEngineInfo(
             installDir = installDir,
@@ -36,6 +38,8 @@ object KromiumEngine {
     /**
      * Clears the current engine installation.
      */
+    @JvmStatic
+    @JvmOverloads
     fun clearInstallation(installDir: File = EngineRegistry.defaultInstallDir()) {
         EngineRegistry.clearInstallation(installDir)
     }

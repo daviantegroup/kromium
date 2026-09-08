@@ -107,7 +107,7 @@ Visit the master sitemap at **[`docs/README.md`](docs/README.md)**.
 
 * **`dev.daviante:kromium-compose`**: Declarative `@Composable KromiumView`, `KromiumViewState`, and Compose multi-tab helpers. (Includes `kromium-core` transitively).
 * **`dev.daviante:kromium-core`**: Core engine coordination, dynamic JCEF downloader, `KromiumBrowser`, `KromiumClient`, cookie management, network interception, and headless automation.
-* **`kromium-demo`**: Complete showcase desktop browser with multi-tab browsing, DevTools, REPL, and settings.
+* **`kromium-sample-compose`**: Complete showcase desktop browser with multi-tab browsing, DevTools, REPL, and settings.
 
 ---
 
@@ -323,7 +323,7 @@ browser.printToPdf("report.pdf")
 The repository includes a ready-to-run desktop browser application demonstrating multi-tab navigation, custom dialogs, live canvas rendering, and developer tools:
 
 ```bash
-./gradlew :kromium-demo:run
+./gradlew :kromium-sample-compose:run
 ```
 
 ---

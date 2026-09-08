@@ -18,6 +18,7 @@ object EngineRegistry {
 
     private const val LOCK_FILE_NAME = "install.lock"
 
+    @JvmStatic
     fun defaultInstallDir(): File {
         val platform = PlatformDetector.current()
         val rawHome = System.getProperty("user.home") ?: "."
@@ -83,6 +84,7 @@ object EngineRegistry {
         }
     }
 
+    @JvmStatic
     fun isInstalled(installDir: File): Boolean {
         val safeDir = FileUtils.sanitizeDirectory(installDir) ?: return false
         if (!safeDir.exists() || !safeDir.isDirectory) return false
@@ -126,6 +128,7 @@ object EngineRegistry {
         return true
     }
 
+    @JvmStatic
     fun markInstalled(installDir: File) {
         val safeDir = FileUtils.sanitizeDirectory(installDir)
             ?: throw IllegalArgumentException("Invalid or unsafe install directory: ${installDir.path}")
@@ -149,6 +152,7 @@ object EngineRegistry {
         }
     }
 
+    @JvmStatic
     fun clearInstallation(installDir: File) {
         FileUtils.deleteDirectory(installDir)
     }

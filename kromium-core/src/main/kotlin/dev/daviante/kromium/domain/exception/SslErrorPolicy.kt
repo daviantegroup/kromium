@@ -47,4 +47,14 @@ sealed class SslErrorPolicy {
      * Only use during development/testing. Never ship to production.
      */
     data object AllowAll : SslErrorPolicy()
+
+    companion object {
+        @JvmStatic val STRICT: SslErrorPolicy get() = Strict
+        @JvmStatic val ALLOW_ALL: SslErrorPolicy get() = AllowAll
+
+        @JvmStatic fun strict(): SslErrorPolicy = Strict
+        @JvmStatic fun allowAll(): SslErrorPolicy = AllowAll
+        @JvmStatic fun allowDomains(vararg domains: String): SslErrorPolicy = AllowDomains(*domains)
+        @JvmStatic fun allowDomains(domains: Set<String>): SslErrorPolicy = AllowDomains(domains)
+    }
 }

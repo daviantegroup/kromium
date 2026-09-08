@@ -13,16 +13,20 @@ import dev.daviante.kromium.core.logging.*
 import dev.daviante.kromium.core.util.*
 
 
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.cef.CefApp
 import java.io.File
+import java.util.concurrent.CompletableFuture
+import java.util.function.Consumer
 
 private const val TAG = "Kromium"
 
@@ -35,15 +39,61 @@ private const val TAG = "Kromium"
 object Kromium {
 
     private val _state = MutableStateFlow<KromiumState>(KromiumState.Idle)
-    val state: StateFlow<KromiumState> = _state.asStateFlow()
+    @JvmStatic val state: StateFlow<KromiumState> = _state.asStateFlow()
+
+    private class StateListenerWrapper(
+        val consumer: Consumer<KromiumState>
+    ) {
+        private val lastDelivered = java.util.concurrent.atomic.AtomicReference<KromiumState?>()
+
+        fun deliver(state: KromiumState) {
+            val prev = lastDelivered.getAndSet(state)
+            if (prev != state) {
+                try {
+                    consumer.accept(state)
+                } catch (e: Throwable) {
+                    KromiumLogger.w(TAG, "Exception in KromiumState listener", e)
+                }
+            }
+        }
+    }
+
+    private val stateListeners = java.util.concurrent.ConcurrentHashMap<Consumer<KromiumState>, StateListenerWrapper>()
+
+    init {
+        CoroutineScope(Dispatchers.Default).launch {
+            _state.collect { newState ->
+                for (wrapper in stateListeners.values) {
+                    wrapper.deliver(newState)
+                }
+            }
+        }
+    }
+
+    /**
+     * Registers a Java [Consumer] callback invoked whenever [KromiumState] transitions.
+     * The listener is immediately invoked on the current state upon registration.
+     *
+     * @param consumer The Java callback accepting the new [KromiumState].
+     * @return An [AutoCloseable] to unsubscribe the listener.
+     */
+    @JvmStatic
+    fun addStateListener(consumer: Consumer<KromiumState>): AutoCloseable {
+        val wrapper = StateListenerWrapper(consumer)
+        stateListeners[consumer] = wrapper
+        wrapper.deliver(_state.value)
+        return AutoCloseable {
+            stateListeners.remove(consumer)
+        }
+    }
 
     private val mutex = Mutex()
     private var cefApp: CefApp? = null
 
     private var _activeProxy: KromiumProxy = KromiumProxy.System
-    val activeProxy: KromiumProxy get() = _activeProxy
+    @JvmStatic val activeProxy: KromiumProxy get() = _activeProxy
 
-    val isReady: Boolean get() = _state.value is KromiumState.Ready
+    @JvmStatic val isReady: Boolean get() = _state.value is KromiumState.Ready
 
     /**
      * Programmatically cancels an in-progress download identified by its download ID across any active browser session.
@@ -70,17 +120,22 @@ object Kromium {
     fun isDownloadPaused(downloadId: Int): Boolean = KromiumClient.isDownloadPausedGlobally(downloadId)
 
     /**
-     * Initializes the Kromium engine. This is idempotent — calling it when already
-     * initialized or when initialization is in progress will wait for the result
-     * instead of re-initializing.
+     * Initializes the Kromium engine with a DSL configuration block.
      *
      * @throws KromiumException on any initialization failure
      */
-    suspend fun initialize(configure: KromiumConfig.() -> Unit = {}): Unit = withContext(Dispatchers.IO) {
+    suspend fun initialize(configure: KromiumConfig.() -> Unit = {}) {
+        initialize(KromiumConfig().apply(configure))
+    }
+
+    /**
+     * Initializes the Kromium engine with a pre-configured [KromiumConfig].
+     *
+     * @throws KromiumException on any initialization failure
+     */
+    suspend fun initialize(config: KromiumConfig): Unit = withContext(Dispatchers.IO) {
         // Automatically open required java.desktop packages dynamically (Java 17/21+)
         JvmModuleOpener.ensureModulesOpened()
-
-        val config = KromiumConfig().apply(configure)
 
         // Validate configuration before acquiring the mutex
         config.validate()
@@ -93,11 +148,14 @@ object Kromium {
             is KromiumState.Locating, is KromiumState.Downloading -> {
                 // Another coroutine is initializing — wait outside the mutex to avoid deadlock
                 KromiumLogger.i(TAG, "Initialization already in progress, waiting for completion...")
-                _state.first { it is KromiumState.Ready || it is KromiumState.Error }
-                if (_state.value is KromiumState.Error) {
-                    throw (_state.value as KromiumState.Error).cause
+                val finalState = _state.first {
+                    it is KromiumState.Ready || it is KromiumState.Error || it is KromiumState.Disposed
                 }
-                return@withContext
+                when (finalState) {
+                    is KromiumState.Error -> throw finalState.cause
+                    is KromiumState.Disposed -> throw KromiumException.Disposed
+                    else -> return@withContext
+                }
             }
             else -> { /* Proceed to acquire mutex */ }
         }
@@ -105,14 +163,8 @@ object Kromium {
         mutex.withLock {
             // Double-check after acquiring the mutex (another coroutine may have finished)
             when (_state.value) {
-                is KromiumState.Ready -> return@withContext
+                is KromiumState.Ready -> return@withLock
                 is KromiumState.Disposed -> throw KromiumException.Disposed
-                is KromiumState.Initializing, is KromiumState.Extracting,
-                is KromiumState.Locating, is KromiumState.Downloading -> {
-                    // Extremely unlikely but safe: release mutex and wait
-                    // This shouldn't happen since we wait above, but as a safety net
-                    return@withLock
-                }
                 else -> { /* Proceed */ }
             }
 
@@ -213,11 +265,36 @@ object Kromium {
 
         // If we exited withLock due to the in-progress safety net, wait here
         if (_state.value !is KromiumState.Ready) {
-            _state.first { it is KromiumState.Ready || it is KromiumState.Error }
-            if (_state.value is KromiumState.Error) {
-                throw (_state.value as KromiumState.Error).cause
+            val finalState = _state.first {
+                it is KromiumState.Ready || it is KromiumState.Error || it is KromiumState.Disposed
+            }
+            when (finalState) {
+                is KromiumState.Error -> throw finalState.cause
+                is KromiumState.Disposed -> throw KromiumException.Disposed
+                else -> { /* Ready */ }
             }
         }
+    }
+
+    /**
+     * Asynchronously initializes the Kromium engine returning a Java [CompletableFuture].
+     * Idempotent and non-blocking for Java callers.
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun initializeAsync(config: KromiumConfig = KromiumConfig()): CompletableFuture<Void?> =
+        FutureBridge.toCompletableFuture {
+            initialize(config)
+            null
+        }
+
+    /**
+     * Asynchronously initializes the Kromium engine with a Java configuration lambda returning a [CompletableFuture].
+     */
+    @JvmStatic
+    fun initializeAsync(configurer: Consumer<KromiumConfig>): CompletableFuture<Void?> {
+        val config = KromiumConfig().apply { configurer.accept(this) }
+        return initializeAsync(config)
     }
 
     /**
@@ -226,6 +303,7 @@ object Kromium {
      * @throws KromiumException.NotInitialized if Kromium hasn't been initialized
      * @throws KromiumException.Disposed if Kromium has been disposed
      */
+    @JvmStatic
     fun newClient(): KromiumClient {
         if (_state.value is KromiumState.Disposed) throw KromiumException.Disposed
         val app = cefApp ?: throw KromiumException.NotInitialized
@@ -237,19 +315,36 @@ object Kromium {
      *
      * @throws KromiumException if initialization failed
      */
+    @JvmStatic
     suspend fun awaitClient(): KromiumClient {
+        if (_state.value is KromiumState.Disposed) {
+            throw KromiumException.Disposed
+        }
         if (!isReady) {
-            val finalState = _state.first { it is KromiumState.Ready || it is KromiumState.Error }
-            if (finalState is KromiumState.Error) {
-                throw finalState.cause
+            val finalState = _state.first {
+                it is KromiumState.Ready || it is KromiumState.Error || it is KromiumState.Disposed
+            }
+            when (finalState) {
+                is KromiumState.Error -> throw finalState.cause
+                is KromiumState.Disposed -> throw KromiumException.Disposed
+                else -> { /* Ready */ }
             }
         }
         return newClient()
     }
 
     /**
+     * Asynchronously waits until Kromium is ready and returns a new [KromiumClient] via a [CompletableFuture].
+     */
+    @JvmStatic
+    fun awaitClientAsync(): CompletableFuture<KromiumClient> =
+        FutureBridge.toCompletableFuture { awaitClient() }
+
+    /**
      * Creates a new [KromiumBrowser] instance using a fresh client.
      */
+    @JvmStatic
+    @JvmOverloads
     fun createBrowser(
         url: String? = "about:blank",
         isOffScreenRendered: Boolean = false,
@@ -259,6 +354,8 @@ object Kromium {
     /**
      * Creates a new zero-dependency headless [KromiumBrowser] instance backed by an off-screen Swing peer.
      */
+    @JvmStatic
+    @JvmOverloads
     fun createHeadlessBrowser(
         url: String? = "about:blank",
         width: Int = 1280,
@@ -268,6 +365,8 @@ object Kromium {
     /**
      * Suspends until Kromium is ready, then creates a new [KromiumBrowser] instance.
      */
+    @JvmStatic
+    @JvmOverloads
     suspend fun awaitBrowser(
         url: String? = "about:blank",
         isOffScreenRendered: Boolean = false,
@@ -275,13 +374,39 @@ object Kromium {
     ): KromiumBrowser = awaitClient().createBrowser(url, isOffScreenRendered, isTransparent)
 
     /**
+     * Asynchronously waits until Kromium is ready, then creates a new [KromiumBrowser] instance.
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun awaitBrowserAsync(
+        url: String? = "about:blank",
+        isOffScreenRendered: Boolean = false,
+        isTransparent: Boolean = false
+    ): CompletableFuture<KromiumBrowser> =
+        FutureBridge.toCompletableFuture { awaitBrowser(url, isOffScreenRendered, isTransparent) }
+
+    /**
      * Suspends until Kromium is ready, then creates a new headless [KromiumBrowser] instance.
      */
+    @JvmStatic
+    @JvmOverloads
     suspend fun awaitHeadlessBrowser(
         url: String? = "about:blank",
         width: Int = 1280,
         height: Int = 800
     ): KromiumBrowser = awaitClient().createHeadlessBrowser(url, width, height)
+
+    /**
+     * Asynchronously waits until Kromium is ready, then creates a new headless [KromiumBrowser] instance.
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun awaitHeadlessBrowserAsync(
+        url: String? = "about:blank",
+        width: Int = 1280,
+        height: Int = 800
+    ): CompletableFuture<KromiumBrowser> =
+        FutureBridge.toCompletableFuture { awaitHeadlessBrowser(url, width, height) }
 
     /**
      * Dynamically updates the proxy strategy across all active browser windows
@@ -290,6 +415,7 @@ object Kromium {
      * @param proxy The new [KromiumProxy] configuration to apply.
      * @return [Result.success] if applied, or [Result.failure] with error details.
      */
+    @JvmStatic
     fun setProxy(proxy: KromiumProxy): Result<Unit> {
         _activeProxy = proxy
         if (!isReady || cefApp == null) {
@@ -314,9 +440,21 @@ object Kromium {
     }
 
     /**
+     * Dynamically updates the proxy strategy across all active browser windows
+     * at runtime returning a boolean.
+     * Provides 100% clean Java compatibility bypassing Kotlin Result value class mangling.
+     */
+    @JvmStatic
+    @JvmName("updateProxy")
+    fun updateProxy(proxy: KromiumProxy): Boolean {
+        return setProxy(proxy).isSuccess
+    }
+
+    /**
      * Disposes the Kromium engine. After calling this, no new clients or browsers
      * can be created.
      */
+    @JvmStatic
     fun dispose() {
         KromiumLogger.i(TAG, "Disposing Kromium...")
         disposeInternal()

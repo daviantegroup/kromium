@@ -296,10 +296,14 @@ class KromiumConfig {
     }
 
     companion object {
+        @JvmStatic
+        fun builder(): Builder = Builder()
+
         /**
          * Core Chromium flags that completely suppress background telemetry,
          * crash reporting, component updates, and Windows registry write hooks.
          */
+        @JvmField
         val REGISTRY_SUPPRESSION_FLAGS: List<String> = listOf(
             "--no-default-browser-check",
             "--no-first-run",
@@ -320,5 +324,33 @@ class KromiumConfig {
          */
         const val REGISTRY_SUPPRESSION_FEATURES: String =
             "WinNativeNotification,CalculateNativeWinOcclusion,CertificateTransparencyComponentUpdater"
+    }
+
+    /**
+     * Fluent Builder for [KromiumConfig] enabling idiomatic configuration from Java.
+     */
+    class Builder {
+        private val config = KromiumConfig()
+
+        fun installDir(installDir: File) = apply { config.installDir = installDir }
+        fun cachePath(cachePath: String?) = apply { config.cachePath = cachePath }
+        fun userAgent(userAgent: String?) = apply { config.userAgent = userAgent }
+        fun windowlessRendering(windowless: Boolean) = apply { config.windowlessRendering = windowless }
+        fun remoteDebuggingPort(port: Int) = apply { config.remoteDebuggingPort = port }
+        fun releaseTag(tag: String?) = apply { config.releaseTag = tag }
+        fun customBundleUrl(url: String?) = apply { config.customBundleUrl = url }
+        fun customChecksumUrl(url: String?) = apply { config.customChecksumUrl = url }
+        fun logSeverity(severity: CefSettings.LogSeverity) = apply { config.logSeverity = severity }
+        fun sandboxEnabled(enabled: Boolean) = apply { config.sandboxEnabled = enabled }
+        fun proxy(proxy: KromiumProxy) = apply { config.proxy = proxy }
+        fun blockRegistryAndTelemetry(block: Boolean) = apply { config.blockRegistryAndTelemetry = block }
+        fun addArgs(vararg args: String) = apply { config.addArgs(*args) }
+        fun authServerAllowlist(allowlist: List<String>) = apply { config.authServerAllowlist = allowlist }
+        fun authNegotiateDelegateAllowlist(allowlist: List<String>) = apply { config.authNegotiateDelegateAllowlist = allowlist }
+
+        fun build(): KromiumConfig {
+            config.validate()
+            return config
+        }
     }
 }

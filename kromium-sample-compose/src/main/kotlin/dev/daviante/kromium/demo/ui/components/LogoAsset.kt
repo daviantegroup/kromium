@@ -17,6 +17,7 @@ object LogoAsset {
 
     val imageBitmap: ImageBitmap by lazy {
         val stream = LogoAsset::class.java.getResourceAsStream("/logo.png")
+            ?: File("kromium-sample-compose/src/main/resources/logo.png").takeIf { it.exists() }?.inputStream()
             ?: File("kromium-demo/src/main/resources/logo.png").takeIf { it.exists() }?.inputStream()
             ?: File("assets/logo.svg").takeIf { it.exists() }?.inputStream()
             ?: error("logo could not be located in classpath or filesystem")
@@ -31,6 +32,7 @@ object LogoAsset {
     @Suppress("DEPRECATION")
     private fun loadSvg(): Painter? {
         val stream = LogoAsset::class.java.getResourceAsStream("/logo.svg")
+            ?: File("kromium-sample-compose/src/main/resources/logo.svg").takeIf { it.exists() }?.inputStream()
             ?: File("kromium-demo/src/main/resources/logo.svg").takeIf { it.exists() }?.inputStream()
             ?: File("assets/logo.svg").takeIf { it.exists() }?.inputStream()
             ?: return null

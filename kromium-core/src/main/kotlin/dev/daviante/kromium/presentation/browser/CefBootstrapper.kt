@@ -24,6 +24,7 @@ object CefBootstrapper {
 
     private const val TAG = "CefBootstrapper"
 
+    @JvmStatic
     fun bootstrap(
         installDir: File,
         cefArgs: List<String>,

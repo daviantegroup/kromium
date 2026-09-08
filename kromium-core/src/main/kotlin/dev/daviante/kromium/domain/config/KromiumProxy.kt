@@ -69,7 +69,7 @@ sealed class KromiumProxy {
      *                 essential for modern Zero-Trust enterprise egress proxies.
      * @param bypassList List of hosts/patterns that bypass the proxy (e.g. `listOf("<local>", "127.0.0.1", "*.internal.corp")`).
      */
-    data class Http(
+    data class Http @JvmOverloads constructor(
         val host: String,
         val port: Int,
         val username: String? = null,
@@ -126,7 +126,7 @@ sealed class KromiumProxy {
      * @param remoteDns When true (default), DNS queries are resolved by the proxy (prevents DNS leaks).
      * @param bypassList List of hosts/patterns that bypass the proxy.
      */
-    data class Socks5(
+    data class Socks5 @JvmOverloads constructor(
         val host: String,
         val port: Int,
         val username: String? = null,
@@ -187,7 +187,7 @@ sealed class KromiumProxy {
      * )
      * ```
      */
-    data class MultiProtocol(
+    data class MultiProtocol @JvmOverloads constructor(
         val http: String? = null,
         val https: String? = null,
         val ftp: String? = null,
@@ -249,4 +249,52 @@ sealed class KromiumProxy {
      * Validates proxy configuration parameters.
      */
     open fun validate() {}
+
+    companion object {
+        /** Uses the operating system's default proxy configuration. */
+        @JvmStatic val SYSTEM: KromiumProxy get() = System
+
+        /** Bypasses all proxies and connects directly to destination hosts. */
+        @JvmStatic val DIRECT: KromiumProxy get() = Direct
+
+        /** Automatically discovers proxy settings via WPAD. */
+        @JvmStatic val AUTO_DETECT: KromiumProxy get() = AutoDetect
+
+        @JvmStatic fun system(): KromiumProxy = System
+        @JvmStatic fun direct(): KromiumProxy = Direct
+        @JvmStatic fun autoDetect(): KromiumProxy = AutoDetect
+        @JvmStatic fun pac(pacUrl: String): KromiumProxy = Pac(pacUrl)
+
+        @JvmStatic
+        @JvmOverloads
+        fun http(
+            host: String,
+            port: Int,
+            username: String? = null,
+            password: String? = null,
+            isSecure: Boolean = false,
+            bypassList: List<String> = emptyList()
+        ): KromiumProxy = Http(host, port, username, password, isSecure, bypassList)
+
+        @JvmStatic
+        @JvmOverloads
+        fun socks5(
+            host: String,
+            port: Int,
+            username: String? = null,
+            password: String? = null,
+            remoteDns: Boolean = true,
+            bypassList: List<String> = emptyList()
+        ): KromiumProxy = Socks5(host, port, username, password, remoteDns, bypassList)
+
+        @JvmStatic
+        @JvmOverloads
+        fun multiProtocol(
+            http: String? = null,
+            https: String? = null,
+            ftp: String? = null,
+            socks: String? = null,
+            bypassList: List<String> = emptyList()
+        ): KromiumProxy = MultiProtocol(http, https, ftp, socks, bypassList)
+    }
 }

@@ -20,6 +20,8 @@ import java.awt.Point
 import java.awt.image.BufferedImage
 import java.awt.Graphics2D
 import java.awt.event.MouseEvent
+import java.util.concurrent.CompletableFuture
+import java.util.function.Consumer
 
 private const val TAG = "KromiumBrowser"
 
@@ -84,11 +86,12 @@ class KromiumBrowser(
      */
     fun isDownloadPaused(downloadId: Int): Boolean = KromiumClient.isDownloadPausedGlobally(downloadId)
 
+    @JvmOverloads
     fun find(
         searchText: String,
-        forward: Boolean,
-        matchCase: Boolean,
-        findNext: Boolean
+        forward: Boolean = true,
+        matchCase: Boolean = false,
+        findNext: Boolean = false
     ) {
         browser.find(searchText, forward, matchCase, findNext)
     }
@@ -110,6 +113,25 @@ class KromiumBrowser(
     }
 
     /**
+     * Executes arbitrary JavaScript asynchronously returning a Java [CompletableFuture].
+     * Provides 100% idiomatic non-blocking execution for Java callers.
+     */
+    @JvmOverloads
+    fun evaluateJavaScriptAsync(
+        expression: String,
+        timeoutMs: Long? = null
+    ): CompletableFuture<String?> =
+        FutureBridge.toCompletableFuture {
+            JsEvaluator.evaluate(
+                browser = browser,
+                handler = client.jsHandler,
+                expression = expression,
+                routerQueryName = client.routerQueryName,
+                timeoutMs = timeoutMs
+            )
+        }
+
+    /**
      * Convenience function to fetch the complete HTML of the current document (`document.documentElement.outerHTML`).
      */
     suspend fun getHtml(): String {
@@ -117,11 +139,23 @@ class KromiumBrowser(
     }
 
     /**
+     * Asynchronously fetches the complete HTML of the current document returning a Java [CompletableFuture].
+     */
+    fun getHtmlAsync(): CompletableFuture<String> =
+        FutureBridge.toCompletableFuture { getHtml() }
+
+    /**
      * Convenience function to fetch the visible text content of the current document (`document.body.innerText`).
      */
     suspend fun getText(): String {
         return evaluateJavaScript("document.body ? document.body.innerText : ''") ?: ""
     }
+
+    /**
+     * Asynchronously fetches the visible text content of the current document returning a Java [CompletableFuture].
+     */
+    fun getTextAsync(): CompletableFuture<String> =
+        FutureBridge.toCompletableFuture { getText() }
 
     /**
      * Attempts to resolve the URL of the page's favicon using DOM inspection.
@@ -138,10 +172,17 @@ class KromiumBrowser(
     }
 
     /**
+     * Asynchronously resolves the favicon URL returning a Java [CompletableFuture].
+     */
+    fun getFaviconUrlAsync(): CompletableFuture<String?> =
+        FutureBridge.toCompletableFuture { getFaviconUrl() }
+
+    /**
      * Loads raw HTML content with an optional base URL.
      * Uses a custom resource handler to serve the HTML while maintaining proper origin constraints,
      * avoiding the limitations and security restrictions of `data:` URIs.
      */
+    @JvmOverloads
     fun loadHtml(html: String, baseUrl: String = "http://kromium.local/") {
         val id = java.util.UUID.randomUUID().toString()
         val separator = if (baseUrl.endsWith("/")) "" else "/"
@@ -231,6 +272,7 @@ class KromiumBrowser(
      * Configures asset blocking on this browser's client to omit loading images, media, fonts, or stylesheets.
      * Dramatically reduces bandwidth and CPU overhead for headless tasks and web automation.
      */
+    @JvmOverloads
     fun blockMediaAssets(
         images: Boolean = true,
         media: Boolean = true,
@@ -260,6 +302,7 @@ class KromiumBrowser(
     /**
      * Restricts navigation exclusively to the specified allowed hostnames/domains.
      */
+    @JvmOverloads
     fun setHostLock(allowedHosts: Set<String>?, lockSubresources: Boolean = false) {
         client.hostLock = allowedHosts
         client.hostLockSubresources = lockSubresources
@@ -282,6 +325,12 @@ class KromiumBrowser(
     }
 
     /**
+     * Asynchronously retrieves all cookies for the current page returning a Java [CompletableFuture].
+     */
+    fun getCookiesAsync(): CompletableFuture<Map<String, String>> =
+        FutureBridge.toCompletableFuture { getCookies() }
+
+    /**
      * Retrieves a specific cookie by [name] for the current page.
      */
     suspend fun getCookie(name: String): String? {
@@ -290,8 +339,15 @@ class KromiumBrowser(
     }
 
     /**
+     * Asynchronously retrieves a specific cookie by [name] for the current page returning a Java [CompletableFuture].
+     */
+    fun getCookieAsync(name: String): CompletableFuture<String?> =
+        FutureBridge.toCompletableFuture { getCookie(name) }
+
+    /**
      * Sets a cookie for the current page.
      */
+    @JvmOverloads
     fun setCookie(
         name: String,
         value: String,
@@ -328,6 +384,13 @@ class KromiumBrowser(
     }
 
     /**
+     * Registers a Java [Consumer] callback invoked when a page has completed loading in the main frame.
+     */
+    fun onPageFinished(callback: Consumer<String>) {
+        onPageFinished { url -> callback.accept(url) }
+    }
+
+    /**
      * Registers a callback invoked when the browser URL / address changes.
      */
     fun onAddressChanged(callback: (newUrl: String) -> Unit) {
@@ -343,6 +406,13 @@ class KromiumBrowser(
     }
 
     /**
+     * Registers a Java [Consumer] callback invoked when the browser URL / address changes.
+     */
+    fun onAddressChanged(callback: Consumer<String>) {
+        onAddressChanged { newUrl -> callback.accept(newUrl) }
+    }
+
+    /**
      * Registers a callback invoked when the page title changes.
      */
     fun onTitleChanged(callback: (title: String) -> Unit) {
@@ -355,6 +425,13 @@ class KromiumBrowser(
         }
         client.addDisplayHandler(handler)
         attachedHandlers.add(handler)
+    }
+
+    /**
+     * Registers a Java [Consumer] callback invoked when the page title changes.
+     */
+    fun onTitleChanged(callback: Consumer<String>) {
+        onTitleChanged { title -> callback.accept(title) }
     }
 
     /**
@@ -375,6 +452,15 @@ class KromiumBrowser(
         }
         client.addLoadHandler(handler)
         attachedHandlers.add(handler)
+    }
+
+    /**
+     * Registers a Java [KromiumLoadingListener] callback invoked when the browser loading state or navigation history changes.
+     */
+    fun onLoadingChanged(listener: dev.daviante.kromium.presentation.handler.KromiumLoadingListener) {
+        onLoadingChanged { isLoading, canGoBack, canGoForward ->
+            listener.onLoadingChanged(isLoading, canGoBack, canGoForward)
+        }
     }
 
     fun dispose() {

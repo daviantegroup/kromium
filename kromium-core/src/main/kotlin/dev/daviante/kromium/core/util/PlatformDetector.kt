@@ -14,8 +14,10 @@ import dev.daviante.kromium.core.util.*
 
 
 object PlatformDetector {
+    @Volatile
     private var cachedPlatform: PlatformInfo? = null
 
+    @JvmStatic
     @Throws(IllegalStateException::class)
     fun current(): PlatformInfo {
         cachedPlatform?.let { return it }

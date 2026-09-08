@@ -33,6 +33,7 @@ object JvmModuleOpener {
      *
      * This method is idempotent and safe to call multiple times.
      */
+    @JvmStatic
     fun ensureModulesOpened() {
         if (opened.getAndSet(true)) return
 

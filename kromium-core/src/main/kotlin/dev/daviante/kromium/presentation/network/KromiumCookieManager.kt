@@ -22,6 +22,7 @@ import org.cef.network.CefCookieManager
 import java.net.URI
 import java.util.Date
 import kotlin.coroutines.resume
+import java.util.concurrent.CompletableFuture
 
 private const val TAG = "KromiumCookieManager"
 
@@ -43,6 +44,8 @@ object KromiumCookieManager {
      * The timeout prevents permanent coroutine suspension when the cookie visitor
      * is never invoked (e.g., zero cookies for the URL).
      */
+    @JvmStatic
+    @JvmOverloads
     suspend fun getCookies(url: String, includeHttpOnly: Boolean = true): Map<String, String> {
         val trimmed = url.trim()
         if (trimmed.isBlank() || trimmed.equals("about:blank", ignoreCase = true) || !trimmed.startsWith("http", ignoreCase = true)) {
@@ -98,15 +101,33 @@ object KromiumCookieManager {
     }
 
     /**
+     * Asynchronously retrieves all cookies for [url] returning a Java [CompletableFuture].
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun getCookiesAsync(url: String, includeHttpOnly: Boolean = true): CompletableFuture<Map<String, String>> =
+        FutureBridge.toCompletableFuture { getCookies(url, includeHttpOnly) }
+
+    /**
      * Retrieves the value of a specific cookie by [name] for [url].
      */
+    @JvmStatic
     suspend fun getCookie(url: String, name: String): String? {
         return getCookies(url)[name]
     }
 
     /**
+     * Asynchronously retrieves a specific cookie by [name] for [url] returning a Java [CompletableFuture].
+     */
+    @JvmStatic
+    fun getCookieAsync(url: String, name: String): CompletableFuture<String?> =
+        FutureBridge.toCompletableFuture { getCookie(url, name) }
+
+    /**
      * Sets a cookie for the specified [url].
      */
+    @JvmStatic
+    @JvmOverloads
     fun setCookie(
         url: String,
         name: String,
@@ -147,6 +168,7 @@ object KromiumCookieManager {
     /**
      * Deletes a specific cookie for the specified [url].
      */
+    @JvmStatic
     fun deleteCookie(url: String, name: String): Boolean {
         return try {
             rawManager.deleteCookies(url, name)
@@ -159,6 +181,7 @@ object KromiumCookieManager {
     /**
      * Deletes all cookies from Chromium's cookie store.
      */
+    @JvmStatic
     fun clearCookies(): Boolean {
         return try {
             rawManager.deleteCookies("", "")
@@ -171,6 +194,7 @@ object KromiumCookieManager {
     /**
      * Flushes the cookie store to disk to ensure session persistence.
      */
+    @JvmStatic
     fun flush(): Boolean {
         return try {
             rawManager.flushStore(null)

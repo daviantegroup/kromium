@@ -21,11 +21,10 @@ import org.cef.callback.CefQueryCallback
 import org.cef.handler.CefMessageRouterHandlerAdapter
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.CompletableFuture
 import kotlin.coroutines.resume
 
 private const val TAG = "JsEvaluator"
-
-
 
 object JsEvaluator {
 
@@ -78,6 +77,8 @@ object JsEvaluator {
      *
      * The queryId is strictly validated to contain only alphanumeric characters and underscores.
      */
+    @JvmStatic
+    @JvmOverloads
     fun wrapExpression(expression: String, queryId: String, routerQueryName: String = "kromiumQuery"): String {
         // Validate queryId contains only safe characters (alphanumeric + underscore)
         require(queryId.matches(Regex("^[a-zA-Z0-9_]+$"))) {
@@ -154,6 +155,8 @@ object JsEvaluator {
      * @return The evaluation result as a string, or `null` if timed out
      * @throws KromiumException.JsEvaluationTimeout if [throwOnTimeout] is `true` and evaluation times out
      */
+    @JvmStatic
+    @JvmOverloads
     suspend fun evaluate(
         browser: CefBrowser,
         handler: KromiumJsHandler,
@@ -195,4 +198,22 @@ object JsEvaluator {
 
         return result
     }
+
+    /**
+     * Evaluates JavaScript asynchronously returning a Java [CompletableFuture].
+     * Provides 100% idiomatic non-blocking execution for Java callers.
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun evaluateAsync(
+        browser: CefBrowser,
+        handler: KromiumJsHandler,
+        expression: String,
+        routerQueryName: String = "kromiumQuery",
+        timeoutMs: Long? = null,
+        throwOnTimeout: Boolean = false
+    ): CompletableFuture<String?> =
+        FutureBridge.toCompletableFuture {
+            evaluate(browser, handler, expression, routerQueryName, timeoutMs, throwOnTimeout)
+        }
 }
