@@ -26,7 +26,8 @@ public class DownloadManagerDialog extends JDialog {
     private final JLabel countLabel = new JLabel("0 active transfers");
 
     public DownloadManagerDialog(Frame owner) {
-        super(owner, "Kromium Download Manager", false);
+        super(owner, "Downloads — Kromium", false);
+        setIconImages(dev.daviante.kromium.sample.swing.KromiumSwingApp.getAppIcons());
         setSize(700, 420);
         setLocationRelativeTo(owner);
         setLayout(new BorderLayout());

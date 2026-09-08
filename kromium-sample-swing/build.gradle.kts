@@ -19,8 +19,15 @@ application {
     mainClass.set("dev.daviante.kromium.sample.swing.KromiumSwingApp")
 }
 
+val osName = System.getProperty("os.name")?.lowercase() ?: ""
+val iconIcns = file("src/main/resources/icon.icns")
+
 tasks.named<JavaExec>("run") {
-    if (System.getProperty("os.name")?.lowercase()?.contains("mac") == true) {
-        jvmArgs("-Xdock:name=Kromium Swing", "-Dapple.awt.application.name=Kromium Swing")
+    if (osName.contains("mac")) {
+        jvmArgs("-Xdock:name=Kromium")
+        if (iconIcns.exists()) {
+            jvmArgs("-Xdock:icon=${iconIcns.absolutePath}")
+        }
+        jvmArgs("-Dapple.awt.application.name=Kromium")
     }
 }

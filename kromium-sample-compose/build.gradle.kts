@@ -36,10 +36,12 @@ compose.desktop {
         mainClass = "dev.daviante.kromium.demo.MainKt"
         jvmArgs += jvmOpens
         nativeDistributions {
-            packageName = "Kromium Demo"
+            packageName = "Kromium"
             packageVersion = "1.0.0"
             macOS {
                 iconFile.set(project.file("src/main/resources/icon.icns"))
+                bundleID = "dev.daviante.kromium.sample.compose"
+                dockName = "Kromium"
             }
             windows {
                 iconFile.set(project.file("src/main/resources/icon.ico"))

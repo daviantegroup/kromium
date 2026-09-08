@@ -26,10 +26,11 @@ public class BrowserFrame extends JFrame {
     private final DownloadManagerDialog downloadDialog;
 
     public BrowserFrame(KromiumClient client) {
-        super("Kromium Desktop Browser");
+        super(dev.daviante.kromium.sample.swing.KromiumSwingApp.APP_NAME);
         this.client = client;
         this.downloadDialog = new DownloadManagerDialog(this);
 
+        setIconImages(dev.daviante.kromium.sample.swing.KromiumSwingApp.getAppIcons());
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         setSize(1200, 800);
         setMinimumSize(new Dimension(800, 500));
@@ -101,6 +102,7 @@ public class BrowserFrame extends JFrame {
                 if (tabbedPane.getSelectedComponent() == updatedTab) {
                     toolbar.updateState(updatedTab);
                     statusBar.updateState(updatedTab);
+                    updateWindowTitle(updatedTab.getTitle());
                 }
             }));
 
@@ -126,9 +128,19 @@ public class BrowserFrame extends JFrame {
         if (selected instanceof BrowserTab activeTab) {
             toolbar.updateState(activeTab);
             statusBar.updateState(activeTab);
+            updateWindowTitle(activeTab.getTitle());
         } else {
             toolbar.updateState(null);
             statusBar.updateState(null);
+            setTitle(dev.daviante.kromium.sample.swing.KromiumSwingApp.APP_NAME);
+        }
+    }
+
+    private void updateWindowTitle(String pageTitle) {
+        if (pageTitle != null && !pageTitle.isBlank()) {
+            setTitle(pageTitle + " — " + dev.daviante.kromium.sample.swing.KromiumSwingApp.APP_NAME);
+        } else {
+            setTitle(dev.daviante.kromium.sample.swing.KromiumSwingApp.APP_NAME);
         }
     }
 

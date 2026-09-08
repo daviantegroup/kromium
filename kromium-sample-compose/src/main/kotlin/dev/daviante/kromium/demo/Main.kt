@@ -26,7 +26,7 @@ fun main() = application {
     Window(
         onCloseRequest = ::exitApplication,
         state = windowState,
-        title = "Kromium Browser — Embedded Chromium for Compose Desktop",
+        title = "Kromium",
         icon = LogoAsset.painter
     ) {
         KromiumTheme {

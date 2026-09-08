@@ -6,46 +6,57 @@ import dev.daviante.kromium.domain.model.KromiumState;
 import dev.daviante.kromium.presentation.browser.Kromium;
 import dev.daviante.kromium.sample.swing.ui.BrowserFrame;
 
+import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Main entry point for the Kromium Pure Java Swing desktop browser showcase.
  *
- * Demonstrates:
- * 1. Non-blocking asynchronous engine initialization via {@link Kromium#initializeAsync}.
- * 2. FlatLaf modern dark UI integration.
- * 3. Client retrieval via {@link Kromium#awaitClientAsync()}.
- * 4. Multi-tab browsing, DevTools inspection, JavaScript evaluation, and download management.
+ * Provides seamless cross-platform native OS integration with official Kromium branding,
+ * taskbar/dock icon dispatching, multi-resolution scaling, and asynchronous engine coordination.
  */
 public class KromiumSwingApp {
 
+    public static final String APP_NAME = "Kromium";
+    private static List<Image> appIcons;
+
     public static void main(String[] args) {
-        // 1. Initialize modern Swing Look & Feel
-        FlatDarkLaf.setup();
+        // 1. Set system properties for macOS / platform naming before AWT initializes
+        System.setProperty("apple.awt.application.name", APP_NAME);
         System.setProperty("apple.laf.useScreenMenuBar", "true");
 
-        // 2. Show sleek startup splash screen
+        // 2. Initialize modern FlatLaf dark look and feel
+        FlatDarkLaf.setup();
+
+        // 3. Set native OS Taskbar / Dock icon across platforms
+        setupNativeTaskbarIcon();
+
+        // 4. Show sleek branded startup splash screen
         JWindow splash = createSplashWindow();
         splash.setVisible(true);
 
-        // 3. Register shutdown hook for clean engine disposal
+        // 5. Register JVM shutdown hook for clean engine disposal
         Runtime.getRuntime().addShutdownHook(new Thread(Kromium::dispose));
 
-        // 4. Configure Kromium using fluent Java builder
+        // 6. Configure Kromium using fluent Java builder
         KromiumConfig config = KromiumConfig.builder()
-                .userAgent("Kromium-Swing/1.0 (Macintosh; Intel Mac OS X)")
+                .userAgent("Kromium-Swing/1.0")
                 .remoteDebuggingPort(9222)
                 .build();
 
-        // 5. Track initialization state
+        // 7. Track initialization state
         Kromium.addStateListener(state -> {
             if (state instanceof KromiumState.Downloading dl) {
-                // Download progress is already logged by Kromium
+                // Background download progress logged by Kromium
             }
         });
 
-        // 6. Asynchronously initialize engine and await client
+        // 8. Asynchronously initialize engine and await client
         Kromium.initializeAsync(config)
                 .thenCompose(v -> Kromium.awaitClientAsync())
                 .thenAccept(client -> SwingUtilities.invokeLater(() -> {
@@ -60,7 +71,7 @@ public class KromiumSwingApp {
                         JOptionPane.showMessageDialog(
                                 null,
                                 "Failed to initialize Kromium:\n" + err.getMessage(),
-                                "Initialization Error",
+                                APP_NAME + " - Initialization Error",
                                 JOptionPane.ERROR_MESSAGE
                         );
                         System.exit(1);
@@ -69,9 +80,56 @@ public class KromiumSwingApp {
                 });
     }
 
+    /**
+     * Loads and caches multi-resolution Kromium branding icons for window titlebars,
+     * taskbar buttons, and OS desktop switchers.
+     */
+    public static synchronized List<Image> getAppIcons() {
+        if (appIcons == null) {
+            appIcons = new ArrayList<>();
+            try {
+                InputStream is = KromiumSwingApp.class.getResourceAsStream("/icon.png");
+                if (is == null) {
+                    is = KromiumSwingApp.class.getResourceAsStream("/logo.png");
+                }
+                if (is != null) {
+                    BufferedImage base = ImageIO.read(is);
+                    if (base != null) {
+                        int[] resolutions = {16, 24, 32, 48, 64, 128, 256, 512};
+                        for (int res : resolutions) {
+                            appIcons.add(base.getScaledInstance(res, res, Image.SCALE_SMOOTH));
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+        return appIcons;
+    }
+
+    public static Image getPrimaryAppIcon() {
+        List<Image> icons = getAppIcons();
+        return icons.isEmpty() ? null : icons.get(icons.size() - 1);
+    }
+
+    private static void setupNativeTaskbarIcon() {
+        try {
+            if (Taskbar.isTaskbarSupported()) {
+                Taskbar taskbar = Taskbar.getTaskbar();
+                if (taskbar.isSupported(Taskbar.Feature.ICON_IMAGE)) {
+                    Image icon = getPrimaryAppIcon();
+                    if (icon != null) {
+                        taskbar.setIconImage(icon);
+                    }
+                }
+            }
+        } catch (Throwable ignored) {
+            // Taskbar API not supported on this specific window manager
+        }
+    }
+
     private static JWindow createSplashWindow() {
         JWindow splash = new JWindow();
-        splash.setSize(380, 180);
+        splash.setSize(400, 220);
         splash.setLocationRelativeTo(null);
 
         JPanel content = new JPanel(new BorderLayout(16, 16));
@@ -80,9 +138,16 @@ public class KromiumSwingApp {
                 BorderFactory.createEmptyBorder(24, 24, 24, 24)
         ));
 
-        JLabel titleLabel = new JLabel("Kromium Desktop");
-        titleLabel.setFont(titleLabel.getFont().deriveFont(Font.BOLD, 18f));
-        titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        // Header with Kromium logo and title
+        JPanel headerPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 12, 0));
+        Image icon = getPrimaryAppIcon();
+        if (icon != null) {
+            JLabel logoLabel = new JLabel(new ImageIcon(icon.getScaledInstance(40, 40, Image.SCALE_SMOOTH)));
+            headerPanel.add(logoLabel);
+        }
+        JLabel titleLabel = new JLabel(APP_NAME);
+        titleLabel.setFont(titleLabel.getFont().deriveFont(Font.BOLD, 22f));
+        headerPanel.add(titleLabel);
 
         JLabel subtitleLabel = new JLabel("Starting Chromium Embedded Framework...");
         subtitleLabel.setForeground(UIManager.getColor("Label.disabledForeground"));
@@ -91,11 +156,12 @@ public class KromiumSwingApp {
         JProgressBar progressBar = new JProgressBar();
         progressBar.setIndeterminate(true);
 
-        JPanel centerPanel = new JPanel(new GridLayout(2, 1, 6, 6));
+        JPanel centerPanel = new JPanel(new GridLayout(2, 1, 8, 8));
+        centerPanel.setBorder(BorderFactory.createEmptyBorder(12, 0, 0, 0));
         centerPanel.add(subtitleLabel);
         centerPanel.add(progressBar);
 
-        content.add(titleLabel, BorderLayout.NORTH);
+        content.add(headerPanel, BorderLayout.NORTH);
         content.add(centerPanel, BorderLayout.CENTER);
 
         splash.setContentPane(content);
