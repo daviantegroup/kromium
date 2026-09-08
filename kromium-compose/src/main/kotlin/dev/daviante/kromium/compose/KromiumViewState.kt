@@ -17,6 +17,7 @@ import dev.daviante.kromium.presentation.handler.KromiumAuthResponse
 import dev.daviante.kromium.presentation.handler.KromiumConsoleMessage
 import dev.daviante.kromium.presentation.handler.KromiumDownloadItem
 import dev.daviante.kromium.presentation.handler.KromiumJsDialog
+import dev.daviante.kromium.presentation.handler.KromiumPermissionHandler
 import dev.daviante.kromium.presentation.network.KromiumAssetFilter
 import dev.daviante.kromium.presentation.network.KromiumCookieManager
 import dev.daviante.kromium.presentation.network.KromiumRequestInterceptor
@@ -61,6 +62,17 @@ class KromiumViewState(initialUrl: String) {
     var onPopup: ((url: String) -> Boolean)? by mutableStateOf(null)
 
     var onPermissionRequest: ((url: String) -> Boolean)? by mutableStateOf(null)
+
+    var permissionHandler: KromiumPermissionHandler? by mutableStateOf(null)
+
+    var rememberPermissions: Boolean by mutableStateOf(true)
+
+    /**
+     * Clears all remembered permission decisions from the active browser session cache.
+     */
+    fun clearPermissionCache() {
+        browser?.client?.clearPermissionCache()
+    }
 
     var enableContextMenus: Boolean by mutableStateOf(true)
 

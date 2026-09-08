@@ -420,6 +420,58 @@ browser.printToPdfAsync(new File("exports/report.pdf"), settings)
 browser.print();
 ```
 
+### 🎙️ Media & Web Permissions (WebRTC / Camera / Microphone)
+
+Control, grant, deny, or selectively filter web permissions requested by web applications (e.g. Google Meet, Zoom, WebRTC video calling, audio streaming). Unhandled requests default strictly to `Deny` according to enterprise security standards.
+
+#### Kotlin & Compose Desktop
+```kotlin
+import dev.daviante.kromium.presentation.handler.KromiumPermissionDecision
+import dev.daviante.kromium.presentation.handler.KromiumPermissionHandler
+import dev.daviante.kromium.presentation.handler.KromiumPermissionType
+
+// In Compose KromiumViewState or KromiumClient:
+state.permissionHandler = KromiumPermissionHandler { request ->
+    when {
+        // Whitelist corporate meeting origin with microphone only
+        request.origin == "https://meet.corp.internal" -> {
+            KromiumPermissionDecision.grant(KromiumPermissionType.AUDIO_CAPTURE)
+        }
+        // Grant all permissions for trusted apps
+        request.origin.startsWith("app://") -> KromiumPermissionDecision.GRANT
+        // Securely deny all untrusted web pages
+        else -> KromiumPermissionDecision.DENY
+    }
+}
+
+// Or use ready-made turnkey domain presets:
+state.permissionHandler = KromiumPermissionHandler.forOrigins("meet.google.com", "zoom.us")
+
+// Programmatically clear remembered session permissions:
+state.clearPermissionCache()
+```
+
+#### Pure Java (Swing / Enterprise)
+```java
+import dev.daviante.kromium.presentation.handler.KromiumPermissionDecision;
+import dev.daviante.kromium.presentation.handler.KromiumPermissionHandler;
+import dev.daviante.kromium.presentation.handler.KromiumPermissionType;
+
+// Dynamic lambda with fine-grained permission inspection
+client.setPermissionHandler(request -> {
+    if (request.hasAudio() && "https://meet.company.com".equals(request.getOrigin())) {
+        return KromiumPermissionDecision.grant(KromiumPermissionType.AUDIO_CAPTURE);
+    }
+    return KromiumPermissionDecision.DENY;
+});
+
+// Turnkey origin allowlist preset
+client.setPermissionHandler(KromiumPermissionHandler.forOrigins("meet.google.com", "zoom.us"));
+
+// Revoke all granted session permissions
+client.clearPermissionCache();
+```
+
 ---
 
 ## 💻 Supported Platforms & Systems

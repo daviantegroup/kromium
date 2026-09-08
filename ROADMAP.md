@@ -41,8 +41,13 @@ This document outlines the planned future capabilities and architectural milesto
   - In Swing: Preconfigured FlatLaf root pane client properties and macOS safe-area insets.
   - In Compose: Integrated `WindowDraggableArea` with platform-specific window control offsets.
 
-### 5. Media & Web Permission Request Interception (`CefPermissionHandler`)
-* **Goal**: Allow host applications to grant, deny, or prompt users for web permissions (Microphone, Camera, Geolocation, Notifications).
-* **Scope**:
-  - SAM functional interface for Java: `(origin, permissionType) -> PermissionDecision`.
-  - Automatic memory persistence for allowed domains.
+### 5. Media & Web Permission Request Interception (`CefPermissionHandler`) — ✅ Completed
+* **Goal**: Allow host applications to intercept, inspect, grant, deny, or selectively filter web permissions (Microphone, Camera, Screen Sharing, Desktop Audio) requested by web applications (e.g. WebRTC, Meet, Zoom).
+* **Delivered Capabilities**:
+  - `KromiumPermissionType`: Typed enum for native Chromium bitmasks (`AUDIO_CAPTURE`, `VIDEO_CAPTURE`, `DESKTOP_AUDIO`, `DESKTOP_VIDEO`) with `fromFlags` and `toFlags`.
+  - `KromiumPermissionRequest`: Rich request model encapsulating target `url`, normalized `origin`, `requestedTypes`, `rawFlags`, and predicate helpers (`hasAudio()`, `hasVideo()`, `hasScreenShare()`, `hasDesktopAudio()`).
+  - `KromiumPermissionDecision`: Sealed decision hierarchy supporting total `Grant`, fine-grained selective `Grant` (e.g. mic allowed but webcam blocked), and secure `Deny`.
+  - `KromiumPermissionHandler`: SAM functional interface with turnkey presets (`grantAll()`, `denyAll()`, `forOrigins(...)`), compatible with Kotlin and pure Java lambdas.
+  - In-Memory Session Caching: Automatic renegotiation caching (`rememberPermissions = true`) to prevent repetitive WebRTC prompts, with `clearPermissionCache()` for programmatic revocation.
+  - Compose & Swing Integration: First-class `permissionHandler` and `rememberPermissions` state properties on both `KromiumViewState` and `KromiumClient`.
+  - Security Standards: Unhandled requests default strictly to `Deny`.

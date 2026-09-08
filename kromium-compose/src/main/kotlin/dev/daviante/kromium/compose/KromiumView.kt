@@ -63,6 +63,8 @@ fun KromiumView(
         effectiveClient.authListener = state.onAuthRequired?.let { cb -> KromiumAuthListener { req -> cb(req) } }
         effectiveClient.onPopupListener = state.onPopup
         effectiveClient.onPermissionRequest = state.onPermissionRequest
+        effectiveClient.permissionHandler = state.permissionHandler
+        effectiveClient.rememberPermissions = state.rememberPermissions
         effectiveClient.enableContextMenus = state.enableContextMenus
         effectiveClient.loadErrorListener = state.onLoadError
         effectiveClient.shouldOverrideUrlLoading = state.shouldOverrideUrlLoading

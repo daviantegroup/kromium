@@ -15,11 +15,16 @@ import dev.daviante.kromium.presentation.handler.KromiumDownloadListener
 import dev.daviante.kromium.presentation.handler.KromiumJsDialog
 import dev.daviante.kromium.presentation.handler.KromiumJsDialogListener
 import dev.daviante.kromium.presentation.handler.KromiumJsDialogType
+import dev.daviante.kromium.presentation.handler.KromiumPermissionDecision
+import dev.daviante.kromium.presentation.handler.KromiumPermissionHandler
+import dev.daviante.kromium.presentation.handler.KromiumPermissionRequest
+import dev.daviante.kromium.presentation.handler.KromiumPermissionType
 import dev.daviante.kromium.presentation.js.KromiumJsHandler
 import dev.daviante.kromium.presentation.network.KromiumAssetFilter
 import dev.daviante.kromium.presentation.network.KromiumHtmlResourceHandler
 import dev.daviante.kromium.presentation.network.KromiumRequestInterceptor
 import dev.daviante.kromium.presentation.network.KromiumWebResourceRequest
+import org.cef.callback.CefMediaAccessCallback
 import org.cef.handler.CefContextMenuHandler
 import org.cef.handler.CefContextMenuHandlerAdapter
 import org.cef.handler.CefDisplayHandler
@@ -36,6 +41,7 @@ import org.cef.handler.CefLifeSpanHandler
 import org.cef.handler.CefLifeSpanHandlerAdapter
 import org.cef.handler.CefLoadHandler
 import org.cef.handler.CefLoadHandlerAdapter
+import org.cef.handler.CefPermissionHandler
 import org.cef.handler.CefRequestHandler
 import org.cef.handler.CefRequestHandlerAdapter
 import org.cef.handler.CefResourceHandler
@@ -146,6 +152,17 @@ class KromiumClient(
         consoleMessageListener = if (listener != null) { { msg -> listener.accept(msg) } } else null
     }
 
+    @Volatile var permissionHandler: KromiumPermissionHandler? = null
+    @Volatile var rememberPermissions: Boolean = true
+    private val permissionCache = java.util.concurrent.ConcurrentHashMap<String, Int>()
+
+    /**
+     * Clears all remembered permission decisions from the in-memory session cache.
+     */
+    fun clearPermissionCache() {
+        permissionCache.clear()
+    }
+
     @Volatile var authListener: KromiumAuthListener? = null
     @Volatile var onPopupListener: ((url: String) -> Boolean)? = null
 
@@ -198,6 +215,7 @@ class KromiumClient(
     private val contextMenuHandlers = java.util.concurrent.CopyOnWriteArrayList<CefContextMenuHandler>()
     private val focusHandlers = java.util.concurrent.CopyOnWriteArrayList<CefFocusHandler>()
     private val keyboardHandlers = java.util.concurrent.CopyOnWriteArrayList<CefKeyboardHandler>()
+    private val permissionHandlers = java.util.concurrent.CopyOnWriteArrayList<CefPermissionHandler>()
 
     internal val htmlPayloads = java.util.concurrent.ConcurrentHashMap<String, String>()
 
@@ -730,6 +748,10 @@ class KromiumClient(
     fun removeKeyboardHandler(handler: CefKeyboardHandler) = apply { keyboardHandlers.remove(handler) }
     fun removeKeyboardHandler() = apply { keyboardHandlers.clear() }
 
+    fun addPermissionHandler(handler: CefPermissionHandler) = apply { permissionHandlers.add(handler) }
+    fun removePermissionHandler(handler: CefPermissionHandler) = apply { permissionHandlers.remove(handler) }
+    fun removePermissionHandler() = apply { permissionHandlers.clear() }
+
     private fun setupCompositeHandlers() {
         rawClient.addLoadHandler(object : CefLoadHandlerAdapter() {
             override fun onLoadingStateChange(
@@ -1076,16 +1098,104 @@ class KromiumClient(
                 return handled
             }
         })
+
+        rawClient.addPermissionHandler(object : CefPermissionHandler {
+            override fun onRequestMediaAccessPermission(
+                browser: CefBrowser?,
+                frame: CefFrame?,
+                requestingUrl: String?,
+                accessFlags: Int,
+                callback: CefMediaAccessCallback?
+            ): Boolean {
+                for (h in permissionHandlers) {
+                    try {
+                        if (h.onRequestMediaAccessPermission(browser, frame, requestingUrl, accessFlags, callback)) {
+                            return true
+                        }
+                    } catch (e: Throwable) {
+                        KromiumLogger.e(TAG, "Exception in permissionHandler", e)
+                    }
+                }
+
+                val cb = callback ?: return false
+                val url = requestingUrl ?: ""
+                val request = KromiumPermissionRequest.from(url, accessFlags)
+
+                // Check in-memory session cache
+                if (rememberPermissions) {
+                    val cachedMask = permissionCache[request.origin]
+                    if (cachedMask != null) {
+                        if (cachedMask == 0) {
+                            KromiumLogger.d(TAG, "Denied media access for ${request.origin} from session cache")
+                            cb.Cancel()
+                            return true
+                        } else {
+                            val allowedMask = accessFlags and cachedMask
+                            if (allowedMask != 0) {
+                                KromiumLogger.d(TAG, "Granted media access (flags: $allowedMask) for ${request.origin} from session cache")
+                                cb.Continue(allowedMask)
+                                return true
+                            }
+                        }
+                    }
+                }
+
+                val handler = permissionHandler
+                val decision = if (handler != null) {
+                    handler.onRequestPermission(request)
+                } else if (onPermissionRequest != null) {
+                    val allowed = onPermissionRequest?.invoke(request.url) == true
+                    if (allowed) KromiumPermissionDecision.GRANT else KromiumPermissionDecision.DENY
+                } else {
+                    KromiumPermissionDecision.DENY
+                }
+
+                return when (decision) {
+                    is KromiumPermissionDecision.Grant -> {
+                        val mask = if (decision.allowedTypes != null) {
+                            KromiumPermissionType.toFlags(decision.allowedTypes) and accessFlags
+                        } else {
+                            accessFlags
+                        }
+                        if (mask != 0) {
+                            if (rememberPermissions) {
+                                permissionCache.merge(request.origin, mask) { old, new -> old or new }
+                            }
+                            KromiumLogger.i(TAG, "Granted media permission (mask=$mask) for ${request.origin}")
+                            cb.Continue(mask)
+                            true
+                        } else {
+                            if (rememberPermissions) {
+                                permissionCache[request.origin] = 0
+                            }
+                            KromiumLogger.i(TAG, "Denied media permission for ${request.origin} (no matching allowed types)")
+                            cb.Cancel()
+                            true
+                        }
+                    }
+                    is KromiumPermissionDecision.Deny -> {
+                        if (rememberPermissions) {
+                            permissionCache[request.origin] = 0
+                        }
+                        KromiumLogger.i(TAG, "Denied media permission for ${request.origin}")
+                        cb.Cancel()
+                        true
+                    }
+                }
+            }
+        })
     }
 
     fun dispose() {
         try {
+            permissionCache.clear()
             loadHandlers.clear()
             displayHandlers.clear()
             lifeSpanHandlers.clear()
             contextMenuHandlers.clear()
             focusHandlers.clear()
             keyboardHandlers.clear()
+            permissionHandlers.clear()
             rawClient.dispose()
         } catch (e: Throwable) {
             KromiumLogger.w(TAG, "Error during client disposal", e)

@@ -16,6 +16,10 @@ import dev.daviante.kromium.presentation.browser.KromiumBrowser;
 import dev.daviante.kromium.presentation.browser.KromiumClient;
 import dev.daviante.kromium.presentation.handler.KromiumAuthResponse;
 import dev.daviante.kromium.presentation.handler.KromiumLoadingListener;
+import dev.daviante.kromium.presentation.handler.KromiumPermissionDecision;
+import dev.daviante.kromium.presentation.handler.KromiumPermissionHandler;
+import dev.daviante.kromium.presentation.handler.KromiumPermissionRequest;
+import dev.daviante.kromium.presentation.handler.KromiumPermissionType;
 import dev.daviante.kromium.presentation.network.KromiumCookieManager;
 import org.junit.Test;
 
@@ -267,5 +271,45 @@ public class KromiumJavaInteropTest {
         } catch (KromiumException e) {
             assertNotNull(e.getMessage());
         }
+    }
+
+    @Test
+    public void testPermissionHandlerErgonomics() {
+        // Bitmask helpers
+        java.util.Set<KromiumPermissionType> types = KromiumPermissionType.fromFlags(3);
+        assertEquals(2, types.size());
+        int flags = KromiumPermissionType.toFlags(types);
+        assertEquals(3, flags);
+
+        // Request model and predicates
+        KromiumPermissionRequest request = KromiumPermissionRequest.from("https://meet.google.com/call", 3);
+        assertEquals("https://meet.google.com", request.getOrigin());
+        assertTrue(request.hasAudio());
+        assertTrue(request.hasVideo());
+        assertFalse(request.hasScreenShare());
+
+        // Decision factories
+        KromiumPermissionDecision grantAll = KromiumPermissionDecision.GRANT;
+        KromiumPermissionDecision denyAll = KromiumPermissionDecision.DENY;
+        KromiumPermissionDecision selectiveGrant = KromiumPermissionDecision.grant(KromiumPermissionType.AUDIO_CAPTURE);
+        assertNotNull(grantAll);
+        assertNotNull(denyAll);
+        assertNotNull(selectiveGrant);
+
+        // SAM Lambda implementation
+        KromiumPermissionHandler customHandler = req -> {
+            if ("https://meet.google.com".equals(req.getOrigin())) {
+                return KromiumPermissionDecision.grant(KromiumPermissionType.AUDIO_CAPTURE);
+            }
+            return KromiumPermissionDecision.DENY;
+        };
+        assertEquals(selectiveGrant, customHandler.onRequestPermission(request));
+
+        // Presets
+        KromiumPermissionHandler originHandler = KromiumPermissionHandler.forOrigins("meet.google.com");
+        assertEquals(KromiumPermissionDecision.GRANT, originHandler.onRequestPermission(request));
+
+        KromiumPermissionHandler denyHandler = KromiumPermissionHandler.denyAll();
+        assertEquals(KromiumPermissionDecision.DENY, denyHandler.onRequestPermission(request));
     }
 }
