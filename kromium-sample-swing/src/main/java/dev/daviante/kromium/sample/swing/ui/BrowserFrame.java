@@ -3,8 +3,11 @@ package dev.daviante.kromium.sample.swing.ui;
 import dev.daviante.kromium.presentation.browser.KromiumBrowser;
 import dev.daviante.kromium.presentation.browser.KromiumClient;
 import dev.daviante.kromium.presentation.network.KromiumCookieManager;
+import dev.daviante.kromium.sample.swing.KromiumSwingApp;
+import dev.daviante.kromium.sample.swing.theme.KromiumTheme;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
@@ -14,7 +17,7 @@ import java.util.List;
 
 /**
  * Main application window hosting multi-tab browsing, navigation toolbar,
- * status bar, menus, and download management.
+ * status bar, and download management with pure monochrome design matching Compose.
  */
 public class BrowserFrame extends JFrame {
 
@@ -26,20 +29,20 @@ public class BrowserFrame extends JFrame {
     private final DownloadManagerDialog downloadDialog;
 
     public BrowserFrame(KromiumClient client) {
-        super(dev.daviante.kromium.sample.swing.KromiumSwingApp.APP_NAME);
+        super(KromiumSwingApp.APP_NAME);
         this.client = client;
         this.downloadDialog = new DownloadManagerDialog(this);
 
-        setIconImages(dev.daviante.kromium.sample.swing.KromiumSwingApp.getAppIcons());
+        setIconImages(KromiumSwingApp.getAppIcons());
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-        setSize(1200, 800);
+        setSize(1360, 860);
         setMinimumSize(new Dimension(800, 500));
         setLocationRelativeTo(null);
+        getContentPane().setBackground(KromiumTheme.BACKGROUND);
         setLayout(new BorderLayout());
 
         // Setup Navigation Toolbar
         this.toolbar = new NavigationToolbar(() -> downloadDialog.setVisible(true));
-        add(toolbar, BorderLayout.NORTH);
 
         // Setup global download handler
         client.setDownloadListener(item -> {
@@ -49,10 +52,39 @@ public class BrowserFrame extends JFrame {
             });
         });
 
-        // Setup Tabbed Pane
-        tabbedPane.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
-        tabbedPane.addChangeListener(e -> onTabSelectionChanged());
-        add(tabbedPane, BorderLayout.CENTER);
+        // Setup Tabbed Pane Header matching Compose TabBar
+        setupTabbedPane();
+
+        // Combine TabBar and Navigation Toolbar in North Panel
+        JPanel topContainer = new JPanel(new BorderLayout());
+        topContainer.setBackground(KromiumTheme.SURFACE);
+        topContainer.add(tabbedPane, BorderLayout.NORTH);
+        topContainer.add(toolbar, BorderLayout.SOUTH);
+        add(topContainer, BorderLayout.NORTH);
+
+        // Active Content Area
+        JPanel contentArea = new JPanel(new CardLayout());
+        contentArea.setBackground(KromiumTheme.BACKGROUND);
+        add(contentArea, BorderLayout.CENTER);
+
+        // Synchronize tabbedPane selection with contentArea
+        tabbedPane.addChangeListener(e -> {
+            int selected = tabbedPane.getSelectedIndex();
+            if (selected >= 0 && selected < tabs.size()) {
+                BrowserTab activeTab = tabs.get(selected);
+                contentArea.removeAll();
+                contentArea.add(activeTab, BorderLayout.CENTER);
+                contentArea.revalidate();
+                contentArea.repaint();
+                toolbar.updateState(activeTab);
+                statusBar.updateState(activeTab);
+                updateWindowTitle(activeTab.getTitle());
+            } else {
+                toolbar.updateState(null);
+                statusBar.updateState(null);
+                setTitle(KromiumSwingApp.APP_NAME);
+            }
+        });
 
         // Setup Status Bar
         add(statusBar, BorderLayout.SOUTH);
@@ -69,24 +101,63 @@ public class BrowserFrame extends JFrame {
         });
     }
 
+    private void setupTabbedPane() {
+        tabbedPane.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
+        tabbedPane.setBackground(KromiumTheme.SURFACE);
+        tabbedPane.setForeground(KromiumTheme.TEXT_SECONDARY);
+        tabbedPane.setBorder(null);
+
+        // Leading Component: Kromium Brand identification
+        JPanel brandPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
+        brandPanel.setOpaque(false);
+        Image icon = KromiumSwingApp.getPrimaryAppIcon();
+        if (icon != null) {
+            brandPanel.add(new JLabel(new ImageIcon(icon.getScaledInstance(18, 18, Image.SCALE_SMOOTH))));
+        }
+        JLabel brandLabel = new JLabel("Kromium");
+        brandLabel.setFont(KromiumTheme.FONT_TITLE);
+        brandLabel.setForeground(Color.WHITE);
+        brandPanel.add(brandLabel);
+        brandPanel.setBorder(new EmptyBorder(0, 10, 0, 8));
+        tabbedPane.putClientProperty("JTabbedPane.leadingComponent", brandPanel);
+
+        // Trailing Component: Plus (New Tab) Button
+        JButton newTabButton = new JButton(KromiumIcons.plus(15, Color.WHITE));
+        newTabButton.setToolTipText("New Tab (Cmd+T / Ctrl+T)");
+        newTabButton.setFocusable(false);
+        newTabButton.setContentAreaFilled(false);
+        newTabButton.setBorder(new EmptyBorder(4, 8, 4, 12));
+        newTabButton.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        newTabButton.addActionListener(e -> addNewTab("https://github.com/daviantegroup/kromium"));
+        tabbedPane.putClientProperty("JTabbedPane.trailingComponent", newTabButton);
+    }
+
     public void addNewTab(String url) {
         SwingUtilities.invokeLater(() -> {
             KromiumBrowser browser = client.createBrowser(url, false, false);
             BrowserTab tab = new BrowserTab(browser, url);
             tabs.add(tab);
 
-            tabbedPane.addTab(tab.getTitle(), tab);
-            int index = tabbedPane.indexOfComponent(tab);
+            // Dummy component for tabbedPane index tracking (actual component rendered in contentArea CardLayout)
+            JPanel placeholder = new JPanel();
+            placeholder.setBackground(KromiumTheme.BACKGROUND);
+            tabbedPane.addTab(tab.getTitle(), placeholder);
+            int index = tabbedPane.indexOfComponent(placeholder);
 
-            // Custom tab header with title and close button
-            JPanel tabHeader = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+            // Custom tab header with title and close icon
+            JPanel tabHeader = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
             tabHeader.setOpaque(false);
-            JLabel titleLabel = new JLabel(tab.getTitle());
-            JButton closeBtn = new JButton("✕");
-            closeBtn.setMargin(new Insets(0, 4, 0, 4));
-            closeBtn.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
+            JLabel titleLabel = new JLabel(truncateTitle(tab.getTitle()));
+            titleLabel.setFont(KromiumTheme.FONT_REGULAR);
+            titleLabel.setForeground(Color.WHITE);
+
+            JButton closeBtn = new JButton(KromiumIcons.close(12, KromiumTheme.TEXT_SECONDARY));
+            closeBtn.setRolloverIcon(KromiumIcons.close(12, Color.WHITE));
+            closeBtn.setToolTipText("Close Tab");
             closeBtn.setContentAreaFilled(false);
+            closeBtn.setBorder(new EmptyBorder(0, 4, 0, 0));
             closeBtn.setFocusable(false);
+            closeBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             closeBtn.addActionListener(e -> closeTab(tab));
 
             tabHeader.add(titleLabel);
@@ -94,24 +165,24 @@ public class BrowserFrame extends JFrame {
             tabbedPane.setTabComponentAt(index, tabHeader);
 
             tab.setOnStateChanged(updatedTab -> SwingUtilities.invokeLater(() -> {
-                int idx = tabbedPane.indexOfComponent(updatedTab);
-                if (idx >= 0) {
+                int idx = tabs.indexOf(updatedTab);
+                if (idx >= 0 && idx < tabbedPane.getTabCount()) {
                     titleLabel.setText(truncateTitle(updatedTab.getTitle()));
                     tabbedPane.setTitleAt(idx, updatedTab.getTitle());
                 }
-                if (tabbedPane.getSelectedComponent() == updatedTab) {
+                if (tabbedPane.getSelectedIndex() == idx) {
                     toolbar.updateState(updatedTab);
                     statusBar.updateState(updatedTab);
                     updateWindowTitle(updatedTab.getTitle());
                 }
             }));
 
-            tabbedPane.setSelectedComponent(tab);
+            tabbedPane.setSelectedIndex(index);
         });
     }
 
     public void closeTab(BrowserTab tab) {
-        int index = tabbedPane.indexOfComponent(tab);
+        int index = tabs.indexOf(tab);
         if (index >= 0) {
             tabbedPane.removeTabAt(index);
             tabs.remove(tab);
@@ -123,42 +194,32 @@ public class BrowserFrame extends JFrame {
         }
     }
 
-    private void onTabSelectionChanged() {
-        Component selected = tabbedPane.getSelectedComponent();
-        if (selected instanceof BrowserTab activeTab) {
-            toolbar.updateState(activeTab);
-            statusBar.updateState(activeTab);
-            updateWindowTitle(activeTab.getTitle());
-        } else {
-            toolbar.updateState(null);
-            statusBar.updateState(null);
-            setTitle(dev.daviante.kromium.sample.swing.KromiumSwingApp.APP_NAME);
-        }
-    }
-
     private void updateWindowTitle(String pageTitle) {
         if (pageTitle != null && !pageTitle.isBlank()) {
-            setTitle(pageTitle + " — " + dev.daviante.kromium.sample.swing.KromiumSwingApp.APP_NAME);
+            setTitle(pageTitle + " — " + KromiumSwingApp.APP_NAME);
         } else {
-            setTitle(dev.daviante.kromium.sample.swing.KromiumSwingApp.APP_NAME);
+            setTitle(KromiumSwingApp.APP_NAME);
         }
     }
 
     private void setupMenuBar() {
         JMenuBar menuBar = new JMenuBar();
+        menuBar.setBackground(KromiumTheme.SURFACE);
+        menuBar.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, KromiumTheme.BORDER_SUBTLE));
 
         // File Menu
         JMenu fileMenu = new JMenu("File");
+        fileMenu.setForeground(Color.WHITE);
         JMenuItem newTabItem = new JMenuItem("New Tab");
         newTabItem.setAccelerator(KeyStroke.getKeyStroke("meta T"));
-        newTabItem.addActionListener(e -> addNewTab("https://google.com"));
+        newTabItem.addActionListener(e -> addNewTab("https://github.com/daviantegroup/kromium"));
 
         JMenuItem closeTabItem = new JMenuItem("Close Tab");
         closeTabItem.setAccelerator(KeyStroke.getKeyStroke("meta W"));
         closeTabItem.addActionListener(e -> {
-            Component selected = tabbedPane.getSelectedComponent();
-            if (selected instanceof BrowserTab activeTab) {
-                closeTab(activeTab);
+            int selected = tabbedPane.getSelectedIndex();
+            if (selected >= 0 && selected < tabs.size()) {
+                closeTab(tabs.get(selected));
             }
         });
 
@@ -179,18 +240,19 @@ public class BrowserFrame extends JFrame {
 
         // View Menu
         JMenu viewMenu = new JMenu("View");
+        viewMenu.setForeground(Color.WHITE);
         JMenuItem reloadItem = new JMenuItem("Reload");
         reloadItem.setAccelerator(KeyStroke.getKeyStroke("meta R"));
         reloadItem.addActionListener(e -> {
-            Component selected = tabbedPane.getSelectedComponent();
-            if (selected instanceof BrowserTab tab) tab.reload();
+            int selected = tabbedPane.getSelectedIndex();
+            if (selected >= 0 && selected < tabs.size()) tabs.get(selected).reload();
         });
 
         JMenuItem devToolsItem = new JMenuItem("Developer Tools");
         devToolsItem.setAccelerator(KeyStroke.getKeyStroke("meta alt I"));
         devToolsItem.addActionListener(e -> {
-            Component selected = tabbedPane.getSelectedComponent();
-            if (selected instanceof BrowserTab tab) tab.openDevTools();
+            int selected = tabbedPane.getSelectedIndex();
+            if (selected >= 0 && selected < tabs.size()) tabs.get(selected).openDevTools();
         });
 
         viewMenu.add(reloadItem);
@@ -199,10 +261,11 @@ public class BrowserFrame extends JFrame {
 
         // Tools Menu
         JMenu toolsMenu = new JMenu("Tools");
+        toolsMenu.setForeground(Color.WHITE);
         JMenuItem clearCookiesItem = new JMenuItem("Clear Cookies");
         clearCookiesItem.addActionListener(e -> {
             boolean cleared = KromiumCookieManager.clearCookies();
-            JOptionPane.showMessageDialog(this, cleared ? "Cookies cleared successfully." : "Failed to clear cookies.", "Cookies", JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.showMessageDialog(this, cleared ? "Cookies cleared." : "Failed to clear cookies.", "Cookies", JOptionPane.INFORMATION_MESSAGE);
         });
 
         JMenuItem openDownloadsFolder = new JMenuItem("Open Downloads Folder");
@@ -238,6 +301,6 @@ public class BrowserFrame extends JFrame {
 
     private static String truncateTitle(String title) {
         if (title == null) return "New Tab";
-        return title.length() > 20 ? title.substring(0, 18) + "…" : title;
+        return title.length() > 24 ? title.substring(0, 22) + "…" : title;
     }
 }

@@ -2,9 +2,12 @@ package dev.daviante.kromium.sample.swing.ui;
 
 import dev.daviante.kromium.presentation.browser.Kromium;
 import dev.daviante.kromium.presentation.handler.KromiumDownloadItem;
+import dev.daviante.kromium.sample.swing.KromiumSwingApp;
 import dev.daviante.kromium.sample.swing.model.DownloadEntry;
+import dev.daviante.kromium.sample.swing.theme.KromiumTheme;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 import java.awt.*;
@@ -15,7 +18,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Modeless dialog providing a full-featured download manager for active and finished transfers.
+ * Modeless dialog providing a clean monochrome download manager for active and finished transfers.
  */
 public class DownloadManagerDialog extends JDialog {
 
@@ -26,42 +29,61 @@ public class DownloadManagerDialog extends JDialog {
     private final JLabel countLabel = new JLabel("0 active transfers");
 
     public DownloadManagerDialog(Frame owner) {
-        super(owner, "Downloads — Kromium", false);
-        setIconImages(dev.daviante.kromium.sample.swing.KromiumSwingApp.getAppIcons());
-        setSize(700, 420);
+        super(owner, "Downloads — " + KromiumSwingApp.APP_NAME, false);
+        setIconImages(KromiumSwingApp.getAppIcons());
+        setSize(720, 440);
         setLocationRelativeTo(owner);
+        getContentPane().setBackground(KromiumTheme.BACKGROUND);
         setLayout(new BorderLayout());
 
         // Header Panel
         JPanel headerPanel = new JPanel(new BorderLayout());
-        headerPanel.setBorder(BorderFactory.createEmptyBorder(12, 16, 12, 16));
+        headerPanel.setBackground(KromiumTheme.SURFACE);
+        headerPanel.setBorder(new EmptyBorder(12, 16, 12, 16));
+
         JLabel titleLabel = new JLabel("Downloads");
-        titleLabel.setFont(titleLabel.getFont().deriveFont(Font.BOLD, 16f));
+        titleLabel.setFont(KromiumTheme.FONT_TITLE);
+        titleLabel.setForeground(Color.WHITE);
         headerPanel.add(titleLabel, BorderLayout.WEST);
+
+        countLabel.setFont(KromiumTheme.FONT_SMALL);
+        countLabel.setForeground(KromiumTheme.TEXT_SECONDARY);
         headerPanel.add(countLabel, BorderLayout.EAST);
         add(headerPanel, BorderLayout.NORTH);
 
         // Table
         table = new JTable(tableModel);
-        table.setRowHeight(32);
+        table.setBackground(KromiumTheme.BACKGROUND);
+        table.setForeground(Color.WHITE);
+        table.setSelectionBackground(KromiumTheme.SURFACE_HIGHLIGHT);
+        table.setSelectionForeground(Color.WHITE);
+        table.setGridColor(KromiumTheme.BORDER_SUBTLE);
+        table.setRowHeight(34);
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        table.getTableHeader().setBackground(KromiumTheme.SURFACE);
+        table.getTableHeader().setForeground(KromiumTheme.TEXT_SECONDARY);
+        table.getTableHeader().setFont(KromiumTheme.FONT_SMALL);
+
         table.getColumnModel().getColumn(2).setCellRenderer(new ProgressCellRenderer());
         table.getColumnModel().getColumn(0).setPreferredWidth(180);
         table.getColumnModel().getColumn(1).setPreferredWidth(120);
         table.getColumnModel().getColumn(2).setPreferredWidth(160);
-        table.getColumnModel().getColumn(3).setPreferredWidth(180);
+        table.getColumnModel().getColumn(3).setPreferredWidth(200);
 
         JScrollPane scrollPane = new JScrollPane(table);
-        scrollPane.setBorder(BorderFactory.createMatteBorder(1, 0, 1, 0, UIManager.getColor("Separator.foreground")));
+        scrollPane.getViewport().setBackground(KromiumTheme.BACKGROUND);
+        scrollPane.setBorder(BorderFactory.createMatteBorder(1, 0, 1, 0, KromiumTheme.BORDER_SUBTLE));
         add(scrollPane, BorderLayout.CENTER);
 
         // Action Toolbar
-        JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 12));
-        JButton pauseBtn = new JButton("Pause");
-        JButton resumeBtn = new JButton("Resume");
-        JButton cancelBtn = new JButton("Cancel");
-        JButton openFolderBtn = new JButton("Open in Folder");
-        JButton clearBtn = new JButton("Clear Finished");
+        JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 10));
+        actionPanel.setBackground(KromiumTheme.SURFACE);
+
+        JButton pauseBtn = createActionButton("Pause");
+        JButton resumeBtn = createActionButton("Resume");
+        JButton cancelBtn = createActionButton("Cancel");
+        JButton openFolderBtn = createActionButton("Open in Folder");
+        JButton clearBtn = createActionButton("Clear Finished");
 
         pauseBtn.addActionListener(e -> {
             DownloadEntry entry = getSelectedEntry();
@@ -156,6 +178,20 @@ public class DownloadManagerDialog extends JDialog {
         return null;
     }
 
+    private static JButton createActionButton(String label) {
+        JButton btn = new JButton(label);
+        btn.setFont(KromiumTheme.FONT_SMALL);
+        btn.setForeground(Color.WHITE);
+        btn.setBackground(KromiumTheme.SURFACE_ELEVATED);
+        btn.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(KromiumTheme.BORDER, 1),
+                new EmptyBorder(4, 10, 4, 10)
+        ));
+        btn.setFocusable(false);
+        btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        return btn;
+    }
+
     private class DownloadTableModel extends AbstractTableModel {
         private final String[] columns = {"File Name", "Status", "Progress", "Target Path"};
 
@@ -186,7 +222,9 @@ public class DownloadManagerDialog extends JDialog {
 
         public ProgressCellRenderer() {
             progressBar.setStringPainted(true);
-            progressBar.setBorder(BorderFactory.createEmptyBorder(2, 6, 2, 6));
+            progressBar.setBackground(KromiumTheme.SURFACE_ELEVATED);
+            progressBar.setForeground(Color.WHITE);
+            progressBar.setBorder(new EmptyBorder(2, 6, 2, 6));
         }
 
         @Override

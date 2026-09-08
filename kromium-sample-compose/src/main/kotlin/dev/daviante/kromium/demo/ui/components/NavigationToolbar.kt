@@ -126,10 +126,10 @@ fun NavigationToolbar(
                         .weight(1f)
                         .height(36.dp)
                         .clip(RoundedCornerShape(18.dp))
-                        .background(if (isFocused) Color(0xFF131926) else Color(0xFF0C101A))
+                        .background(if (isFocused) KromiumColors.SurfaceElevated else KromiumColors.Surface)
                         .border(
                             width = 1.dp,
-                            color = if (isFocused) KromiumColors.Cyan else Color(0xFF263248),
+                            color = if (isFocused) KromiumColors.TextPrimary else KromiumColors.Border,
                             shape = RoundedCornerShape(18.dp)
                         )
                         .padding(horizontal = 12.dp),
