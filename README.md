@@ -534,6 +534,51 @@ client.setContextMenuHandler(KromiumContextMenuHandler.minimalEditing(true));
 client.setContextMenuHandler(KromiumContextMenuHandler.devToolsOnly());
 ```
 
+### 🪟 Native Window Chrome & Custom Tab Strips (`KromiumWindowChrome`)
+
+Optional, flag-enabled helper utilities for integrating custom tab strips with native OS titlebars and macOS traffic lights without imposing rigid defaults or altering standard window behavior.
+
+#### Kotlin Compose Multiplatform
+```kotlin
+import dev.daviante.kromium.compose.chrome.macTrafficLightsPadding
+import dev.daviante.kromium.compose.chrome.MacTrafficLightsSpacer
+
+// In your custom TabStrip / Header composable:
+Row(
+    modifier = Modifier
+        .fillMaxWidth()
+        // Automatically applies padding on macOS only when enabled; 0.dp otherwise
+        .macTrafficLightsPadding(enabled = true, width = 76.dp)
+) {
+    // Custom tab items here...
+}
+
+// Or use a platform-adaptive spacer:
+Row(modifier = Modifier.fillMaxWidth()) {
+    MacTrafficLightsSpacer(enabled = true, width = 76.dp)
+    // Custom tabs...
+}
+```
+
+#### Pure Java & Swing
+```java
+import dev.daviante.kromium.presentation.chrome.KromiumChromeConfig;
+import dev.daviante.kromium.presentation.chrome.KromiumWindowChrome;
+
+// 1. Configure macOS full window content (merging tab strip with titlebar)
+KromiumChromeConfig config = KromiumChromeConfig.builder()
+    .enabled(true)
+    .macTrafficLightsWidth(80)
+    .transparentTitleBar(true)
+    .hideWindowTitle(true)
+    .build();
+
+KromiumWindowChrome.apply(frame, config);
+
+// 2. Enable window dragging & double-click maximize on custom tab strip
+KromiumWindowChrome.installWindowDragger(tabStripPanel, frame);
+```
+
 ---
 
 ## 💻 Supported Platforms & Systems

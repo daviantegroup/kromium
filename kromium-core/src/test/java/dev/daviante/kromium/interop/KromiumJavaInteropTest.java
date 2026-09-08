@@ -17,6 +17,8 @@ import dev.daviante.kromium.presentation.browser.KromiumClient;
 import dev.daviante.kromium.presentation.handler.KromiumAuthResponse;
 import dev.daviante.kromium.presentation.handler.KromiumLoadingListener;
 import dev.daviante.kromium.presentation.handler.KromiumPermissionDecision;
+import dev.daviante.kromium.presentation.chrome.KromiumChromeConfig;
+import dev.daviante.kromium.presentation.chrome.KromiumWindowChrome;
 import dev.daviante.kromium.presentation.handler.KromiumPermissionHandler;
 import dev.daviante.kromium.presentation.handler.KromiumPermissionRequest;
 import dev.daviante.kromium.presentation.handler.KromiumPermissionType;
@@ -350,5 +352,34 @@ public class KromiumJavaInteropTest {
                    .addItem("Java Action", c -> c.copyToClipboard("Hello from Java"));
         };
         assertNotNull(customHandler);
+    }
+
+    @Test
+    public void testWindowChromeErgonomics() {
+        // Disabled by default
+        KromiumChromeConfig defaultConfig = KromiumChromeConfig.DEFAULT;
+        assertFalse(defaultConfig.getEnabled());
+        assertEquals(76, defaultConfig.getMacTrafficLightsWidth());
+        assertEquals(38, defaultConfig.getMacTrafficLightsHeight());
+
+        // Java fluent builder with custom overrides
+        KromiumChromeConfig customConfig = KromiumChromeConfig.builder()
+                .enabled(true)
+                .macTrafficLightsWidth(80)
+                .macTrafficLightsHeight(40)
+                .transparentTitleBar(true)
+                .hideWindowTitle(true)
+                .build();
+        assertTrue(customConfig.getEnabled());
+        assertEquals(80, customConfig.getMacTrafficLightsWidth());
+        assertEquals(40, customConfig.getMacTrafficLightsHeight());
+
+        // Dynamic metric resolution (returns 0 when disabled)
+        int disabledWidth = KromiumWindowChrome.getMacTrafficLightsWidth(false, 80);
+        assertEquals(0, disabledWidth);
+
+        // Constants
+        assertEquals(76, KromiumWindowChrome.DEFAULT_MAC_TRAFFIC_LIGHTS_WIDTH);
+        assertEquals(38, KromiumWindowChrome.DEFAULT_MAC_TRAFFIC_LIGHTS_HEIGHT);
     }
 }

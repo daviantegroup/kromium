@@ -43,11 +43,13 @@ This document outlines the planned future capabilities and architectural milesto
   - `KromiumContextMenuHandler`: SAM functional interface with turnkey presets (`disabled()`, `defaultMenu()`, `devToolsOnly()`, `minimalEditing()`).
   - Compose & Swing Integration: `state.setContextMenu { ... }` in Compose, `client.setContextMenu { ... }` in Swing/Java, and full lifecycle cleanup on `onContextMenuDismissed`.
 
-### 4. Native OS Titlebar & Window Chrome Helper (`KromiumWindowChrome`)
-* **Goal**: Provide an optional, turnkey helper for embedding native macOS traffic lights and Windows/Linux titlebar controls directly into custom browser tab strips.
-* **Scope**:
-  - In Swing: Preconfigured FlatLaf root pane client properties and macOS safe-area insets.
-  - In Compose: Integrated `WindowDraggableArea` with platform-specific window control offsets.
+### 4. Native OS Titlebar & Window Chrome Helper (`KromiumWindowChrome`) — ✅ Completed
+* **Goal**: Provide a flag-enabled, fully configurable helper API for integrating custom browser tab strips with native OS titlebars and macOS traffic lights without imposing rigid defaults or altering standard window behavior.
+* **Delivered Capabilities**:
+  - `KromiumChromeConfig`: Fully configurable data model (`enabled = false` by default, `macTrafficLightsWidth = 76`, `macTrafficLightsHeight = 38`, `transparentTitleBar = true`, `hideWindowTitle = true`) with a fluent builder for pure Java.
+  - `KromiumWindowChrome`: Dynamic metric resolution (`getMacTrafficLightsWidth()`), macOS full window content styling (`applyMacFullWindowContent()`), FlatLaf root pane property helper (`configureFlatLafTitleBar()`), and zero-dependency window dragging with double-click maximize/restore (`installWindowDragger()`).
+  - Compose Multiplatform Modifiers: `Modifier.macTrafficLightsPadding(enabled = ..., width = ...)` and `MacTrafficLightsSpacer(enabled = ..., width = ...)` to cleanly clear traffic lights without hardcoding or forcing metrics on developers.
+  - Zero Intrusion: When disabled (`enabled = false`), zero padding/insets are applied and native OS decorations remain 100% untouched.
 
 ### 5. Media & Web Permission Request Interception (`CefPermissionHandler`) — ✅ Completed
 * **Goal**: Allow host applications to intercept, inspect, grant, deny, or selectively filter web permissions (Microphone, Camera, Screen Sharing, Desktop Audio) requested by web applications (e.g. WebRTC, Meet, Zoom).
