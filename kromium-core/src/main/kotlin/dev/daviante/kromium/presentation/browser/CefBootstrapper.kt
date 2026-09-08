@@ -5,12 +5,14 @@ import dev.daviante.kromium.core.util.FileUtils
 import dev.daviante.kromium.core.util.JvmModuleOpener
 import dev.daviante.kromium.core.util.PlatformDetector
 import dev.daviante.kromium.domain.exception.KromiumException
+import dev.daviante.kromium.domain.model.KromiumCustomScheme
 import dev.daviante.kromium.domain.model.OperatingSystem
 import dev.daviante.kromium.domain.model.PlatformInfo
-
 import org.cef.CefApp
 import org.cef.CefSettings
 import org.cef.SystemBootstrap
+import org.cef.callback.CefSchemeRegistrar
+import org.cef.handler.CefAppHandlerAdapter
 import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -20,10 +22,12 @@ object CefBootstrapper {
     private const val TAG = "CefBootstrapper"
 
     @JvmStatic
+    @JvmOverloads
     fun bootstrap(
         installDir: File,
         cefArgs: List<String>,
-        cefSettings: CefSettings
+        cefSettings: CefSettings,
+        customSchemes: List<KromiumCustomScheme> = emptyList()
     ): CefApp {
         // Ensure required JDK module packages are dynamically open to ALL-UNNAMED
         JvmModuleOpener.ensureModulesOpened()
@@ -151,6 +155,32 @@ object CefBootstrapper {
             (os as OperatingSystem.MacOS).getFixedArgs(installDir, cefArgs)
         } else {
             cefArgs
+        }
+
+        // Register custom schemes with Chromium's security manager before CefApp initialization
+        if (customSchemes.isNotEmpty()) {
+            try {
+                val appHandler = object : CefAppHandlerAdapter(launchArgs.toTypedArray()) {
+                    override fun onRegisterCustomSchemes(registrar: CefSchemeRegistrar) {
+                        for (scheme in customSchemes) {
+                            KromiumLogger.d(TAG, "Registering custom scheme with Chromium: ${scheme.schemeName}")
+                            registrar.addCustomScheme(
+                                scheme.schemeName,
+                                scheme.isStandard,
+                                scheme.isLocal,
+                                scheme.isDisplayIsolated,
+                                scheme.isSecure,
+                                scheme.isCorsEnabled,
+                                scheme.isCspBypassing,
+                                scheme.isFetchEnabled
+                            )
+                        }
+                    }
+                }
+                CefApp.addAppHandler(appHandler)
+            } catch (e: IllegalStateException) {
+                KromiumLogger.w(TAG, "CefApp already initialized; custom schemes could not be registered: ${e.message}")
+            }
         }
 
         val started = CefApp.startup(launchArgs.toTypedArray())

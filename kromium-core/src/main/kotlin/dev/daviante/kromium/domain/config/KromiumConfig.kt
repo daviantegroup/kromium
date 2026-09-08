@@ -4,7 +4,9 @@ import dev.daviante.kromium.core.logging.KromiumLogger
 import dev.daviante.kromium.core.util.FileUtils
 import dev.daviante.kromium.data.engine.EngineRegistry
 import dev.daviante.kromium.domain.exception.KromiumException
-
+import dev.daviante.kromium.domain.model.KromiumCustomScheme
+import dev.daviante.kromium.domain.model.KromiumSchemeRegistration
+import dev.daviante.kromium.presentation.scheme.KromiumAssetHandler
 import org.cef.CefSettings
 import java.io.File
 
@@ -149,6 +151,87 @@ class KromiumConfig {
     /** Appends additional command-line arguments. */
     fun addArgs(vararg args: String) {
         commandLineArgs.addAll(args)
+    }
+
+    /**
+     * Custom protocol schemes to register with Chromium's security manager during bootstrap.
+     */
+    val customSchemes: MutableList<KromiumCustomScheme> = mutableListOf()
+
+    /**
+     * Initial virtual scheme handler registrations bound upon engine initialization.
+     */
+    val schemeHandlers: MutableList<KromiumSchemeRegistration> = mutableListOf()
+
+    /**
+     * Registers a custom protocol scheme with Chromium.
+     *
+     * Example:
+     * ```kotlin
+     * registerCustomScheme("app")
+     * ```
+     */
+    @JvmOverloads
+    fun registerCustomScheme(
+        schemeName: String,
+        isStandard: Boolean = true,
+        isLocal: Boolean = true,
+        isDisplayIsolated: Boolean = false,
+        isSecure: Boolean = true,
+        isCorsEnabled: Boolean = true,
+        isCspBypassing: Boolean = false,
+        isFetchEnabled: Boolean = true
+    ) {
+        val scheme = KromiumCustomScheme(
+            schemeName = schemeName,
+            isStandard = isStandard,
+            isLocal = isLocal,
+            isDisplayIsolated = isDisplayIsolated,
+            isSecure = isSecure,
+            isCorsEnabled = isCorsEnabled,
+            isCspBypassing = isCspBypassing,
+            isFetchEnabled = isFetchEnabled
+        )
+        registerCustomScheme(scheme)
+    }
+
+    /**
+     * Registers a custom protocol scheme using a [KromiumCustomScheme] definition.
+     */
+    fun registerCustomScheme(scheme: KromiumCustomScheme) {
+        if (customSchemes.none { it.schemeName.equals(scheme.schemeName, ignoreCase = true) }) {
+            customSchemes.add(scheme)
+        }
+    }
+
+    /**
+     * Registers a custom protocol scheme and associates it directly with a [KromiumAssetHandler].
+     *
+     * Example:
+     * ```kotlin
+     * registerCustomScheme("app", "myapp", KromiumSchemeHandler.fromClasspath("web"))
+     * ```
+     */
+    @JvmOverloads
+    fun registerCustomScheme(
+        schemeName: String,
+        domainName: String? = null,
+        handler: KromiumAssetHandler
+    ) {
+        registerCustomScheme(schemeName)
+        registerSchemeHandler(schemeName, domainName, handler)
+    }
+
+    /**
+     * Registers a virtual asset handler for an existing or custom scheme and domain.
+     */
+    @JvmOverloads
+    fun registerSchemeHandler(
+        schemeName: String,
+        domainName: String? = null,
+        handler: KromiumAssetHandler
+    ) {
+        schemeHandlers.add(KromiumSchemeRegistration(schemeName, domainName, handler))
     }
 
     /**

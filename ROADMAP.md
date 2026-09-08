@@ -6,12 +6,16 @@ This document outlines the planned future capabilities and architectural milesto
 
 ## 🚀 Upcoming Milestones
 
-### 1. Custom Scheme & Virtual Asset Interception (`KromiumSchemeHandler`)
-* **Goal**: Enable developers to serve local bundled assets (HTML/JS/CSS/WebAssembly) securely via custom protocols (e.g. `app://myapp/index.html` or `kromium://ui/`) without running an embedded HTTP server.
-* **Scope**:
-  - `CefSchemeHandlerFactory` and `CefResourceHandler` wrappers.
-  - Streaming from JVM ClassLoader classpath resources or arbitrary byte streams.
-  - Support for CORS, custom MIME types, and local security origin isolation.
+### 1. Custom Scheme & Virtual Asset Interception (`KromiumSchemeHandler`) — ✅ Completed
+* **Goal**: Enable developers to serve local bundled assets (HTML/JS/CSS/WebAssembly) securely via custom protocols (e.g. `app://myapp/index.html` or `myproto://ui/`) without running an embedded HTTP server.
+* **Delivered Capabilities**:
+  - `KromiumCustomScheme`: Fine-grained Chromium security flags registration (`isStandard`, `isLocal`, `isSecure`, `isCorsEnabled`, `isFetchEnabled`).
+  - `KromiumResourceHandler` & `KromiumSchemeHandlerFactory`: Chunked virtual streaming bridge to JCEF.
+  - `KromiumSchemeHandler.fromClasspath(...)`: Streams assets directly from JVM ClassLoader/JAR resources with path traversal shields.
+  - `KromiumSchemeHandler.fromDirectory(...)`: Streams local disk folders with canonical path boundaries.
+  - Single Page Application (SPA) routing fallback with MIME-confusion protection (strictly for extensionless GET navigation requests).
+  - Built-in `MimeTypes` resolving 50+ modern formats (WASM, ES Modules, SVG, WebP, WOFF2).
+  - Dual Kotlin & pure Java ergonomics with SAM lambdas and `@JvmStatic` helpers.
 
 ### 2. Print to PDF & Native Print Dialog (`printToPdfAsync`)
 * **Goal**: Provide automated, headless, and interactive document printing capabilities.

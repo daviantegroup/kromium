@@ -12,6 +12,8 @@ import dev.daviante.kromium.domain.config.KromiumProxy
 import dev.daviante.kromium.domain.exception.KromiumException
 import dev.daviante.kromium.domain.model.DownloadProgress
 import dev.daviante.kromium.domain.model.KromiumState
+import dev.daviante.kromium.presentation.scheme.KromiumAssetHandler
+import dev.daviante.kromium.presentation.scheme.KromiumSchemeHandlerFactory
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -234,9 +236,15 @@ object Kromium {
                 val app = CefBootstrapper.bootstrap(
                     installDir = installDir,
                     cefArgs = config.commandLineArgs,
-                    cefSettings = config.toCefSettings()
+                    cefSettings = config.toCefSettings(),
+                    customSchemes = config.customSchemes
                 )
                 cefApp = app
+
+                // Register any initial scheme handlers declared in config
+                for (reg in config.schemeHandlers) {
+                    registerSchemeHandlerInternal(app, reg.schemeName, reg.domainName, reg.handler)
+                }
 
                 // Mark engine as installed only after native bootstrap succeeds
                 EngineRegistry.markInstalled(installDir)
@@ -431,6 +439,54 @@ object Kromium {
     @JvmName("updateProxy")
     fun updateProxy(proxy: KromiumProxy): Boolean {
         return setProxy(proxy).isSuccess
+    }
+
+    /**
+     * Registers a virtual scheme handler factory with the Chromium engine.
+     *
+     * Enables serving bundled or virtual assets for the given scheme and optional domain name.
+     *
+     * Example:
+     * ```kotlin
+     * Kromium.registerSchemeHandler("app", "myapp", KromiumSchemeHandler.fromClasspath("web"))
+     * ```
+     *
+     * @param schemeName The protocol scheme (e.g. "app", "https").
+     * @param domainName Optional domain name (e.g. "myapp"), or null to match all domains for this scheme.
+     * @param handler The [KromiumAssetHandler] that resolves and streams virtual responses.
+     * @return True if registration succeeded.
+     * @throws KromiumException.NotInitialized if Kromium has not been initialized yet.
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun registerSchemeHandler(
+        schemeName: String,
+        domainName: String? = null,
+        handler: KromiumAssetHandler
+    ): Boolean {
+        val app = cefApp ?: throw KromiumException.NotInitialized
+        return registerSchemeHandlerInternal(app, schemeName, domainName, handler)
+    }
+
+    private fun registerSchemeHandlerInternal(
+        app: CefApp,
+        schemeName: String,
+        domainName: String?,
+        handler: KromiumAssetHandler
+    ): Boolean {
+        val factory = KromiumSchemeHandlerFactory(handler)
+        val domain = domainName ?: ""
+        KromiumLogger.i(TAG, "Registering scheme handler factory for $schemeName://$domain")
+        return app.registerSchemeHandlerFactory(schemeName, domain, factory)
+    }
+
+    /**
+     * Clears all registered scheme handler factories.
+     */
+    @JvmStatic
+    fun clearSchemeHandlers(): Boolean {
+        val app = cefApp ?: return false
+        return app.clearSchemeHandlerFactories()
     }
 
     /**

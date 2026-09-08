@@ -266,6 +266,69 @@ state.requestInterceptor = KromiumRequestInterceptor { request ->
 }
 ```
 
+### 📦 Custom Protocols & Bundled Classpath Assets (`app://`)
+Serve local single-page web applications (React, Vue, WebAssembly, HTML5) securely without spinning up an embedded HTTP server or opening local TCP ports:
+
+#### Kotlin
+```kotlin
+import dev.daviante.kromium.presentation.scheme.KromiumSchemeHandler
+import dev.daviante.kromium.presentation.scheme.KromiumAssetResponse
+
+// 1. Declare custom scheme during initialization
+Kromium.initialize {
+    registerCustomScheme("app")
+}
+
+// 2. Stream assets from application JAR / classpath with SPA fallback
+Kromium.registerSchemeHandler(
+    schemeName = "app",
+    domainName = "myapp",
+    handler = KromiumSchemeHandler.fromClasspath(
+        resourcePath = "web",
+        spaFallback = "index.html"
+    )
+)
+
+// 3. Programmatic API responses via lambda
+Kromium.registerSchemeHandler("app", "api") { request ->
+    if (request.path == "/health") {
+        KromiumAssetResponse.json("""{"status":"healthy"}""")
+    } else {
+        KromiumAssetResponse.notFound()
+    }
+}
+
+// Load inside Kromium:
+state.loadUrl("app://myapp/index.html")
+```
+
+#### Pure Java
+```java
+import dev.daviante.kromium.presentation.browser.Kromium;
+import dev.daviante.kromium.presentation.scheme.KromiumSchemeHandler;
+import dev.daviante.kromium.presentation.scheme.KromiumAssetResponse;
+
+// 1. Declare custom scheme during initialization
+Kromium.initialize(config -> {
+    config.registerCustomScheme("app");
+});
+
+// 2. Stream assets from classpath
+Kromium.registerSchemeHandler(
+    "app",
+    "myapp",
+    KromiumSchemeHandler.fromClasspath("web", MyApp.class.getClassLoader(), "index.html")
+);
+
+// 3. Programmatic API responses via lambda
+Kromium.registerSchemeHandler("app", "api", request -> {
+    if ("/health".equals(request.getPath())) {
+        return KromiumAssetResponse.json("{\"status\":\"healthy\"}");
+    }
+    return KromiumAssetResponse.notFound();
+});
+```
+
 ### 🏢 Enterprise Proxies & Dynamic Runtime Switching
 ```kotlin
 import dev.daviante.kromium.domain.config.KromiumProxy
