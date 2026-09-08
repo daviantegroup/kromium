@@ -647,7 +647,7 @@ class KromiumClient(
 
     fun createBrowser(
         url: String? = "about:blank",
-        isOffScreenRendered: Boolean = false,
+        isOffScreenRendered: Boolean = true,
         isTransparent: Boolean = false,
         requestContext: CefRequestContext? = null
     ): KromiumBrowser {
@@ -728,12 +728,12 @@ class KromiumClient(
     fun createBrowser(): KromiumBrowser = createBrowser("about:blank")
 
     fun createBrowser(url: String?): KromiumBrowser =
-        createBrowser(url = url, isOffScreenRendered = false, isTransparent = false, requestContext = null)
+        createBrowser(url = url, isOffScreenRendered = true, isTransparent = false, requestContext = null)
 
     fun createBrowser(
         url: String?,
         isTransparent: Boolean
-    ): KromiumBrowser = createBrowser(url = url, isOffScreenRendered = false, isTransparent = isTransparent)
+    ): KromiumBrowser = createBrowser(url = url, isOffScreenRendered = true, isTransparent = isTransparent)
 
     fun createBrowser(
         url: String?,

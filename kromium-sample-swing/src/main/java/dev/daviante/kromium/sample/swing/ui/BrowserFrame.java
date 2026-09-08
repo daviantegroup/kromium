@@ -154,7 +154,9 @@ public class BrowserFrame extends JFrame {
 
     public void addNewTab(String url) {
         SwingUtilities.invokeLater(() -> {
-            KromiumBrowser browser = client.createBrowser(url, false, false);
+            // Use true, true to force OSR + Transparent, which forces JCEF to use a Lightweight GLJPanel
+            // instead of a Heavyweight GLCanvas, completely eliminating native focus and Z-ordering bugs.
+            KromiumBrowser browser = client.createBrowser(url, true, true);
             BrowserTab tab = new BrowserTab(browser, url);
             tabs.add(tab);
 

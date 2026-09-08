@@ -133,7 +133,10 @@ fun KromiumView(
                 modifier = Modifier.fillMaxSize(),
                 factory = {
                     JPanel(BorderLayout()).apply {
-                        val browser = effectiveClient.createBrowser(state.url)
+                        val browser = effectiveClient.createBrowser(
+                            url = state.url,
+                            isOffScreenRendered = false
+                        )
                         state.browser = browser
 
                         val pending = state.consumePendingUrl()

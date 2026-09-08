@@ -338,7 +338,7 @@ object Kromium {
     @JvmOverloads
     fun createBrowser(
         url: String? = "about:blank",
-        isOffScreenRendered: Boolean = false,
+        isOffScreenRendered: Boolean = true,
         isTransparent: Boolean = false
     ): KromiumBrowser = newClient().createBrowser(url, isOffScreenRendered, isTransparent)
 
@@ -360,7 +360,7 @@ object Kromium {
     @JvmOverloads
     suspend fun awaitBrowser(
         url: String? = "about:blank",
-        isOffScreenRendered: Boolean = false,
+        isOffScreenRendered: Boolean = true,
         isTransparent: Boolean = false
     ): KromiumBrowser = awaitClient().createBrowser(url, isOffScreenRendered, isTransparent)
 
@@ -371,7 +371,7 @@ object Kromium {
     @JvmOverloads
     fun awaitBrowserAsync(
         url: String? = "about:blank",
-        isOffScreenRendered: Boolean = false,
+        isOffScreenRendered: Boolean = true,
         isTransparent: Boolean = false
     ): CompletableFuture<KromiumBrowser> =
         FutureBridge.toCompletableFuture { awaitBrowser(url, isOffScreenRendered, isTransparent) }
