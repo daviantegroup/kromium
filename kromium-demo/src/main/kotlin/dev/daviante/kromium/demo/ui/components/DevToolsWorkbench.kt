@@ -699,11 +699,11 @@ private fun DownloadsTab(workspaceState: WorkspaceState) {
             SampleDownloadChip("Logo (SVG)") {
                 workspaceState.downloadUrl("https://raw.githubusercontent.com/daviantegroup/kromium/master/assets/logo.svg")
             }
-            SampleDownloadChip("1MB File") {
-                workspaceState.downloadUrl("https://speed.hetzner.de/1MB.bin")
+            SampleDownloadChip("100MB File") {
+                workspaceState.downloadUrl("https://fsn1-speed.hetzner.com/100MB.bin")
             }
-            SampleDownloadChip("10MB File") {
-                workspaceState.downloadUrl("https://speed.hetzner.de/10MB.bin")
+            SampleDownloadChip("1GB File") {
+                workspaceState.downloadUrl("https://fsn1-speed.hetzner.com/1GB.bin")
             }
         }
 
@@ -814,12 +814,14 @@ private fun DownloadCard(
                         imageVector = when {
                             item.isComplete -> Icons.Default.CheckCircle
                             item.isCanceled -> Icons.Default.Cancel
+                            item.isPaused -> Icons.Default.Pause
                             else -> Icons.Default.FileDownload
                         },
                         contentDescription = null,
                         tint = when {
                             item.isComplete -> KromiumColors.Success
                             item.isCanceled -> KromiumColors.Error
+                            item.isPaused -> KromiumColors.Warning
                             else -> KromiumColors.Cyan
                         },
                         modifier = Modifier.size(18.dp)
@@ -908,6 +910,7 @@ private fun DownloadCard(
                     text = when {
                         item.isComplete -> "Completed"
                         item.isCanceled -> "Canceled"
+                        item.isPaused -> "Paused (${item.percentComplete}%)"
                         item.isInProgress -> "${item.percentComplete}%"
                         else -> "Pending"
                     },
@@ -916,9 +919,51 @@ private fun DownloadCard(
                     color = when {
                         item.isComplete -> KromiumColors.Success
                         item.isCanceled -> KromiumColors.Error
+                        item.isPaused -> KromiumColors.Warning
                         else -> KromiumColors.Cyan
                     }
                 )
+            }
+
+            // Action row for active downloads: Cancel / Pause / Resume
+            if (item.isInProgress) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Button(
+                        onClick = { workspaceState.cancelDownload(item.id) },
+                        colors = ButtonDefaults.buttonColors(containerColor = KromiumColors.Error.copy(alpha = 0.15f)),
+                        shape = RoundedCornerShape(4.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                        modifier = Modifier.height(24.dp)
+                    ) {
+                        Text("Cancel", fontSize = 10.sp, color = KromiumColors.Error, fontWeight = FontWeight.SemiBold)
+                    }
+
+                    if (item.isPaused) {
+                        Button(
+                            onClick = { workspaceState.resumeDownload(item.id) },
+                            colors = ButtonDefaults.buttonColors(containerColor = KromiumColors.Surface),
+                            shape = RoundedCornerShape(4.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                            modifier = Modifier.height(24.dp)
+                        ) {
+                            Text("Resume", fontSize = 10.sp, color = KromiumColors.Cyan)
+                        }
+                    } else {
+                        Button(
+                            onClick = { workspaceState.pauseDownload(item.id) },
+                            colors = ButtonDefaults.buttonColors(containerColor = KromiumColors.Surface),
+                            shape = RoundedCornerShape(4.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                            modifier = Modifier.height(24.dp)
+                        ) {
+                            Text("Pause", fontSize = 10.sp, color = KromiumColors.TextSecondary)
+                        }
+                    }
+                }
             }
 
             // Action row for completed downloads: Open File / Show in Folder

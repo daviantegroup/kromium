@@ -27,5 +27,6 @@ data class KromiumDownloadItem(
     val isInProgress: Boolean,
     val isComplete: Boolean,
     val isCanceled: Boolean,
+    val isPaused: Boolean = false,
     val fullPath: String = ""
 )

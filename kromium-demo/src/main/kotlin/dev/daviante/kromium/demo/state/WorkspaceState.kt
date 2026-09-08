@@ -59,10 +59,42 @@ class WorkspaceState(
     }
 
     fun clearDownloads() {
+        downloads.forEach { if (it.isInProgress) cancelDownload(it.id) }
         downloads.clear()
     }
 
+    fun cancelDownload(id: Int) {
+        dev.daviante.kromium.presentation.browser.KromiumClient.cancelDownloadGlobally(id)
+        val index = downloads.indexOfFirst { it.id == id }
+        if (index != -1) {
+            val item = downloads[index]
+            downloads[index] = item.copy(isInProgress = false, isCanceled = true, isPaused = false)
+        }
+    }
+
+    fun pauseDownload(id: Int) {
+        dev.daviante.kromium.presentation.browser.KromiumClient.pauseDownloadGlobally(id)
+        val index = downloads.indexOfFirst { it.id == id }
+        if (index != -1) {
+            val item = downloads[index]
+            downloads[index] = item.copy(isPaused = true)
+        }
+    }
+
+    fun resumeDownload(id: Int) {
+        dev.daviante.kromium.presentation.browser.KromiumClient.resumeDownloadGlobally(id)
+        val index = downloads.indexOfFirst { it.id == id }
+        if (index != -1) {
+            val item = downloads[index]
+            downloads[index] = item.copy(isPaused = false)
+        }
+    }
+
     fun removeDownload(id: Int) {
+        val item = downloads.find { it.id == id }
+        if (item?.isInProgress == true) {
+            cancelDownload(id)
+        }
         downloads.removeAll { it.id == id }
     }
 

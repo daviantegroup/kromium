@@ -158,6 +158,34 @@ class KromiumViewState(initialUrl: String) {
     }
 
     /**
+     * Programmatically cancels an in-progress download identified by its download ID.
+     */
+    fun cancelDownload(downloadId: Int): Boolean {
+        return browser?.cancelDownload(downloadId) ?: KromiumClient.cancelDownloadGlobally(downloadId)
+    }
+
+    /**
+     * Programmatically pauses an in-progress download identified by its download ID.
+     */
+    fun pauseDownload(downloadId: Int): Boolean {
+        return browser?.pauseDownload(downloadId) ?: KromiumClient.pauseDownloadGlobally(downloadId)
+    }
+
+    /**
+     * Programmatically resumes a paused download identified by its download ID.
+     */
+    fun resumeDownload(downloadId: Int): Boolean {
+        return browser?.resumeDownload(downloadId) ?: KromiumClient.resumeDownloadGlobally(downloadId)
+    }
+
+    /**
+     * Checks whether an in-progress download is currently paused.
+     */
+    fun isDownloadPaused(downloadId: Int): Boolean {
+        return browser?.isDownloadPaused(downloadId) ?: KromiumClient.isDownloadPausedGlobally(downloadId)
+    }
+
+    /**
      * Configures asset blocking to avoid downloading images, media, fonts, or stylesheets.
      */
     fun blockMediaAssets(

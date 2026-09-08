@@ -64,6 +64,26 @@ class KromiumBrowser(
         browser.startDownload(url)
     }
 
+    /**
+     * Programmatically cancels an in-progress download identified by its download ID.
+     */
+    fun cancelDownload(downloadId: Int): Boolean = client.cancelDownload(downloadId)
+
+    /**
+     * Programmatically pauses an in-progress download identified by its download ID.
+     */
+    fun pauseDownload(downloadId: Int): Boolean = client.pauseDownload(downloadId)
+
+    /**
+     * Programmatically resumes a paused download identified by its download ID.
+     */
+    fun resumeDownload(downloadId: Int): Boolean = client.resumeDownload(downloadId)
+
+    /**
+     * Checks whether an in-progress download is currently paused.
+     */
+    fun isDownloadPaused(downloadId: Int): Boolean = KromiumClient.isDownloadPausedGlobally(downloadId)
+
     fun find(
         searchText: String,
         forward: Boolean,

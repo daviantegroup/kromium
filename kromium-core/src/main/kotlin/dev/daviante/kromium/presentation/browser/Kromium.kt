@@ -46,6 +46,30 @@ object Kromium {
     val isReady: Boolean get() = _state.value is KromiumState.Ready
 
     /**
+     * Programmatically cancels an in-progress download identified by its download ID across any active browser session.
+     */
+    @JvmStatic
+    fun cancelDownload(downloadId: Int): Boolean = KromiumClient.cancelDownloadGlobally(downloadId)
+
+    /**
+     * Programmatically pauses an in-progress download identified by its download ID across any active browser session.
+     */
+    @JvmStatic
+    fun pauseDownload(downloadId: Int): Boolean = KromiumClient.pauseDownloadGlobally(downloadId)
+
+    /**
+     * Programmatically resumes a paused download identified by its download ID across any active browser session.
+     */
+    @JvmStatic
+    fun resumeDownload(downloadId: Int): Boolean = KromiumClient.resumeDownloadGlobally(downloadId)
+
+    /**
+     * Checks whether an in-progress download is currently paused.
+     */
+    @JvmStatic
+    fun isDownloadPaused(downloadId: Int): Boolean = KromiumClient.isDownloadPausedGlobally(downloadId)
+
+    /**
      * Initializes the Kromium engine. This is idempotent — calling it when already
      * initialized or when initialization is in progress will wait for the result
      * instead of re-initializing.

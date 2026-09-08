@@ -88,25 +88,13 @@ class KromiumClient(
     @Volatile var downloadListener: KromiumDownloadListener? = null
     @Volatile var downloadDirectory: java.io.File = resolveDefaultDownloadDirectory()
     @Volatile var onBeforeDownloadListener: ((item: KromiumDownloadItem, suggestedFileName: String) -> String?)? = null
-    private val downloadCallbacks = java.util.concurrent.ConcurrentHashMap<Int, CefDownloadItemCallback>()
+    fun cancelDownload(downloadId: Int): Boolean = cancelDownloadGlobally(downloadId)
 
-    fun cancelDownload(downloadId: Int): Boolean {
-        val cb = downloadCallbacks[downloadId] ?: return false
-        cb.cancel()
-        return true
-    }
+    fun pauseDownload(downloadId: Int): Boolean = pauseDownloadGlobally(downloadId)
 
-    fun pauseDownload(downloadId: Int): Boolean {
-        val cb = downloadCallbacks[downloadId] ?: return false
-        cb.pause()
-        return true
-    }
+    fun resumeDownload(downloadId: Int): Boolean = resumeDownloadGlobally(downloadId)
 
-    fun resumeDownload(downloadId: Int): Boolean {
-        val cb = downloadCallbacks[downloadId] ?: return false
-        cb.resume()
-        return true
-    }
+    fun isDownloadPaused(downloadId: Int): Boolean = isDownloadPausedGlobally(downloadId)
 
     @Volatile var jsDialogListener: KromiumJsDialogListener? = null
     @Volatile var consoleMessageListener: ((KromiumConsoleMessage) -> Unit)? = null
@@ -440,6 +428,7 @@ class KromiumClient(
                 return when {
                     customPath != null && customPath.isBlank() -> {
                         KromiumLogger.i(TAG, "Download canceled: $cleanName")
+                        callback.Continue("", false)
                         false
                     }
                     customPath != null -> {
@@ -464,9 +453,10 @@ class KromiumClient(
 
                 if (callback != null) {
                     if (downloadItem.isComplete || downloadItem.isCanceled) {
-                        downloadCallbacks.remove(downloadItem.id)
+                        globalDownloadCallbacks.remove(downloadItem.id)
+                        pausedDownloads.remove(downloadItem.id)
                     } else {
-                        downloadCallbacks[downloadItem.id] = callback
+                        globalDownloadCallbacks[downloadItem.id] = callback
                     }
                 }
 
@@ -483,7 +473,8 @@ class KromiumClient(
                     speed = downloadItem.currentSpeed,
                     isInProgress = downloadItem.isInProgress,
                     isComplete = downloadItem.isComplete,
-                    isCanceled = downloadItem.isCanceled
+                    isCanceled = downloadItem.isCanceled,
+                    isPaused = pausedDownloads.contains(downloadItem.id)
                 )
 
                 try {
@@ -1031,6 +1022,51 @@ class KromiumClient(
                 false
             }
         }
+
+        private val globalDownloadCallbacks = java.util.concurrent.ConcurrentHashMap<Int, CefDownloadItemCallback>()
+        private val pausedDownloads = java.util.concurrent.ConcurrentHashMap.newKeySet<Int>()
+
+        @JvmStatic
+        fun cancelDownloadGlobally(downloadId: Int): Boolean {
+            val cb = globalDownloadCallbacks[downloadId] ?: return false
+            return try {
+                cb.cancel()
+                pausedDownloads.remove(downloadId)
+                true
+            } catch (e: Throwable) {
+                KromiumLogger.w(TAG, "Failed to cancel download $downloadId", e)
+                false
+            }
+        }
+
+        @JvmStatic
+        fun pauseDownloadGlobally(downloadId: Int): Boolean {
+            val cb = globalDownloadCallbacks[downloadId] ?: return false
+            return try {
+                cb.pause()
+                pausedDownloads.add(downloadId)
+                true
+            } catch (e: Throwable) {
+                KromiumLogger.w(TAG, "Failed to pause download $downloadId", e)
+                false
+            }
+        }
+
+        @JvmStatic
+        fun resumeDownloadGlobally(downloadId: Int): Boolean {
+            val cb = globalDownloadCallbacks[downloadId] ?: return false
+            return try {
+                cb.resume()
+                pausedDownloads.remove(downloadId)
+                true
+            } catch (e: Throwable) {
+                KromiumLogger.w(TAG, "Failed to resume download $downloadId", e)
+                false
+            }
+        }
+
+        @JvmStatic
+        fun isDownloadPausedGlobally(downloadId: Int): Boolean = pausedDownloads.contains(downloadId)
 
         fun resolveDefaultDownloadDirectory(): java.io.File {
             val rawHome = System.getProperty("user.home") ?: "."

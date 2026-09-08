@@ -1,5 +1,9 @@
 package dev.daviante.kromium.presentation.handler
 
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.slot
+import io.mockk.verify
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -86,5 +90,108 @@ class KromiumDownloadTest {
         } finally {
             tempDir.deleteRecursively()
         }
+    }
+
+    @Test
+    fun `download control methods handle nonexistent downloads gracefully and track pause state`() {
+        // ID 99999 does not exist, should return false gracefully
+        assertFalse(dev.daviante.kromium.presentation.browser.Kromium.cancelDownload(99999))
+        assertFalse(dev.daviante.kromium.presentation.browser.Kromium.pauseDownload(99999))
+        assertFalse(dev.daviante.kromium.presentation.browser.Kromium.resumeDownload(99999))
+        assertFalse(dev.daviante.kromium.presentation.browser.KromiumClient.isDownloadPausedGlobally(99999))
+
+        // Verify isPaused property on KromiumDownloadItem
+        val item = KromiumDownloadItem(
+            id = 10,
+            url = "https://example.com/file.zip",
+            suggestedFileName = "file.zip",
+            totalBytes = 1000L,
+            receivedBytes = 500L,
+            percentComplete = 50,
+            speed = 0L,
+            isInProgress = true,
+            isComplete = false,
+            isCanceled = false,
+            isPaused = true
+        )
+        assertTrue(item.isPaused)
+    }
+
+    @Test
+    fun `download lifecycle with pause, resume, cancel and cleanup operates correctly`() {
+        val mockRawClient = io.mockk.mockk<org.cef.CefClient>(relaxed = true)
+        val downloadHandlerSlot = io.mockk.slot<org.cef.handler.CefDownloadHandler>()
+
+        val client = dev.daviante.kromium.presentation.browser.KromiumClient(mockRawClient)
+        verify(exactly = 1) { mockRawClient.addDownloadHandler(capture(downloadHandlerSlot)) }
+        val handler = downloadHandlerSlot.captured
+
+        val mockItem = io.mockk.mockk<org.cef.callback.CefDownloadItem>(relaxed = true)
+        val mockCallback = io.mockk.mockk<org.cef.callback.CefDownloadItemCallback>(relaxed = true)
+
+        io.mockk.every { mockItem.id } returns 101
+        io.mockk.every { mockItem.isInProgress } returns true
+        io.mockk.every { mockItem.isComplete } returns false
+        io.mockk.every { mockItem.isCanceled } returns false
+
+        var emittedItem: KromiumDownloadItem? = null
+        client.downloadListener = KromiumDownloadListener { emittedItem = it }
+
+        // Trigger update
+        handler.onDownloadUpdated(null, mockItem, mockCallback)
+        assertEquals(101, emittedItem?.id)
+        assertFalse(emittedItem!!.isPaused)
+
+        // Pause
+        assertTrue(client.pauseDownload(101))
+        io.mockk.verify(exactly = 1) { mockCallback.pause() }
+        assertTrue(client.isDownloadPaused(101))
+
+        // Trigger update while paused
+        handler.onDownloadUpdated(null, mockItem, mockCallback)
+        assertTrue(emittedItem!!.isPaused)
+
+        // Resume
+        assertTrue(client.resumeDownload(101))
+        io.mockk.verify(exactly = 1) { mockCallback.resume() }
+        assertFalse(client.isDownloadPaused(101))
+
+        // Cancel
+        assertTrue(client.cancelDownload(101))
+        io.mockk.verify(exactly = 1) { mockCallback.cancel() }
+        assertFalse(client.isDownloadPaused(101))
+
+        // Complete download
+        io.mockk.every { mockItem.isInProgress } returns false
+        io.mockk.every { mockItem.isComplete } returns true
+        handler.onDownloadUpdated(null, mockItem, mockCallback)
+
+        // Subsequent controls should return false as callback was deregistered
+        assertFalse(client.cancelDownload(101))
+        assertFalse(client.pauseDownload(101))
+        assertFalse(client.resumeDownload(101))
+    }
+
+    @Test
+    fun `onBeforeDownload cancels download cleanly when customPath is blank`() {
+        val mockRawClient = io.mockk.mockk<org.cef.CefClient>(relaxed = true)
+        val downloadHandlerSlot = io.mockk.slot<org.cef.handler.CefDownloadHandler>()
+
+        val client = dev.daviante.kromium.presentation.browser.KromiumClient(mockRawClient)
+        verify(exactly = 1) { mockRawClient.addDownloadHandler(capture(downloadHandlerSlot)) }
+        val handler = downloadHandlerSlot.captured
+
+        val mockItem = io.mockk.mockk<org.cef.callback.CefDownloadItem>(relaxed = true)
+        val mockBeforeCallback = io.mockk.mockk<org.cef.callback.CefBeforeDownloadCallback>(relaxed = true)
+        io.mockk.every { mockItem.id } returns 202
+        io.mockk.every { mockItem.url } returns "https://example.com/file.pdf"
+        io.mockk.every { mockItem.suggestedFileName } returns "file.pdf"
+
+        // Cancel download by returning blank string
+        client.onBeforeDownloadListener = { _, _ -> "" }
+        val allowed = handler.onBeforeDownload(null, mockItem, "file.pdf", mockBeforeCallback)
+
+        assertFalse(allowed)
+        io.mockk.verify(exactly = 1) { mockBeforeCallback.Continue("", false) }
     }
 }
