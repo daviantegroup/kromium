@@ -269,6 +269,7 @@ class KromiumClient(
      *
      * @see SslErrorPolicy
      */
+    @Volatile
     var sslErrorPolicy: SslErrorPolicy = SslErrorPolicy.Strict
         set(value) {
             field = value
@@ -453,6 +454,7 @@ class KromiumClient(
                 }
 
                 KromiumLogger.d(TAG, "SSL certificate error rejected for: $requestUrl (error: $certError)")
+                callback?.cancel()
                 return false
             }
 

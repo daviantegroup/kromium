@@ -14,18 +14,26 @@ sealed class SslErrorPolicy {
     data class AllowDomains(val domains: Set<String>) : SslErrorPolicy() {
         constructor(vararg domains: String) : this(domains.toSet())
 
-        /** Checks whether the given URL's host is in the allowed domains list. */
-        fun isAllowed(url: String?): Boolean {
-            if (url == null) return false
-            return try {
-                val host = java.net.URI(url).host?.lowercase() ?: return false
-                domains.any { domain ->
-                    val d = domain.lowercase()
-                    host == d || host.endsWith(".$d")
-                }
-            } catch (_: Throwable) {
-                false
+        /**
+         * Checks whether the given URL or host is in the allowed domains list.
+         * Supports exact hostnames, port stripping, and wildcard notation (e.g. `*.corp.internal` or `corp.internal`).
+         */
+        fun isAllowed(urlOrHost: String?): Boolean {
+            if (urlOrHost.isNullOrBlank()) return false
+            val host = extractHost(urlOrHost)?.lowercase() ?: return false
+            return domains.any { domainPattern ->
+                val cleanedPattern = extractHost(domainPattern)?.lowercase()?.removePrefix("*.")
+                    ?: domainPattern.trim().lowercase().removePrefix("*.")
+                if (cleanedPattern.isBlank()) false
+                else host == cleanedPattern || host.endsWith(".$cleanedPattern")
             }
+        }
+
+        private fun extractHost(input: String): String? {
+            val trimmed = input.trim()
+            val withoutScheme = if (trimmed.contains("://")) trimmed.substringAfter("://") else trimmed
+            val hostPort = withoutScheme.substringBefore("/").substringBefore("?").substringBefore("#")
+            return if (hostPort.contains(":")) hostPort.substringBefore(":") else hostPort
         }
     }
 

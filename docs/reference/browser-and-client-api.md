@@ -140,6 +140,7 @@ The following APIs are active when the browser is running in OSR mode (Java Swin
 
 ```kotlin
 val activeProxy: KromiumProxy // Active proxy strategy on this browser's client
+var sslErrorPolicy: SslErrorPolicy // SSL certificate validation error policy
 fun setProxy(proxy: KromiumProxy): Result<Unit>
 fun updateProxy(proxy: KromiumProxy): Boolean // Pure Java friendly boolean return
 fun setHostLock(vararg allowedHosts: String, lockSubresources: Boolean = false)

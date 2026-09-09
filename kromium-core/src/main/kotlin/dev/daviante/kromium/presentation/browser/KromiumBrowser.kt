@@ -659,6 +659,15 @@ class KromiumBrowser(
     fun updateProxy(proxy: KromiumProxy): Boolean = client.updateProxy(proxy)
 
     /**
+     * The SSL certificate error handling policy for this browser's client session.
+     */
+    var sslErrorPolicy: dev.daviante.kromium.domain.exception.SslErrorPolicy
+        get() = client.sslErrorPolicy
+        set(value) {
+            client.sslErrorPolicy = value
+        }
+
+    /**
      * Retrieves all cookies for the current page as a key-value map.
      */
     suspend fun getCookies(): Map<String, String> {

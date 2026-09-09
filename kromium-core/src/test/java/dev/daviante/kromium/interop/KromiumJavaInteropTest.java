@@ -157,11 +157,14 @@ public class KromiumJavaInteropTest {
         SslErrorPolicy allowAll = SslErrorPolicy.allowAll();
         assertEquals(SslErrorPolicy.getALLOW_ALL(), allowAll);
 
-        SslErrorPolicy domains = SslErrorPolicy.allowDomains("localhost", "internal.corp");
+        SslErrorPolicy domains = SslErrorPolicy.allowDomains("localhost", "*.internal.corp", "127.0.0.1:9090");
         assertTrue(domains instanceof SslErrorPolicy.AllowDomains);
         assertTrue(((SslErrorPolicy.AllowDomains) domains).isAllowed("https://localhost:8443"));
-        assertTrue(((SslErrorPolicy.AllowDomains) domains).isAllowed("https://api.internal.corp"));
+        assertTrue(((SslErrorPolicy.AllowDomains) domains).isAllowed("https://api.internal.corp/graphql?query={id}"));
+        assertTrue(((SslErrorPolicy.AllowDomains) domains).isAllowed("https://internal.corp"));
+        assertTrue(((SslErrorPolicy.AllowDomains) domains).isAllowed("http://127.0.0.1:9090/test"));
         assertFalse(((SslErrorPolicy.AllowDomains) domains).isAllowed("https://external.com"));
+        assertFalse(((SslErrorPolicy.AllowDomains) domains).isAllowed("https://fakeinternal.corp"));
     }
 
     @Test

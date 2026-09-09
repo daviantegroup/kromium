@@ -120,6 +120,13 @@ class KromiumConfig {
     var emulateDesktopEnvironment: Boolean = false
 
     /**
+     * Default SSL error handling policy for clients created by the engine.
+     * Defaults to [SslErrorPolicy.Strict] which rejects all certificate validation errors.
+     */
+    var sslErrorPolicy: dev.daviante.kromium.domain.exception.SslErrorPolicy =
+        dev.daviante.kromium.domain.exception.SslErrorPolicy.Strict
+
+    /**
      * Command-line arguments passed to the CEF process.
      *
      * Default includes rendering optimization flags, security hardening, and
@@ -426,6 +433,7 @@ class KromiumConfig {
         fun authServerAllowlist(allowlist: List<String>) = apply { config.authServerAllowlist = allowlist }
         fun authNegotiateDelegateAllowlist(allowlist: List<String>) = apply { config.authNegotiateDelegateAllowlist = allowlist }
         fun emulateDesktopEnvironment(enable: Boolean) = apply { config.emulateDesktopEnvironment = enable }
+        fun sslErrorPolicy(policy: dev.daviante.kromium.domain.exception.SslErrorPolicy) = apply { config.sslErrorPolicy = policy }
 
         fun build(): KromiumConfig {
             config.validate()

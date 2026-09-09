@@ -134,4 +134,19 @@ class KromiumConfigTest {
             .build()
         assertTrue(built.emulateDesktopEnvironment, "Builder should properly configure emulateDesktopEnvironment")
     }
+
+    @Test
+    fun testSslErrorPolicyConfiguration() {
+        val config = KromiumConfig()
+        assertEquals(dev.daviante.kromium.domain.exception.SslErrorPolicy.Strict, config.sslErrorPolicy)
+
+        val policy = dev.daviante.kromium.domain.exception.SslErrorPolicy.allowDomains("*.internal.corp", "localhost")
+        config.sslErrorPolicy = policy
+        assertEquals(policy, config.sslErrorPolicy)
+
+        val built = KromiumConfig.builder()
+            .sslErrorPolicy(policy)
+            .build()
+        assertEquals(policy, built.sslErrorPolicy)
+    }
 }

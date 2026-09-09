@@ -315,8 +315,11 @@ object Kromium {
             org.cef.browser.CefRequestContext.createContext(null)
         } else null
         val client = KromiumClient(app.createClient(), requestContext = requestContext)
-        if (_activeConfig?.emulateDesktopEnvironment == true) {
-            client.emulateDesktopEnvironment = true
+        _activeConfig?.let { cfg ->
+            if (cfg.emulateDesktopEnvironment) {
+                client.emulateDesktopEnvironment = true
+            }
+            client.sslErrorPolicy = cfg.sslErrorPolicy
         }
         return client
     }
