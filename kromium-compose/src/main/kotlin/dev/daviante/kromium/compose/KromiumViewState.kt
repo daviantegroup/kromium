@@ -162,6 +162,23 @@ class KromiumViewState(initialUrl: String) {
         return browser?.evaluateJavaScript(script)
     }
 
+    /**
+     * Executes [code] directly in the browser without waiting for a return value.
+     * Unlike [evaluateJavaScript], this does not route through the message router,
+     * making it ideal for side-effect scripts and instrumentation where no response is required.
+     *
+     * @param code The JavaScript source code to execute.
+     * @param scriptUrl The URL reported as the script origin in DevTools (defaults to the current page URL).
+     * @param startLine The line number offset reported in DevTools stack traces (defaults to 0).
+     */
+    fun executeJavaScript(
+        code: String,
+        scriptUrl: String = url,
+        startLine: Int = 0
+    ) {
+        browser?.executeJavaScript(code, scriptUrl, startLine)
+    }
+
     suspend fun getHtml(): String {
         return browser?.getHtml() ?: ""
     }

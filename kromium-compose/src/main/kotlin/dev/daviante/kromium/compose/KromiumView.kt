@@ -156,6 +156,10 @@ fun KromiumView(
                             panel.revalidate()
                             panel.repaint()
                         }
+                        // Keep the heavyweight native surface hidden when the panel is not
+                        // actively displayed (e.g. inactive tabs). This prevents GPU
+                        // compositing artifacts and stale mouse-event routing.
+                        b.uiComponent.isVisible = panel.isShowing && panel.width > 0 && panel.height > 0
                     }
                 }
             )

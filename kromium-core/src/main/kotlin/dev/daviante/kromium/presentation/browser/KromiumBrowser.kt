@@ -230,6 +230,25 @@ class KromiumBrowser(
         }
 
     /**
+     * Executes arbitrary JavaScript directly on the browser without waiting for a return value.
+     * Unlike [evaluateJavaScript], this method does not route through the Chromium message router
+     * and incurs zero callback overhead — ideal for instrumentation, analytics injection,
+     * and any side-effect script where a response is not required.
+     *
+     * @param code The JavaScript source code to execute.
+     * @param scriptUrl The URL to report as the script source in DevTools (defaults to the current page URL).
+     * @param startLine The line number offset reported in DevTools stack traces (defaults to 0).
+     */
+    @JvmOverloads
+    fun executeJavaScript(
+        code: String,
+        scriptUrl: String = url ?: "",
+        startLine: Int = 0
+    ) {
+        browser.mainFrame?.executeJavaScript(code, scriptUrl, startLine)
+    }
+
+    /**
      * Convenience function to fetch the complete HTML of the current document (`document.documentElement.outerHTML`).
      */
     suspend fun getHtml(): String {

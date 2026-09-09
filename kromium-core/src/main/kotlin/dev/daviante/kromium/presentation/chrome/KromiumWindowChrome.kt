@@ -9,6 +9,7 @@ import java.awt.Point
 import java.awt.Window
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
+import java.util.Locale
 import javax.swing.RootPaneContainer
 import javax.swing.SwingUtilities
 
@@ -36,7 +37,7 @@ object KromiumWindowChrome {
     fun isMac(): Boolean = try {
         PlatformDetector.current().os == OperatingSystem.MacOS
     } catch (_: Throwable) {
-        val osName = System.getProperty("os.name")?.lowercase() ?: ""
+        val osName = System.getProperty("os.name")?.lowercase(Locale.ENGLISH) ?: ""
         osName.contains("mac") || osName.contains("darwin")
     }
 
