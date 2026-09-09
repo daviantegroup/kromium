@@ -172,11 +172,11 @@ public class CefBrowserOsr extends CefBrowser_N implements CefRenderHandler {
         this.canvas_.addMouseMotionListener(mouseAdapter);
         this.canvas_.addMouseWheelListener(mouseAdapter);
 
-        // Forward Keyboard Events and handle macOS system Command shortcuts in OSR mode
+        // Forward Keyboard Events and handle system shortcuts in OSR mode (Mac Cmd, Windows/Linux Ctrl)
         this.canvas_.addKeyListener(new KeyAdapter() {
             @Override
             public void keyTyped(KeyEvent e) {
-                if (IS_MAC && e.isMetaDown()) {
+                if (isShortcutModifier(e)) {
                     e.consume();
                     return;
                 }
@@ -185,8 +185,30 @@ public class CefBrowserOsr extends CefBrowser_N implements CefRenderHandler {
 
             @Override
             public void keyPressed(KeyEvent e) {
-                if (IS_MAC && e.isMetaDown()) {
-                    if (handleMacShortcut(e)) {
+                if (isShortcutModifier(e)) {
+                    if (handleShortcut(e)) {
+                        e.consume();
+                        return;
+                    }
+                }
+                // Standalone F5 on Windows/Linux for page reload
+                if (!IS_MAC && e.getKeyCode() == KeyEvent.VK_F5) {
+                    if (e.isControlDown() || e.isShiftDown()) {
+                        reloadIgnoreCache();
+                    } else {
+                        reload();
+                    }
+                    e.consume();
+                    return;
+                }
+                // Alt+Left / Alt+Right on Windows/Linux for browser history navigation
+                if (!IS_MAC && e.isAltDown() && !e.isControlDown()) {
+                    if (e.getKeyCode() == KeyEvent.VK_LEFT && canGoBack()) {
+                        goBack();
+                        e.consume();
+                        return;
+                    } else if (e.getKeyCode() == KeyEvent.VK_RIGHT && canGoForward()) {
+                        goForward();
                         e.consume();
                         return;
                     }
@@ -196,7 +218,7 @@ public class CefBrowserOsr extends CefBrowser_N implements CefRenderHandler {
 
             @Override
             public void keyReleased(KeyEvent e) {
-                if (IS_MAC && e.isMetaDown()) {
+                if (isShortcutModifier(e)) {
                     e.consume();
                     return;
                 }
@@ -208,7 +230,16 @@ public class CefBrowserOsr extends CefBrowser_N implements CefRenderHandler {
         this.canvas_.setRequestFocusEnabled(true);
     }
 
-    private boolean handleMacShortcut(KeyEvent e) {
+    private boolean isShortcutModifier(KeyEvent e) {
+        if (IS_MAC) {
+            return e.isMetaDown();
+        } else {
+            // Windows and Linux: Ctrl down, but NOT Alt (AltGr generates Ctrl+Alt)
+            return e.isControlDown() && !e.isAltDown();
+        }
+    }
+
+    private boolean handleShortcut(KeyEvent e) {
         int keyCode = e.getKeyCode();
         CefFrame frame = getFocusedFrame();
         if (frame == null) {
@@ -217,7 +248,11 @@ public class CefBrowserOsr extends CefBrowser_N implements CefRenderHandler {
 
         switch (keyCode) {
             case KeyEvent.VK_C:
+            case KeyEvent.VK_INSERT:
                 if (frame != null) {
+                    if (keyCode == KeyEvent.VK_INSERT && !e.isControlDown()) {
+                        break;
+                    }
                     frame.copy();
                     return true;
                 }

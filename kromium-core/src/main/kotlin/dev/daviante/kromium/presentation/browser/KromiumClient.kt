@@ -64,7 +64,9 @@ import org.cef.callback.CefDownloadItem
 import org.cef.callback.CefDownloadItemCallback
 import org.cef.callback.CefJSDialogCallback
 import org.cef.misc.BoolRef
+import org.cef.misc.EventFlags
 import org.cef.network.CefRequest
+import java.awt.event.KeyEvent
 
 private const val TAG = "KromiumClient"
 
@@ -832,6 +834,85 @@ class KromiumClient(
     fun removeKeyboardHandler(handler: CefKeyboardHandler) = apply { keyboardHandlers.remove(handler) }
     fun removeKeyboardHandler() = apply { keyboardHandlers.clear() }
 
+    internal fun handleCommandShortcut(
+        browser: CefBrowser,
+        event: CefKeyboardHandler.CefKeyEvent
+    ): Boolean {
+        val isCmd = (event.modifiers and EventFlags.EVENTFLAG_COMMAND_DOWN) != 0
+        if (!isCmd) return false
+
+        val isDown = event.type == CefKeyboardHandler.CefKeyEvent.EventType.KEYEVENT_RAWKEYDOWN ||
+            event.type == CefKeyboardHandler.CefKeyEvent.EventType.KEYEVENT_KEYDOWN
+        if (!isDown) return false
+
+        val frame = browser.focusedFrame ?: browser.mainFrame
+        val isShift = (event.modifiers and EventFlags.EVENTFLAG_SHIFT_DOWN) != 0
+
+        when (event.windows_key_code) {
+            KeyEvent.VK_C -> {
+                frame?.copy()
+                return true
+            }
+            KeyEvent.VK_V -> {
+                frame?.paste()
+                return true
+            }
+            KeyEvent.VK_X -> {
+                frame?.cut()
+                return true
+            }
+            KeyEvent.VK_A -> {
+                frame?.selectAll()
+                return true
+            }
+            KeyEvent.VK_Z -> {
+                if (isShift) {
+                    frame?.redo()
+                } else {
+                    frame?.undo()
+                }
+                return true
+            }
+            KeyEvent.VK_Y -> {
+                frame?.redo()
+                return true
+            }
+            KeyEvent.VK_R -> {
+                if (isShift) {
+                    browser.reloadIgnoreCache()
+                } else {
+                    browser.reload()
+                }
+                return true
+            }
+            KeyEvent.VK_EQUALS, KeyEvent.VK_PLUS, KeyEvent.VK_ADD, 187 -> {
+                browser.zoomLevel = browser.zoomLevel + 0.25
+                return true
+            }
+            KeyEvent.VK_MINUS, KeyEvent.VK_SUBTRACT, 189 -> {
+                browser.zoomLevel = browser.zoomLevel - 0.25
+                return true
+            }
+            KeyEvent.VK_0, KeyEvent.VK_NUMPAD0 -> {
+                browser.zoomLevel = 0.0
+                return true
+            }
+            KeyEvent.VK_LEFT, KeyEvent.VK_OPEN_BRACKET, 219 -> {
+                if (browser.canGoBack()) {
+                    browser.goBack()
+                    return true
+                }
+            }
+            KeyEvent.VK_RIGHT, KeyEvent.VK_CLOSE_BRACKET, 221 -> {
+                if (browser.canGoForward()) {
+                    browser.goForward()
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
     fun addPermissionHandler(handler: CefPermissionHandler) = apply { permissionHandlers.add(handler) }
     fun removePermissionHandler(handler: CefPermissionHandler) = apply { permissionHandlers.remove(handler) }
     fun removePermissionHandler() = apply { permissionHandlers.clear() }
@@ -1213,7 +1294,15 @@ class KromiumClient(
                         KromiumLogger.e(TAG, "Exception in onPreKeyEvent handler", e)
                     }
                 }
-                return handled
+                if (handled) return true
+
+                // In Windowed mode on macOS, Cocoa drops Command (⌘) shortcuts without an NSMenu.
+                // In OSR mode, CefBrowserOsr already consumed the AWT event before sending to CEF.
+                if (browser != null && event != null && handleCommandShortcut(browser, event)) {
+                    isKeyboardShortcut?.set(true)
+                    return true
+                }
+                return false
             }
 
             override fun onKeyEvent(
