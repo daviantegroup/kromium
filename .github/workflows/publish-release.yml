@@ -211,6 +211,7 @@ jobs:
         if: steps.check_trigger.outputs.proceed == 'true' && steps.preflight.outputs.proceed == 'true' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.event_name == 'push') && inputs.dry_run != true
         env:
           GH_TOKEN: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
+          CUSTOM_NOTES: ${{ inputs.custom_notes }}
         run: |
           PROJECT_VERSION="${{ steps.preflight.outputs.project_version }}"
           TAG_NAME="v$PROJECT_VERSION"
@@ -235,7 +236,6 @@ jobs:
           export PROJECT_VERSION="$PROJECT_VERSION"
           export TAG_NAME="$TAG_NAME"
           export UPSTREAM_VER="$(cat jcef-version.txt 2>/dev/null || echo '')"
-          export CUSTOM_NOTES="${{ inputs.custom_notes }}"
 
           echo "Generating GitHub Release notes for $TAG_NAME..."
           python3 -c '
@@ -298,7 +298,7 @@ jobs:
               // Compose Multiplatform Desktop
               implementation(\"dev.daviante:kromium-compose:{version}\")
 
-              // Standalone Kotlin JVM / Pure Java Swing
+              // Standalone Kotlin JVM / Universal Java Desktop (Swing, AWT, SWT, JavaFX)
               implementation(\"dev.daviante:kromium-core:{version}\")
           }}
           ```
