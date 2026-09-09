@@ -31,6 +31,9 @@ public class CefBrowserOsr extends CefBrowser_N implements CefRenderHandler {
     private Point screenPoint_ = new Point(0, 0);
     private double scaleFactor_ = detectDefaultScaleFactor();
     private boolean autoDetectScaleFactor_ = true;
+    private double scrollMultiplier_ = 1.0;
+    private double scrollRemainder_ = 0.0;
+    private static final boolean IS_MAC = System.getProperty("os.name", "").toLowerCase().contains("mac");
     private int depth = 32;
     private int depth_per_component = 8;
     private boolean isTransparent_;
@@ -129,21 +132,39 @@ public class CefBrowserOsr extends CefBrowser_N implements CefRenderHandler {
             public void mouseDragged(MouseEvent e) { sendMouseEvent(e); }
             @Override
             public void mouseWheelMoved(MouseWheelEvent e) {
-                // Amplify scroll distance by multiplying wheel rotation and scroll amount instead of spamming native IPC messages
-                MouseWheelEvent amplifiedEvent = new MouseWheelEvent(
-                    (java.awt.Component) e.getSource(),
-                    e.getID(),
-                    e.getWhen(),
-                    e.getModifiersEx(),
-                    e.getX(),
-                    e.getY(),
-                    e.getClickCount(),
-                    e.isPopupTrigger(),
-                    e.getScrollType(),
-                    e.getScrollAmount() * 9,
-                    e.getWheelRotation() * 9
-                );
-                sendMouseWheelEvent(amplifiedEvent);
+                // High-precision scroll handling for macOS trackpads / Magic Mouse and smooth Windows scrolling.
+                // On macOS, trackpads dispatch high-frequency events (~60-120Hz) with fractional preciseWheelRotation.
+                // Java AWT's integer getWheelRotation() returns 0 for most of those events until thresholding,
+                // which previously caused an artificial dead-zone ("stuck" / delayed response).
+                double rotation = e.getPreciseWheelRotation();
+                if (rotation == 0.0) {
+                    rotation = e.getWheelRotation();
+                }
+
+                int scrollAmount = Math.max(1, e.getScrollAmount());
+                double basePixelsPerUnit = IS_MAC ? 24.0 : 28.0;
+                double totalDelta = (rotation * scrollAmount * basePixelsPerUnit * scrollMultiplier_) + scrollRemainder_;
+                int deltaPixels = (int) totalDelta;
+                scrollRemainder_ = totalDelta - deltaPixels;
+
+                if (deltaPixels != 0) {
+                    // JCEF's native SendMouseWheelEvent invokes getUnitsToScroll() (= scrollAmount * wheelRotation).
+                    // By passing scrollAmount = 1 and wheelRotation = deltaPixels, JCEF receives exactly deltaPixels.
+                    MouseWheelEvent smoothedEvent = new MouseWheelEvent(
+                        (java.awt.Component) e.getSource(),
+                        e.getID(),
+                        e.getWhen(),
+                        e.getModifiersEx(),
+                        e.getX(),
+                        e.getY(),
+                        e.getClickCount(),
+                        e.isPopupTrigger(),
+                        MouseWheelEvent.WHEEL_UNIT_SCROLL,
+                        1,
+                        deltaPixels
+                    );
+                    sendMouseWheelEvent(smoothedEvent);
+                }
             }
         };
         this.canvas_.addMouseListener(mouseAdapter);
@@ -198,6 +219,16 @@ public class CefBrowserOsr extends CefBrowser_N implements CefRenderHandler {
 
     public KromiumOSRPanel getOSRPanel() {
         return canvas_;
+    }
+
+    public void setScrollMultiplier(double multiplier) {
+        if (multiplier > 0.0) {
+            this.scrollMultiplier_ = multiplier;
+        }
+    }
+
+    public double getScrollMultiplier() {
+        return scrollMultiplier_;
     }
 
     @Override

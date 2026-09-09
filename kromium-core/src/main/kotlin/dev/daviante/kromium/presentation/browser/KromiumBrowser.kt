@@ -124,6 +124,15 @@ class KromiumBrowser(
             osrPanel?.byteOrder = value
         }
 
+    /**
+     * Scroll sensitivity multiplier for OSR mode (default: 1.0).
+     */
+    var scrollMultiplier: Double
+        get() = (browser as? CefBrowserOsr)?.scrollMultiplier ?: 1.0
+        set(value) {
+            (browser as? CefBrowserOsr)?.scrollMultiplier = value
+        }
+
     val url: String? get() = browser.url
 
     fun loadUrl(url: String) {
