@@ -6,7 +6,7 @@
     <source media="(prefers-color-scheme: light)" srcset="assets/brand.svg">
     <img alt="Kromium" src="assets/brand.svg" width="320">
   </picture>
-  <p><strong>Modern Chromium Embedded Framework for Compose Multiplatform Desktop &amp; Pure Java Applications</strong></p>
+  <p><strong>Modern Chromium Embedded Framework for Compose Multiplatform Desktop &amp; Universal Java (Swing, AWT, SWT, JavaFX) Applications</strong></p>
 
   <p>
     <a href="https://central.sonatype.com/artifact/dev.daviante/kromium-compose"><img src="https://img.shields.io/badge/Maven_Central-v2.1.150--b11-107c41?style=flat-square&logo=apachemaven" alt="Maven Central" /></a>
@@ -21,9 +21,9 @@
 
 ---
 
-**Kromium** is an open-source, production-grade Chromium Embedded Framework (CEF) library built with **first-class dual ergonomics** for **Compose Multiplatform Desktop** and **100% Pure Java (Swing / Enterprise)** applications across Windows, macOS, and Linux.
+**Kromium** is an open-source, production-grade Chromium Embedded Framework (CEF) library built with **first-class multi-toolkit ergonomics** for **Compose Multiplatform Desktop** and the entire **Universal Java Desktop ecosystem (Swing, AWT, Eclipse SWT, JavaFX)** across Windows, macOS, and Linux.
 
-Backed by **CEF 150** and the battle-tested JetBrains JCEF runtime, Kromium delivers on-demand bootstrapping, hardware-accelerated rendering, virtual asset streaming via custom protocols (`app://`), asynchronous PDF export, declarative context menus, WebRTC permission interception, two-way JavaScript IPC bridges, and enterprise proxying.
+Backed by **CEF 150** and the battle-tested JetBrains JCEF runtime, Kromium delivers on-demand bootstrapping, hardware-accelerated rendering, pure Java2D lightweight off-screen rendering (OSR), dynamic HiDPI scaling, virtual asset streaming via custom protocols (`app://`), asynchronous PDF export, declarative context menus, WebRTC permission interception, two-way JavaScript IPC bridges, and enterprise proxying.
 
 > [!TIP]
 > **Explore the Interactive Documentation Portal**: Visit **[kromium.daviante.dev](https://kromium.daviante.dev)** for interactive guides, API search, and live demos. Full technical documentation is also maintained in the **[`docs/`](docs/)** directory.
@@ -32,7 +32,9 @@ Backed by **CEF 150** and the battle-tested JetBrains JCEF runtime, Kromium deli
 
 ## 🌟 Highlights & Killer Features
 
-* 🚀 **Dual-Engine Ergonomics**: Native declarative `@Composable KromiumView` with reactive state flows for Compose Desktop, and a pure, fluent Java API (`CompletableFuture`, SAM lambdas, zero Kotlin runtime requirements) for Swing and enterprise JVM applications.
+* 🚀 **Universal Java Desktop Ecosystem**: Native declarative `@Composable KromiumView` for Compose Desktop, alongside first-class support for **Java Swing**, **Standard AWT**, **Eclipse SWT**, and **JavaFX** with zero Kotlin runtime dependencies required for JVM callers.
+* 🎨 **Pure Java2D Lightweight OSR (Zero JOGL/OpenGL)**: Built-in `KromiumOSRPanel` draws Chromium byte buffers directly into Java2D double-buffered images, completely resolving Swing/JavaFX airspace and Z-ordering conflicts without external OpenGL native libraries.
+* 🖥️ **Automatic HiDPI / Retina Scaling**: Dynamic scale factor detection (`AffineTransform.getScaleX()`) and real-time screen info synchronization guarantee razor-sharp web rendering across mixed 125%, 150%, and 200% displays on Windows, macOS, and Linux.
 * 📦 **Zero-Bloat On-Demand Bootstrapping**: Ship ultra-compact 15–30 MB desktop installers. Kromium downloads, verifies with SHA-256, extracts, and caches the native platform JCEF runtime on first launch.
 * 🌐 **Virtual Asset Streaming (`app://`)**: Stream local bundled HTML, CSS, JS, and WebAssembly directly from classpath resources or local directories via custom protocols without running a local HTTP server.
 * 📄 **Async Vector PDF Export & Native Print Dialog**: Non-blocking document printing via Kotlin Coroutines (`printToPdf`) or Java `CompletableFuture` (`printToPdfAsync`), plus native OS print dialogs (`print()`).
@@ -41,7 +43,7 @@ Backed by **CEF 150** and the battle-tested JetBrains JCEF runtime, Kromium deli
 * ⚡ **Two-Way JavaScript Bridge**: Coroutine and `CompletableFuture` JS evaluation, DOM extraction, and secure type-safe bidirectional IPC routing using `@JavascriptInterface`.
 * 🏢 **Enterprise Proxy & Network Management**: Dynamic runtime proxy switching (PAC, WPAD, HTTPS TLS tunnels, SOCKS5 remote DNS), NTLM/Kerberos SSO, SSL error policies, and host locking.
 * ☕ **Zero JVM Module Configuration**: Automatic runtime module opening eliminates manual `--add-opens` flags on Java 17, 21, and 23+.
-* 🤖 **Zero-Dependency Headless Automation**: Automated offscreen rendering, DOM scraping, and screenshot capture without fragile OpenGL/JOGL setup.
+* 🤖 **Zero-Dependency Headless Automation**: Automated offscreen rendering, DOM scraping, and screenshot capture without display servers or fragile OpenGL bindings.
 
 ---
 
@@ -157,7 +159,22 @@ public class QuickstartJava {
 
 ---
 
-## ✨ Core Capabilities Showcase
+## 🖥️ Universal Java Desktop Compatibility Matrix
+
+Kromium is engineered to run seamlessly across every major JVM graphical toolkit. Choose the optimal rendering mode and container for your architecture:
+
+| Framework / Toolkit | Recommended Mode | Underlying Technology | Primary Container | Sample Project |
+|:---|:---|:---|:---|:---|
+| **Compose Multiplatform** | **Windowed (GPU)** *(or OSR)* | Skia Hole-Punching via `SwingPanel` | `@Composable KromiumView` | [`:kromium-sample-compose`](kromium-sample-compose/) |
+| **Java Swing** | **Lightweight OSR** *(Default)* | Pure Java2D `KromiumOSRPanel` | `JFrame` / `JPanel` | [`:kromium-sample-swing`](kromium-sample-swing/) |
+| **Standard AWT** | **Heavyweight Windowed** | Native OS Window embedding | `java.awt.Frame` / `Panel` | [`:kromium-sample-awt`](kromium-sample-awt/) |
+| **Eclipse SWT** | **Heavyweight Windowed** | Bridged AWT Composite (`SWT_AWT`) | `org.eclipse.swt.widgets.Shell` | [`:kromium-sample-swt`](kromium-sample-swt/) |
+| **JavaFX** | **Lightweight OSR** | Embedded Swing wrapper (`SwingNode`) | `javafx.scene.Scene` / `SwingNode` | [`:kromium-sample-javafx`](kromium-sample-javafx/) |
+
+> [!TIP]
+> For complete setup instructions and code examples for each framework, see the [Universal Java Desktop Quickstart](docs/getting-started/quickstart-jvm.md).
+
+---
 
 ### 1. 🌐 Virtual Local Asset Streaming (`app://`)
 
@@ -533,21 +550,37 @@ Visit the master sitemap at **[`docs/README.md`](docs/README.md)**.
 
 ## 🚀 Running the Showcase Demos
 
-The repository includes ready-to-run desktop browser applications demonstrating all features:
+The repository includes ready-to-run desktop browser applications demonstrating every framework integration:
 
 ### 1. Compose Multiplatform Browser Demo
-
 ```bash
 ./gradlew :kromium-sample-compose:run
 ```
 *Features multi-tab browsing, DevTools REPL, live canvas animation, and visible text extraction.*
 
 ### 2. Pure Java & Swing Showcase Demo
-
 ```bash
 ./gradlew :kromium-sample-swing:run
 ```
-*Features modern FlatLaf dark theme, download manager dialog, proxy switching, and native print preview.*
+*Features lightweight pure Java2D OSR rendering, modern FlatLaf dark theme, download manager dialog, proxy switching, and native print preview.*
+
+### 3. Standard AWT Heavyweight Browser Demo
+```bash
+./gradlew :kromium-sample-awt:run
+```
+*Demonstrates native heavyweight `java.awt.Frame` embedding with functional navigation toolbar and clean lifecycle disposal.*
+
+### 4. Eclipse SWT Bridged Browser Demo
+```bash
+./gradlew :kromium-sample-swt:run
+```
+*Demonstrates embedding CEF inside an Eclipse SWT application via `SWT_AWT.new_Frame` with full toolbar controls and SWT event loop handling.*
+
+### 5. JavaFX Bridged OSR Browser Demo
+```bash
+./gradlew :kromium-sample-javafx:run
+```
+*Demonstrates embedding lightweight OSR Chromium inside a JavaFX `Scene` via `SwingNode` with dynamic HiDPI scaling, scene resize synchronization, and navigation controls.*
 
 ---
 

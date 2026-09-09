@@ -1,6 +1,6 @@
 # Kromium Documentation Hub
 
-Welcome to the official documentation for **Kromium**, the high-performance, enterprise-grade Chromium browser engine for **Compose Multiplatform Desktop** and **Pure Java (Swing / Enterprise JVM)** applications.
+Welcome to the official documentation for **Kromium**, the high-performance, enterprise-grade Chromium browser engine for **Compose Multiplatform Desktop** and the **Universal Java Desktop ecosystem (Swing, AWT, Eclipse SWT, JavaFX)**.
 
 ---
 
@@ -52,8 +52,8 @@ New to Kromium? Start here:
    Gradle (Kotlin & Groovy) coordinates, Maven POM configuration, OS-level prerequisites, and JVM module flags.
 2. [**Quickstart: Compose Multiplatform Desktop**](getting-started/quickstart-compose.md)  
    Build a complete reactive desktop browser with `@Composable KromiumView`, state observers, native window chrome, custom context menus, WebRTC permissions, and PDF printing in minutes.
-3. [**Quickstart: Pure Java / Swing**](getting-started/quickstart-jvm.md)  
-   Mount `KromiumBrowser` directly inside enterprise `JFrame` or `JPanel` windows with zero Kotlin runtime dependencies, using standard `CompletableFuture` and SAM lambdas.
+3. [**Quickstart: Universal Java Desktop (Swing, AWT, SWT, JavaFX)**](getting-started/quickstart-jvm.md)  
+   Mount `KromiumBrowser` directly into Swing (`JFrame`), standard AWT (`Frame`), Eclipse SWT (`SWT_AWT`), or JavaFX (`SwingNode`) with zero Kotlin runtime dependencies, using standard `CompletableFuture` and SAM lambdas.
 
 ---
 

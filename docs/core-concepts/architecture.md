@@ -72,39 +72,79 @@ When `KromiumEngine.initialize()` is called:
 
 ## 🖥️ Rendering Modes: Windowed vs. Off-Screen (OSR)
 
-Kromium supports two distinct rendering pipelines to safely bridge Chromium into the JVM environment. The default mode depends on your UI framework:
+Kromium supports two distinct rendering pipelines to safely bridge Chromium into the JVM environment. The optimal mode depends on your UI framework and layout architecture:
 
 ### The "Heavyweight vs. Lightweight" Java Flaw
-Historically, Java AWT components (like native OS window handles) are known as **Heavyweight** components, while Swing components (like `JButton`, `JTextField`) are drawn purely in Java memory as **Lightweight** components. 
+Historically, Java AWT components (like native OS window handles) are known as **Heavyweight** components, while Swing components (like `JButton`, `JMenu`, `JPopupMenu`) are rendered purely in Java memory as **Lightweight** components. 
 
-Embedding a native Chromium window inside a Java Swing hierarchy creates a severe Heavyweight/Lightweight mixing conflict. Because the native OS window always renders independently, it permanently sits on top of all Swing components (causing Z-ordering bugs where dropdown menus hide behind the browser) and bypasses Java's keyboard focus manager (causing focus-stealing loops).
+Embedding a native Chromium window inside a Java Swing hierarchy creates a severe Heavyweight/Lightweight mixing conflict (the "airspace" problem). Because the native OS window always renders independently on the window server level:
+1. It permanently sits on top of all Swing lightweight components, causing dropdown menus, tooltips, and modal dialogs to render invisible behind the browser window.
+2. It bypasses Java's keyboard focus manager, causing focus-stealing loops and broken tab-traversal.
 
-### Off-Screen Rendering (OSR) for Java Swing
-To solve this fundamental Java architectural limitation, **Kromium defaults to OSR (`isOffScreenRendered = true`) for all pure Java/Swing integrations.**
+---
 
-In OSR mode, Chromium uses JOGL (Java OpenGL) to render web frames purely into an off-screen memory buffer (a Lightweight `GLJPanel`). Because there is no native OS window handle, the browser plays perfectly by Swing's rules: Z-ordering is flawless, popups render on top, and keyboard focus is strictly managed by Java.
+### Pure Java2D Lightweight OSR (Swing & JavaFX Default)
 
-### Windowed Mode for Compose Desktop
-Jetpack Compose Desktop operates differently. It utilizes Skia for drawing and explicitly supports embedding Heavyweight components via `SwingPanel` by intelligently cutting transparent "holes" in its own canvas to let the underlying native OS window shine through. 
+To permanently resolve this architectural flaw without introducing fragile native bindings, **Kromium implements a 100% Pure Java2D Off-Screen Rendering (OSR) engine (`KromiumOSRPanel`) with zero JOGL or external OpenGL dependencies.**
 
-Because Compose gracefully handles Heavyweight clipping, **Kromium Compose explicitly defaults to Windowed mode (`isOffScreenRendered = false`)** to leverage direct hardware-accelerated zero-copy compositing for maximum performance.
+```
+┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
+│ Chromium Native │ onPaint│ Direct Memory   │ Atomic│ Pure Java2D     │
+│ Pixel Buffer    ├──────►│ IntBuffer Copy  ├──────►│ Double-Buffer   ├──────► Swing / JavaFX
+│ (BGRA / OSR)    │       │ (Little-Endian) │ Swap  │ (BufferedImage) │        Scene Graph
+└─────────────────┘       └─────────────────┘       └─────────────────┘
+```
 
-| Feature | Windowed Rendering (Compose Default) | Off-Screen Rendering (Swing Default) |
+#### How the Java2D Pipeline Works:
+1. **Direct Memory Mapping**: Chromium renders off-screen web frames directly into a shared native memory `ByteBuffer` in BGRA format.
+2. **Zero-Overhead IntBuffer Copy**: `KromiumOSRPanel` maps the byte buffer to a little-endian `IntBuffer` and performs a high-speed CPU array copy directly into the `DataBufferInt` of a pre-allocated `BufferedImage` (`TYPE_INT_ARGB_PRE`).
+3. **Double-Buffering & Atomic Swap**: To prevent screen tearing during rapid DOM animations or 60 FPS video playback, `KromiumOSRPanel` maintains separate front and back buffers, atomically swapping references inside a synchronized lock.
+4. **Popup Layer Compositing**: HTML select dropdowns, autocomplete menus, and context popups are rendered via an independent `popupBuffer` and composited directly at their logical coordinates during `paintComponent()`.
+
+Because the browser is drawn purely as a Swing `JPanel`, **Z-ordering is flawless, Swing popup menus float seamlessly over the web content, and keyboard focus is strictly governed by the standard Java AWT Focus Manager.**
+
+---
+
+### Dynamic HiDPI / Retina Scale Factor Detection
+
+A classic challenge with off-screen rendering is blurry or pixelated text on fractional scaling displays (e.g. Windows 125%, 150%, or macOS Retina 200%). 
+
+Kromium solves this via automated runtime DPI detection inside `CefBrowserOsr`:
+- During each paint pass, `CefBrowserOsr` queries `Graphics2D.getTransform().getScaleX()` and the display's `GraphicsConfiguration`.
+- If a DPI scale change is detected (or upon initial layout on a HiDPI screen), Kromium immediately invokes `notifyScreenInfoChanged()` and notifies Chromium via `wasResized(width, height)`.
+- Chromium automatically rasterizes frames at the native physical pixel resolution, while Java2D renders the high-res buffer crisp and sharp without scaling artifacts or downsampling blur.
+
+---
+
+### Windowed Mode (Compose Desktop, AWT & Eclipse SWT)
+
+For desktop toolkits that directly manage native OS window handles, **Windowed rendering (`windowlessRendering = false`)** provides direct GPU zero-copy compositing:
+- **Jetpack / JetBrains Compose Desktop**: Compose operates on a Skia rendering canvas and explicitly supports heavyweight components via `SwingPanel` by cutting transparent "holes" in its canvas to allow the underlying native OS window to show through.
+- **Standard AWT**: `java.awt.Frame` is a native heavyweight container that hosts the Chromium native OS window handle (`HWND` on Windows, `NSView` on macOS, X11 `Window` on Linux) with direct hardware acceleration.
+- **Eclipse SWT**: SWT's native `Composite` integrates with AWT using `SWT_AWT.new_Frame(composite)`, providing direct native handle hosting with optimal performance.
+
+---
+
+### Architectural Toolkit Comparison
+
+| Feature | Windowed Mode (Compose, AWT, SWT) | Pure Java2D OSR Mode (Swing, JavaFX) |
 |:---|:---|:---|
-| **Underlying Component** | Native OS Window Handle (`HWND`, `NSView`) embedded directly. | Lightweight Java2D/OpenGL buffer (`GLJPanel`). |
-| **Performance** | **Maximum 60/120+ FPS**. Direct GPU zero-copy compositing. | Excellent, but incurs a minor CPU-GPU buffer copy overhead. |
-| **Focus & Z-Ordering** | Managed natively by the OS (Can break pure Swing apps). | Managed perfectly by the Java AWT Focus Manager. |
-| **Compose Overlays** | Requires Compose popup windows to float above. | Allows direct semi-transparent Compose overlays. |
+| **Underlying Component** | Native OS Window Handle (`HWND`, `NSView`, X11) | Pure Java2D `JPanel` (`BufferedImage`) |
+| **Dependencies** | Zero extra dependencies (Native JCEF core) | Zero extra dependencies (Pure Java Standard Library) |
+| **Performance** | **Maximum 60/120+ FPS** direct GPU zero-copy | Smooth 60 FPS, ultra-efficient memory array copy |
+| **Focus & Z-Ordering** | Native OS window manager | Managed by Java AWT / JavaFX Focus Managers |
+| **Overlays & Popups** | Requires OS popup windows or Compose popups | Full support for lightweight Swing/JavaFX overlays |
+| **HiDPI Support** | Managed automatically by OS window server | Dynamic auto-detection via `AffineTransform` |
 
 ---
 
 ## 🧵 Threading Model & Concurrency Guarantees
 
-Desktop applications deal with multiple asynchronous threads. Kromium strictly enforces thread safety:
+Desktop applications deal with multiple asynchronous threads. Kromium strictly enforces thread safety across framework boundaries:
 
 ### 1. The AWT Event Dispatch Thread (EDT)
-All UI interactions, component mounting, and Compose recompositions happen on the Java AWT Event Dispatch Thread.
-- Accessing `browser.getUIComponent()` must occur on the EDT.
+All UI interactions, component mounting, and Swing/Compose operations happen on the Java AWT Event Dispatch Thread.
+- Accessing `browser.getUiComponent()` must occur on the EDT.
 - In Compose Desktop, `KromiumView` automatically schedules mounting operations on the EDT.
 
 ### 2. The Chromium UI Thread
@@ -112,7 +152,7 @@ The native Chromium core runs its own internal event loop. Kromium dispatches cr
 
 ### 3. Asynchronous Worker Threads (`CompletableFuture` / Kotlin Coroutines)
 All heavy or I/O-bound operations in Kromium are non-blocking:
-- `evaluateJavascriptAsync()` returns a `CompletableFuture<String>` or runs as a suspending function `evaluateJavascript()`.
+- `evaluateJavascript()` returns a `CompletableFuture<String>` or runs as a suspending function in Kotlin.
 - `printToPdfAsync()` generates vector PDF documents asynchronously without blocking the UI thread.
 - File downloads and cookie reads stream asynchronously.
 
@@ -121,10 +161,11 @@ All heavy or I/O-bound operations in Kromium are non-blocking:
 ```java
 package com.example.architecture;
 
-import dev.daviante.kromium.KromiumBrowser;
-import dev.daviante.kromium.KromiumClient;
-import dev.daviante.kromium.KromiumConfig;
-import dev.daviante.kromium.KromiumEngine;
+import dev.daviante.kromium.domain.config.KromiumConfig;
+import dev.daviante.kromium.presentation.browser.Kromium;
+import dev.daviante.kromium.presentation.browser.KromiumBrowser;
+import dev.daviante.kromium.presentation.browser.KromiumClient;
+
 import java.awt.BorderLayout;
 import java.util.concurrent.CompletableFuture;
 import javax.swing.JFrame;
@@ -132,24 +173,24 @@ import javax.swing.SwingUtilities;
 
 public final class ThreadSafeArchitectureDemo {
     public static void main(String[] args) {
-        // Step 1: Initialize the Chromium engine
-        KromiumConfig config = new KromiumConfig();
-        KromiumEngine.getInstance().initialize(config);
+        // Step 1: Configure and initialize the Kromium engine
+        KromiumConfig config = KromiumConfig.builder().build();
+        Kromium.initialize(config);
 
         // Step 2: Ensure UI creation happens on AWT Event Dispatch Thread
         SwingUtilities.invokeLater(() -> {
-            KromiumClient client = KromiumEngine.getInstance().createClient();
-            KromiumBrowser browser = client.createBrowser("https://example.com");
+            KromiumClient client = Kromium.newClient();
+            KromiumBrowser browser = client.createBrowser("https://adoptium.net");
 
             JFrame frame = new JFrame("Kromium Threading Architecture");
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             frame.setSize(1024, 768);
             frame.setLayout(new BorderLayout());
-            frame.add(browser.getUIComponent(), BorderLayout.CENTER);
+            frame.add(browser.getUiComponent(), BorderLayout.CENTER);
             frame.setVisible(true);
 
             // Step 3: Execute asynchronous operation without blocking the EDT
-            CompletableFuture<String> titleFuture = browser.evaluateJavascriptAsync("document.title");
+            CompletableFuture<String> titleFuture = browser.evaluateJavascript("document.title");
             titleFuture.thenAccept(title -> {
                 // Return to EDT to update UI
                 SwingUtilities.invokeLater(() -> frame.setTitle("Page Title: " + title));

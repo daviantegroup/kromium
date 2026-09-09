@@ -11,7 +11,7 @@ Kromium artifacts are published to **Maven Central** under the group ID `dev.dav
 | Artifact | Purpose | Best For |
 |:---|:---|:---|
 | **`dev.daviante:kromium-compose:3.0.150-b11`** | `@Composable KromiumView`, reactive `KromiumViewState`, and Compose Multiplatform desktop integration. | Jetpack / JetBrains Compose Desktop applications. |
-| **`dev.daviante:kromium-core:3.0.150-b11`** | Pure JVM engine, `KromiumClient`, `KromiumBrowser`, headless automation, and pure Java APIs (`CompletableFuture`, SAM callbacks). | Pure Java, Swing, JavaFX, CLI, and headless servers. |
+| **`dev.daviante:kromium-core:3.0.150-b11`** | Pure JVM engine, `KromiumClient`, `KromiumBrowser`, headless automation, and pure Java APIs (`CompletableFuture`, SAM callbacks). | Pure Java, Swing, Standard AWT, Eclipse SWT, JavaFX, CLI, and headless servers. |
 
 ---
 
@@ -37,7 +37,7 @@ dependencies {
     // For Compose Desktop:
     implementation("dev.daviante:kromium-compose:3.0.150-b11")
 
-    // Or for Pure Java / Swing / Headless:
+    // Or for Universal Java Desktop (Swing, AWT, SWT, JavaFX, Headless):
     implementation("dev.daviante:kromium-core:3.0.150-b11")
 }
 
@@ -98,6 +98,24 @@ java {
         </dependency>
     </dependencies>
 </project>
+```
+
+### 4. Toolkit UI Dependencies (SWT & JavaFX)
+
+When pairing `kromium-core` with Eclipse SWT or JavaFX, add the corresponding framework libraries:
+
+```kotlin
+// build.gradle.kts
+dependencies {
+    implementation("dev.daviante:kromium-core:3.0.150-b11")
+
+    // Eclipse SWT (select platform artifact or dynamic classifier):
+    implementation("org.eclipse.platform:org.eclipse.swt.win32.win32.x86_64:3.128.0")
+
+    // JavaFX (requires javafx-controls and javafx-swing for SwingNode):
+    implementation("org.openjfx:javafx-controls:21.0.6")
+    implementation("org.openjfx:javafx-swing:21.0.6")
+}
 ```
 
 ---

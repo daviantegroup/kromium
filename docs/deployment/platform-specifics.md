@@ -58,10 +58,13 @@ Chromium requires the **Microsoft Visual C++ 2015–2022 Redistributable** (`x64
   vc_redist.x64.exe /install /quiet /norestart
   ```
 
-### Per-Monitor High DPI Scaling
-Windows 10/11 multi-monitor setups often combine different scaling factors (e.g. 200% on a 4K display, 100% on a 1080p side monitor). Kromium automatically listens to DPI change events and rescales CEF surfaces dynamically.
+### Per-Monitor High DPI Scaling & Fractional Displays
+Windows 10/11 multi-monitor setups frequently mix fractional scaling factors (e.g. 125% or 150% on laptop screens, 100% on external monitors, 200% on 4K displays).
 
-To prevent Windows from applying bitmap stretching:
+* **Lightweight OSR Mode (Swing / JavaFX)**: Kromium's `CefBrowserOsr` inspects the active `AffineTransform` on each paint pass. When the window is moved across monitors with different scaling or the display scale changes, Kromium automatically notifies Chromium via `notifyScreenInfoChanged()` and resizes the internal raster buffer, preventing blurry bitmap interpolation.
+* **Windowed Mode (Compose / AWT / SWT)**: CEF dynamically renders directly at the native OS window resolution.
+
+To ensure Java doesn't apply artificial DPI virtualization:
 ```xml
 <!-- application manifest or JVM flag -->
 -Dsun.java2d.dpiaware=true
@@ -103,3 +106,26 @@ CEF Windowed rendering utilizes X11 window primitives. While modern Linux distri
 ```bash
 export GDK_BACKEND=x11
 ```
+
+---
+
+## 🪟 Toolkit-Specific Platform Notes
+
+### Eclipse SWT Bridging (`SWT_AWT`)
+* **macOS Event Loop Requirement**: On macOS, SWT requires the event loop to run on the very first thread of the application process. Add the `-XstartOnFirstThread` JVM argument when running SWT apps on macOS:
+  ```bash
+  java -XstartOnFirstThread -jar my-swt-app.jar
+  ```
+* **Windows HWND Parenting**: `SWT_AWT.new_Frame(composite)` smoothly parents the Chromium native HWND inside the SWT Win32 widget hierarchy.
+* **Linux GTK Sockets**: SWT on Linux creates a `GtkSocket` to host the AWT XEmbed canvas. Ensure `libgtk-3-0` is installed.
+
+### JavaFX `SwingNode` Embedding
+* **Module Requirement**: When running JavaFX with modular Java, ensure the `javafx.swing` module is included:
+  ```kotlin
+  // build.gradle.kts
+  javafx {
+      version = "21.0.6"
+      modules = listOf("javafx.controls", "javafx.swing")
+  }
+  ```
+* **Threading Contract**: All calls modifying JavaFX scene nodes (like `swingNode.setContent(component)`) must execute on the JavaFX Application Thread via `Platform.runLater()`. All calls interacting with Swing/AWT components must execute on the AWT Event Dispatch Thread via `SwingUtilities.invokeLater()`.
