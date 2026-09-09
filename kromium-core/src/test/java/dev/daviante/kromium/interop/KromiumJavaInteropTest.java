@@ -382,4 +382,24 @@ public class KromiumJavaInteropTest {
         assertEquals(76, KromiumWindowChrome.DEFAULT_MAC_TRAFFIC_LIGHTS_WIDTH);
         assertEquals(38, KromiumWindowChrome.DEFAULT_MAC_TRAFFIC_LIGHTS_HEIGHT);
     }
+
+    @Test
+    public void testKromiumOSRPanelErgonomicsAndDefaults() {
+        dev.daviante.kromium.osr.awt.KromiumOSRPanel panel = new dev.daviante.kromium.osr.awt.KromiumOSRPanel();
+
+        // Default optimal configurations
+        assertEquals(java.awt.image.BufferedImage.TYPE_INT_ARGB_PRE, panel.getBufferedImageType());
+        assertEquals(java.nio.ByteOrder.LITTLE_ENDIAN, panel.getByteOrder());
+
+        // Developer customizations
+        panel.setBufferedImageType(java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        assertEquals(java.awt.image.BufferedImage.TYPE_INT_ARGB, panel.getBufferedImageType());
+
+        panel.setByteOrder(java.nio.ByteOrder.BIG_ENDIAN);
+        assertEquals(java.nio.ByteOrder.BIG_ENDIAN, panel.getByteOrder());
+
+        panel.setInterpolation(java.awt.RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+        assertEquals(java.awt.RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR,
+                panel.getRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION));
+    }
 }

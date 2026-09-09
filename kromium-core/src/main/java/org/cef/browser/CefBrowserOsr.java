@@ -24,12 +24,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
-class CefBrowserOsr extends CefBrowser_N implements CefRenderHandler {
+public class CefBrowserOsr extends CefBrowser_N implements CefRenderHandler {
     private final KromiumOSRPanel canvas_;
     private boolean justCreated_ = false;
     private Rectangle browser_rect_ = new Rectangle(0, 0, 1, 1);
     private Point screenPoint_ = new Point(0, 0);
     private double scaleFactor_ = detectDefaultScaleFactor();
+    private boolean autoDetectScaleFactor_ = true;
     private int depth = 32;
     private int depth_per_component = 8;
     private boolean isTransparent_;
@@ -62,14 +63,16 @@ class CefBrowserOsr extends CefBrowser_N implements CefRenderHandler {
                     depth_per_component = config.getColorModel().getComponentSize()[0];
                     AffineTransform transform = g2d.getTransform();
                     
-                    double newScaleFactor = transform.getScaleX();
-                    if (newScaleFactor <= 0.0) {
-                        newScaleFactor = detectDefaultScaleFactor();
-                    }
-                    if (scaleFactor_ != newScaleFactor) {
-                        scaleFactor_ = newScaleFactor;
-                        notifyScreenInfoChanged();
-                        wasResized(getWidth(), getHeight());
+                    if (autoDetectScaleFactor_) {
+                        double newScaleFactor = transform.getScaleX();
+                        if (newScaleFactor <= 0.0) {
+                            newScaleFactor = detectDefaultScaleFactor();
+                        }
+                        if (scaleFactor_ != newScaleFactor) {
+                            scaleFactor_ = newScaleFactor;
+                            notifyScreenInfoChanged();
+                            wasResized(getWidth(), getHeight());
+                        }
                     }
                 }
             
@@ -162,13 +165,39 @@ class CefBrowserOsr extends CefBrowser_N implements CefRenderHandler {
     }
 
     public void setScaleFactor(double factor) {
-        if (factor > 0.0 && this.scaleFactor_ != factor) {
+        if (factor > 0.0 && (this.scaleFactor_ != factor || this.autoDetectScaleFactor_)) {
             this.scaleFactor_ = factor;
+            this.autoDetectScaleFactor_ = false;
             notifyScreenInfoChanged();
             if (canvas_.getWidth() > 0 && canvas_.getHeight() > 0) {
                 wasResized(canvas_.getWidth(), canvas_.getHeight());
             }
         }
+    }
+
+    public void setAutoDetectScaleFactor(boolean autoDetect) {
+        if (this.autoDetectScaleFactor_ != autoDetect) {
+            this.autoDetectScaleFactor_ = autoDetect;
+            if (autoDetect) {
+                this.scaleFactor_ = detectDefaultScaleFactor();
+                notifyScreenInfoChanged();
+                if (canvas_.getWidth() > 0 && canvas_.getHeight() > 0) {
+                    wasResized(canvas_.getWidth(), canvas_.getHeight());
+                }
+            }
+        }
+    }
+
+    public boolean isAutoDetectScaleFactor() {
+        return autoDetectScaleFactor_;
+    }
+
+    public double getScaleFactor() {
+        return scaleFactor_;
+    }
+
+    public KromiumOSRPanel getOSRPanel() {
+        return canvas_;
     }
 
     @Override

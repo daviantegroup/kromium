@@ -8,15 +8,19 @@ import dev.daviante.kromium.presentation.js.JsEvaluator
 import dev.daviante.kromium.presentation.network.KromiumAssetFilter
 import dev.daviante.kromium.presentation.network.KromiumCookieManager
 import kotlinx.coroutines.suspendCancellableCoroutine
+import dev.daviante.kromium.osr.awt.KromiumOSRPanel
 import org.cef.browser.CefBrowser
+import org.cef.browser.CefBrowserOsr
 import org.cef.browser.CefFrame
 import org.cef.callback.CefPdfPrintCallback
 import java.awt.Component
 import java.awt.Graphics2D
 import java.awt.Point
+import java.awt.RenderingHints
 import java.awt.event.MouseEvent
 import java.awt.image.BufferedImage
 import java.io.File
+import java.nio.ByteOrder
 import java.util.concurrent.CompletableFuture
 import java.util.function.Consumer
 import kotlin.coroutines.resume
@@ -37,6 +41,88 @@ class KromiumBrowser(
     val rawBrowser: CefBrowser get() = browser
 
     val uiComponent: Component get() = browser.uiComponent
+
+    /** Returns true if this browser instance is using Off-Screen Rendering (OSR). */
+    val isOffScreenRendered: Boolean get() = browser is CefBrowserOsr
+
+    /**
+     * Returns the active [KromiumOSRPanel] if running in OSR mode, or null if windowed.
+     */
+    val osrPanel: KromiumOSRPanel?
+        get() = uiComponent as? KromiumOSRPanel
+
+    /**
+     * The DPI scale factor for OSR rendering.
+     * Reading returns the active scale factor (defaults to auto-detected screen scale, e.g. 2.0 on Retina).
+     * Writing sets a manual scale factor override and disables automatic screen DPI detection.
+     */
+    var scaleFactor: Double
+        get() = (browser as? CefBrowserOsr)?.scaleFactor ?: 1.0
+        set(value) {
+            (browser as? CefBrowserOsr)?.scaleFactor = value
+        }
+
+    /**
+     * Whether OSR automatically detects display DPI scaling (e.g. 2.0 on Retina, 1.25/1.5 on Windows).
+     * Defaults to true. Setting to true re-samples the display DPI automatically.
+     */
+    var isAutoDetectScaleFactor: Boolean
+        get() = (browser as? CefBrowserOsr)?.isAutoDetectScaleFactor ?: false
+        set(value) {
+            (browser as? CefBrowserOsr)?.isAutoDetectScaleFactor = value
+        }
+
+    /**
+     * Resets the scale factor to automatic detection based on the active display.
+     */
+    fun resetScaleFactorToAuto() {
+        (browser as? CefBrowserOsr)?.isAutoDetectScaleFactor = true
+    }
+
+    /**
+     * Configures a custom Java2D [RenderingHints] key on the OSR panel (e.g. interpolation, antialiasing).
+     */
+    fun setRenderingHint(key: RenderingHints.Key, value: Any?) {
+        osrPanel?.setRenderingHint(key, value)
+    }
+
+    /**
+     * Retrieves a configured Java2D [RenderingHints] value from the OSR panel.
+     */
+    fun getRenderingHint(key: RenderingHints.Key): Any? {
+        return osrPanel?.getRenderingHint(key)
+    }
+
+    /**
+     * Configures the Java2D scaling interpolation hint on the OSR panel.
+     * Common values:
+     * - [RenderingHints.VALUE_INTERPOLATION_BILINEAR] (default, smooth and fast)
+     * - [RenderingHints.VALUE_INTERPOLATION_BICUBIC] (highest quality)
+     * - [RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR] (pixelated / retro)
+     */
+    fun setInterpolation(interpolationHint: Any) {
+        osrPanel?.setInterpolation(interpolationHint)
+    }
+
+    /**
+     * Configures the internal [BufferedImage] raster type used by the OSR panel
+     * (default: [BufferedImage.TYPE_INT_ARGB_PRE]).
+     */
+    var bufferedImageType: Int
+        get() = osrPanel?.bufferedImageType ?: BufferedImage.TYPE_INT_ARGB_PRE
+        set(value) {
+            osrPanel?.bufferedImageType = value
+        }
+
+    /**
+     * Configures the byte order used when interpreting native Chromium frame buffers
+     * (default: [ByteOrder.LITTLE_ENDIAN]).
+     */
+    var byteOrder: ByteOrder
+        get() = osrPanel?.byteOrder ?: ByteOrder.LITTLE_ENDIAN
+        set(value) {
+            osrPanel?.byteOrder = value
+        }
 
     val url: String? get() = browser.url
 
