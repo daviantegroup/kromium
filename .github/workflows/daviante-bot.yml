@@ -215,11 +215,32 @@ jobs:
 
               core.info(`Evaluating CLA status for @${author} on PR #${pr.number}...`);
 
-              // 1. Maintainers / repository owners are automatically exempt
-              if (author === owner || pr.author_association === 'OWNER' || pr.author_association === 'MEMBER') {
-                core.info(`@${author} is a repository owner/member. Marking CLA check as passed automatically.`);
+              // 1. Maintainers / repository owners / collaborators are automatically exempt
+              if (
+                author === owner ||
+                pr.author_association === 'OWNER' ||
+                pr.author_association === 'MEMBER' ||
+                pr.author_association === 'COLLABORATOR'
+              ) {
+                core.info(`@${author} is a repository owner/member/collaborator. Marking CLA check as passed automatically.`);
                 await setStatus(pr.head.sha, 'success', `Core maintainer @${author} automatically exempt`);
                 return;
+              }
+
+              try {
+                const permRes = await github.rest.repos.getCollaboratorPermissionLevel({
+                  owner,
+                  repo,
+                  username: author
+                });
+                const perm = permRes.data.permission;
+                if (perm === 'admin' || perm === 'write') {
+                  core.info(`@${author} has '${perm}' permission. Marking CLA check as passed automatically.`);
+                  await setStatus(pr.head.sha, 'success', `Core maintainer @${author} automatically exempt`);
+                  return;
+                }
+              } catch (e) {
+                core.info(`Could not check permission level for @${author}: ${e.message}`);
               }
 
               // 2. Check if author is already recorded in .github/cla-signers.json
