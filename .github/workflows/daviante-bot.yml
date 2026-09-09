@@ -5,8 +5,16 @@ on:
     types: [opened, edited, synchronize, reopened]
     branches:
       - master
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+    branches:
+      - master
   issue_comment:
     types: [created]
+
+concurrency:
+  group: daviante-bot-${{ github.event.pull_request.number || github.event.issue.number || github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -201,7 +209,7 @@ jobs:
             // ─────────────────────────────────────────────────────────────
             // SCENARIO 2: Triggered by Pull Request Event (opened/edited/sync)
             // ─────────────────────────────────────────────────────────────
-            if (context.eventName === 'pull_request_target') {
+            if (context.eventName === 'pull_request_target' || context.eventName === 'pull_request') {
               const pr = context.payload.pull_request;
               const author = pr.user.login;
 
