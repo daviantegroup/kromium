@@ -6,16 +6,16 @@ Managing state and native resource lifecycles properly is critical in desktop ap
 
 ## 🔄 The Engine & Browser Lifecycle
 
-Kromium follows a hierarchical lifecycle:
+Kromium follows a clean hierarchical lifecycle with full `AutoCloseable` support:
 
 ```
 ┌────────────────────────────────────────────────────────┐
-│ 1. KromiumEngine.getInstance().initialize(config)      │  (Application Startup / Once per JVM)
+│ 1. Kromium.initialize(config)                          │  (Application Startup / Once per JVM)
 └───────────────────────────┬────────────────────────────┘
                             │
                             ▼
 ┌────────────────────────────────────────────────────────┐
-│ 2. KromiumClient client = engine.createClient()        │  (Window / Workspace Scope)
+│ 2. KromiumClient client = Kromium.newClient()          │  (Window / Workspace Scope)
 └───────────────────────────┬────────────────────────────┘
                             │
                             ▼
@@ -28,17 +28,17 @@ Kromium follows a hierarchical lifecycle:
                             │
                             ▼
 ┌────────────────────────────────────────────────────────┐
-│ 4. browser.close(true)                                 │  (Tab Close / UI Disposal)
+│ 4. browser.close(true)                                 │  (Tab Close / AutoCloseable.close())
 └───────────────────────────┬────────────────────────────┘
                             │
                             ▼
 ┌────────────────────────────────────────────────────────┐
-│ 5. client.dispose()                                    │  (Window Close)
+│ 5. client.dispose()                                    │  (Window Close / AutoCloseable.close())
 └───────────────────────────┬────────────────────────────┘
                             │
                             ▼
 ┌────────────────────────────────────────────────────────┐
-│ 6. KromiumEngine.getInstance().dispose()               │  (Application Exit / Process Teardown)
+│ 6. Kromium.dispose()                                   │  (Application Exit / Process Teardown)
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -116,10 +116,10 @@ Always hook into `WindowListener.windowClosing` or `JFrame.addWindowListener` to
 ```java
 package com.example.lifecycle;
 
-import dev.daviante.kromium.KromiumBrowser;
-import dev.daviante.kromium.KromiumClient;
-import dev.daviante.kromium.KromiumConfig;
-import dev.daviante.kromium.KromiumEngine;
+import dev.daviante.kromium.domain.config.KromiumConfig;
+import dev.daviante.kromium.presentation.browser.Kromium;
+import dev.daviante.kromium.presentation.browser.KromiumBrowser;
+import dev.daviante.kromium.presentation.browser.KromiumClient;
 import java.awt.BorderLayout;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
@@ -128,18 +128,18 @@ import javax.swing.SwingUtilities;
 
 public final class SwingLifecycleDemo {
     public static void main(String[] args) {
-        // 1. Initialize Engine
-        KromiumConfig config = new KromiumConfig();
-        KromiumEngine.getInstance().initialize(config);
+        // 1. Initialize Engine via unified Kromium facade
+        KromiumConfig config = KromiumConfig.builder().build();
+        Kromium.initialize(config);
 
         SwingUtilities.invokeLater(() -> {
-            KromiumClient client = KromiumEngine.getInstance().createClient();
+            KromiumClient client = Kromium.newClient();
             KromiumBrowser browser = client.createBrowser("https://example.com");
 
             JFrame frame = new JFrame("Kromium Swing Lifecycle");
             frame.setSize(1024, 768);
             frame.setLayout(new BorderLayout());
-            frame.add(browser.getUIComponent(), BorderLayout.CENTER);
+            frame.add(browser.getUiComponent(), BorderLayout.CENTER);
 
             // 2. Register explicit teardown listener
             frame.addWindowListener(new WindowAdapter() {
@@ -147,14 +147,14 @@ public final class SwingLifecycleDemo {
                 public void windowClosing(WindowEvent e) {
                     System.out.println("Tearing down native Chromium instances...");
                     
-                    // Close the browser view
+                    // Close the browser view (AutoCloseable)
                     browser.close(true);
                     
-                    // Dispose the client context
+                    // Dispose the client context (AutoCloseable)
                     client.dispose();
                     
                     // Shut down the engine on final application window exit
-                    KromiumEngine.getInstance().dispose();
+                    Kromium.dispose();
                     
                     frame.dispose();
                     System.exit(0);

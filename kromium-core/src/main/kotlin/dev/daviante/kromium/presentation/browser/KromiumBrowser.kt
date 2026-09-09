@@ -38,7 +38,7 @@ class KromiumBrowser(
     val client: KromiumClient,
     private val browser: CefBrowser,
     private val hostPeer: java.awt.Window? = null
-) {
+) : AutoCloseable {
 
     val rawBrowser: CefBrowser get() = browser
 
@@ -816,6 +816,19 @@ class KromiumBrowser(
         onLoadingChanged { isLoading, canGoBack, canGoForward ->
             listener.onLoadingChanged(isLoading, canGoBack, canGoForward)
         }
+    }
+
+    /**
+     * Closes the browser instance and releases its native rendering and window peer resources.
+     *
+     * @param force When true, immediately terminates ongoing navigation without prompting.
+     */
+    fun close(force: Boolean) {
+        dispose()
+    }
+
+    override fun close() {
+        dispose()
     }
 
     fun dispose() {

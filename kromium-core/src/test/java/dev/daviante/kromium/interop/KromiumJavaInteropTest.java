@@ -405,4 +405,10 @@ public class KromiumJavaInteropTest {
         assertEquals(java.awt.RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR,
                 panel.getRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION));
     }
+
+    @Test
+    public void testAutoCloseableConformance() {
+        assertTrue(AutoCloseable.class.isAssignableFrom(KromiumBrowser.class));
+        assertTrue(AutoCloseable.class.isAssignableFrom(KromiumClient.class));
+    }
 }

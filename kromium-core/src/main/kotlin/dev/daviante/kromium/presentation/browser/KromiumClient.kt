@@ -77,7 +77,7 @@ class KromiumClient(
     val requestContext: CefRequestContext? = null,
     internal val routerQueryName: String = "kromiumQuery",
     internal val routerCancelName: String = "kromiumQueryCancel"
-) {
+) : AutoCloseable {
 
     @Volatile
     private var clientProxy: KromiumProxy? = null
@@ -1293,6 +1293,10 @@ class KromiumClient(
         })
     }
 
+    override fun close() {
+        dispose()
+    }
+
     fun dispose() {
         try {
             permissionCache.clear()
@@ -1306,6 +1310,13 @@ class KromiumClient(
             keyboardHandlers.clear()
             permissionHandlers.clear()
             rawClient.dispose()
+            if (requestContext != null && !requestContext.isGlobal) {
+                try {
+                    requestContext.dispose()
+                } catch (e: Throwable) {
+                    KromiumLogger.d(TAG, "Error disposing isolated request context: ${e.message}")
+                }
+            }
         } catch (e: Throwable) {
             KromiumLogger.w(TAG, "Error during client disposal", e)
         }
