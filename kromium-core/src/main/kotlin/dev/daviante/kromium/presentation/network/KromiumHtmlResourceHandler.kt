@@ -1,6 +1,7 @@
 package dev.daviante.kromium.presentation.network
 
 import org.cef.callback.CefCallback
+import org.cef.callback.CefResourceReadCallback
 import org.cef.handler.CefResourceHandlerAdapter
 import org.cef.misc.BoolRef
 import org.cef.misc.IntRef
@@ -39,11 +40,11 @@ class KromiumHtmlResourceHandler(
         responseLength?.set(bytes.size)
     }
 
-    override fun readResponse(
+    @Synchronized
+    private fun readInternal(
         dataOut: ByteArray?,
         bytesToRead: Int,
-        bytesRead: IntRef?,
-        callback: CefCallback?
+        bytesRead: IntRef?
     ): Boolean {
         if (dataOut == null || bytesRead == null) return false
         val available = bytes.size - offset
@@ -57,6 +58,20 @@ class KromiumHtmlResourceHandler(
         bytesRead.set(toRead)
         return true
     }
+
+    override fun readResponse(
+        dataOut: ByteArray?,
+        bytesToRead: Int,
+        bytesRead: IntRef?,
+        callback: CefCallback?
+    ): Boolean = readInternal(dataOut, bytesToRead, bytesRead)
+
+    override fun read(
+        dataOut: ByteArray?,
+        bytesToRead: Int,
+        bytesRead: IntRef?,
+        callback: CefResourceReadCallback?
+    ): Boolean = readInternal(dataOut, bytesToRead, bytesRead)
 
     override fun cancel() {
         // No-op
