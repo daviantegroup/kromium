@@ -1,5 +1,6 @@
 package dev.daviante.kromium.sample.javafx;
 
+import dev.daviante.kromium.core.logging.KromiumLogger;
 import dev.daviante.kromium.domain.config.KromiumConfig;
 import dev.daviante.kromium.presentation.browser.Kromium;
 import dev.daviante.kromium.presentation.browser.KromiumBrowser;
@@ -134,7 +135,7 @@ public class KromiumJavaFxApp extends Application {
                     });
                 })
                 .exceptionally(ex -> {
-                    ex.printStackTrace();
+                    KromiumLogger.e("KromiumJavaFxApp", "Engine initialization failed", ex);
                     return null;
                 });
     }

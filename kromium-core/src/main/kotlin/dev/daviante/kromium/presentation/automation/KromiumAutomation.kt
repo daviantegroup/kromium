@@ -37,30 +37,47 @@ class KromiumAutomation(private val browser: KromiumBrowser) {
                 var el = document.querySelector('$safeSelector');
                 if (el) return resolve(true);
 
+                var isObserving = false;
                 var observer = new MutationObserver(function() {
                     if (document.querySelector('$safeSelector')) {
-                        observer.disconnect();
-                        clearInterval(interval);
+                        cleanup();
                         resolve(true);
                     }
                 });
-                observer.observe(document.documentElement || document.body, {
-                    childList: true,
-                    subtree: true,
-                    attributes: true
-                });
+
+                function tryObserve() {
+                    if (isObserving) return;
+                    var target = document.documentElement || document.body;
+                    if (target) {
+                        try {
+                            observer.observe(target, {
+                                childList: true,
+                                subtree: true,
+                                attributes: true
+                            });
+                            isObserving = true;
+                        } catch (_) {}
+                    }
+                }
+
+                tryObserve();
 
                 var interval = setInterval(function() {
                     if (document.querySelector('$safeSelector')) {
-                        observer.disconnect();
-                        clearInterval(interval);
+                        cleanup();
                         resolve(true);
+                    } else if (!isObserving) {
+                        tryObserve();
                     }
                 }, 50);
 
-                setTimeout(function() {
-                    observer.disconnect();
+                function cleanup() {
+                    try { observer.disconnect(); } catch (_) {}
                     clearInterval(interval);
+                }
+
+                setTimeout(function() {
+                    cleanup();
                     resolve(false);
                 }, $timeoutMs);
             })

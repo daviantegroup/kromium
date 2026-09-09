@@ -176,4 +176,19 @@ class KromiumConfigTest {
         assertFalse(custom.commandLineArgs.contains("--enable-do-not-track"))
         assertTrue(custom.commandLineArgs.contains("--webrtc-ip-handling-policy=default"))
     }
+
+    @Test
+    fun testDoNotTrackDynamicSynchronization() {
+        val config = KromiumConfig()
+        assertTrue(config.doNotTrack)
+        assertTrue(config.commandLineArgs.contains("--enable-do-not-track"))
+
+        config.doNotTrack = false
+        assertFalse(config.doNotTrack)
+        assertFalse(config.commandLineArgs.contains("--enable-do-not-track"))
+
+        config.doNotTrack = true
+        assertTrue(config.doNotTrack)
+        assertTrue(config.commandLineArgs.contains("--enable-do-not-track"))
+    }
 }

@@ -144,6 +144,16 @@ class KromiumConfig {
      * Defaults to true.
      */
     var doNotTrack: Boolean = true
+        set(value) {
+            field = value
+            if (value) {
+                if (commandLineArgs.none { it.equals("--enable-do-not-track", ignoreCase = true) }) {
+                    commandLineArgs.add("--enable-do-not-track")
+                }
+            } else {
+                commandLineArgs.removeAll { it.equals("--enable-do-not-track", ignoreCase = true) }
+            }
+        }
 
     /**
      * Command-line arguments passed to the CEF process.

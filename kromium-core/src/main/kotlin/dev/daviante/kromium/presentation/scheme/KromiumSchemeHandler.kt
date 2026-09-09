@@ -95,6 +95,7 @@ object KromiumSchemeHandler {
         require(directory.exists()) { "Directory does not exist: ${directory.absolutePath}" }
         require(directory.isDirectory) { "Path is not a directory: ${directory.absolutePath}" }
         val canonicalRoot = directory.canonicalFile
+        val rootPrefix = if (canonicalRoot.path.endsWith(File.separator)) canonicalRoot.path else canonicalRoot.path + File.separator
 
         return KromiumAssetHandler { request ->
             val cleanPath = sanitizePath(request.path)
@@ -105,8 +106,8 @@ object KromiumSchemeHandler {
             val relPath = if (cleanPath.isEmpty() || cleanPath == "/") "index.html" else cleanPath.trimStart('/')
             var targetFile = File(canonicalRoot, relPath).canonicalFile
 
-            // Directory traversal shield
-            if (!targetFile.path.startsWith(canonicalRoot.path)) {
+            // Directory traversal shield: ensure targetFile is strictly inside canonicalRoot
+            if (!targetFile.path.startsWith(rootPrefix) && targetFile.path != canonicalRoot.path) {
                 return@KromiumAssetHandler KromiumAssetResponse.forbidden("Directory traversal access denied")
             }
 
@@ -119,7 +120,7 @@ object KromiumSchemeHandler {
             // Secure SPA Fallback routing
             if (resolvedFile == null && spaFallback != null && shouldApplySpaFallback(request)) {
                 val fallbackFile = File(canonicalRoot, spaFallback.trimStart('/')).canonicalFile
-                if (fallbackFile.exists() && fallbackFile.isFile && fallbackFile.path.startsWith(canonicalRoot.path)) {
+                if (fallbackFile.exists() && fallbackFile.isFile && (fallbackFile.path.startsWith(rootPrefix) || fallbackFile.path == canonicalRoot.path)) {
                     resolvedFile = fallbackFile
                 }
             }

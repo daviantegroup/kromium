@@ -193,7 +193,7 @@ class KromiumClient(
     @Volatile var enableContextMenus: Boolean = true
     @Volatile var contextMenuHandler: KromiumContextMenuHandler? = null
     private val contextMenuActions = java.util.concurrent.ConcurrentHashMap<Int, (KromiumContextMenuContext) -> Unit>()
-    private var activeContextMenuContext: KromiumContextMenuContext? = null
+    @Volatile private var activeContextMenuContext: KromiumContextMenuContext? = null
 
     /**
      * Configures the context menu using a declarative Kotlin DSL block.

@@ -1,5 +1,6 @@
 package dev.daviante.kromium.sample.swt;
 
+import dev.daviante.kromium.core.logging.KromiumLogger;
 import dev.daviante.kromium.domain.config.KromiumConfig;
 import dev.daviante.kromium.presentation.browser.Kromium;
 import dev.daviante.kromium.presentation.browser.KromiumBrowser;
@@ -127,7 +128,7 @@ public class KromiumSwtApp {
                     });
                 })
                 .exceptionally(ex -> {
-                    ex.printStackTrace();
+                    KromiumLogger.e("KromiumSwtApp", "Engine initialization failed", ex);
                     return null;
                 });
 
