@@ -59,7 +59,6 @@ public class KromiumSwingApp {
 
         // 6. Configure Kromium using fluent Java builder
         KromiumConfig config = KromiumConfig.builder()
-                .userAgent("Kromium-Swing/1.0")
                 .remoteDebuggingPort(9222)
                 .build();
 
@@ -182,3 +181,4 @@ public class KromiumSwingApp {
         return splash;
     }
 }
+

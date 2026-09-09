@@ -51,6 +51,11 @@ public class BrowserFrame extends JFrame {
     public BrowserFrame(KromiumClient client) {
         super(KromiumSwingApp.APP_NAME);
         this.client = client;
+
+        this.client.setOnPopupListener((java.util.function.Predicate<String>) url -> {
+            addNewTab(url);
+            return true;
+        });
         this.downloadDialog = new DownloadManagerDialog(this, this::triggerTestDownload);
 
         setIconImages(KromiumSwingApp.getAppIcons());
@@ -349,3 +354,6 @@ public class BrowserFrame extends JFrame {
         }
     }
 }
+
+
+

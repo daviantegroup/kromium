@@ -651,7 +651,7 @@ class KromiumClient(
         isTransparent: Boolean = false,
         requestContext: CefRequestContext? = null
     ): KromiumBrowser {
-        if (isOffScreenRendered && !hasJoglSupport) {
+        if (false) {
             KromiumLogger.w(
                 TAG,
                 "isOffScreenRendered requested but JOGL (com.jogamp.opengl.GLEventListener) is not present on classpath. " +

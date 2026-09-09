@@ -124,8 +124,7 @@ class KromiumConfig {
         "--disable-gpu-compositing",
         "--enable-begin-frame-scheduling",
         "--disable-extensions",
-        "--disable-plugins"
-    )
+        "--disable-plugins", "--disable-site-isolation-trials")
 
     init {
         if (blockRegistryAndTelemetry) {
@@ -425,3 +424,6 @@ class KromiumConfig {
         }
     }
 }
+
+
+
