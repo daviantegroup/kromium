@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="124 90 302 364">
+  <defs>
+    <linearGradient id="k" x1="120" y1="100" x2="390" y2="410" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7C3AED"/>
+      <stop offset="0.5" stop-color="#4F46E5"/>
+      <stop offset="1" stop-color="#06B6D4"/>
+    </linearGradient>
+    <linearGradient id="web" x1="300" y1="310" x2="400" y2="420" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0EA5E9"/>
+      <stop offset="1" stop-color="#06B6D4"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Refined K -->
+  <path d="M132 96h62v134L313 96h76L246 250l143 166h-77L194 286v130h-62z" fill="url(#k)"/>
+
+  <!-- Web/browser badge moved slightly left and down -->
+  <g transform="translate(-14 14)">
+    <circle cx="363" cy="365" r="70" fill="#FFFFFF"/>
+    <circle cx="363" cy="365" r="62" fill="#111827"/>
+
+    <!-- Browser header -->
+    
+    <circle cx="319" cy="338" r="6" fill="#FF453A"/>
+    <circle cx="338" cy="338" r="6" fill="#FFD60A"/>
+    <circle cx="357" cy="338" r="6" fill="#30D158"/>
+
+    <!-- Globe -->
+    <circle cx="363" cy="379" r="28" fill="none" stroke="url(#web)" stroke-width="5"/>
+    <path d="M335 379h56              M363 351c9 9 13 18 13 28s-4 19-13 28              M363 351c-9 9-13 18-13 28s4 19 13 28" fill="none" stroke="url(#web)" stroke-width="4" stroke-linecap="round"/>
+  </g>
+</svg>

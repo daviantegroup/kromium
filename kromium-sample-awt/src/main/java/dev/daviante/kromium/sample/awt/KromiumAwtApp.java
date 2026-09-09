@@ -8,20 +8,44 @@ import java.awt.BorderLayout;
 import java.awt.Button;
 import java.awt.FlowLayout;
 import java.awt.Frame;
+import java.awt.Image;
 import java.awt.Panel;
+import java.awt.Taskbar;
 import java.awt.TextField;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.io.InputStream;
+import javax.imageio.ImageIO;
 import javax.swing.SwingUtilities;
 
 public class KromiumAwtApp {
 
+    public static final String APP_NAME = "Kromium AWT";
+
     public static void main(String[] args) {
+        System.setProperty("apple.awt.application.name", APP_NAME);
+
         // 1. Create Frame and UI on Main/EDT thread
-        Frame frame = new Frame("Kromium AWT Heavyweight Sample");
+        Frame frame = new Frame("Kromium - AWT Browser");
         frame.setLayout(new BorderLayout());
         frame.setSize(1200, 800);
         frame.setLocationRelativeTo(null);
+
+        // Set application icon
+        try (InputStream is = KromiumAwtApp.class.getResourceAsStream("/icon.png")) {
+            if (is != null) {
+                Image icon = ImageIO.read(is);
+                if (icon != null) {
+                    frame.setIconImage(icon);
+                    if (Taskbar.isTaskbarSupported()) {
+                        Taskbar taskbar = Taskbar.getTaskbar();
+                        if (taskbar.isSupported(Taskbar.Feature.ICON_IMAGE)) {
+                            taskbar.setIconImage(icon);
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
 
         frame.addWindowListener(new WindowAdapter() {
             @Override
@@ -48,14 +72,19 @@ public class KromiumAwtApp {
         frame.setVisible(true);
 
         // 3. Configure and initialize Kromium
+        // On macOS, native heavyweight embedding directly into an AWT Frame suffers from coordinate displacement
+        // and missing CALayer container hierarchies in JCEF; lightweight OSR provides seamless, reliable rendering across all platforms.
+        boolean isMac = System.getProperty("os.name", "").toLowerCase().contains("mac");
+        boolean windowless = isMac;
+
         KromiumConfig config = KromiumConfig.builder()
-                .windowlessRendering(false) 
+                .windowlessRendering(windowless) 
                 .build();
 
         Kromium.initializeAsync(config)
                 .thenCompose(v -> Kromium.awaitClientAsync())
                 .thenAccept(client -> {
-                    KromiumBrowser browser = client.createBrowser("https://github.com/daviantegroup/kromium", false, false);
+                    KromiumBrowser browser = client.createBrowser("https://github.com/daviantegroup/kromium", windowless, windowless);
 
                     // Actions
                     backBtn.addActionListener(e -> browser.goBack());

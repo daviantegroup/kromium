@@ -19,8 +19,14 @@ import javafx.stage.Stage;
 import javax.swing.JComponent;
 import javax.swing.SwingUtilities;
 import java.awt.Dimension;
+import java.awt.Image;
+import java.awt.Taskbar;
+import java.io.InputStream;
+import javax.imageio.ImageIO;
 
 public class KromiumJavaFxApp extends Application {
+
+    public static final String APP_NAME = "Kromium JavaFX";
 
     public static void main(String[] args) {
         launch(args);
@@ -45,8 +51,31 @@ public class KromiumJavaFxApp extends Application {
         root.setCenter(swingNode);
 
         Scene scene = new Scene(root, 1200, 800);
-        primaryStage.setTitle("Kromium JavaFX OSR Bridged Sample");
+        primaryStage.setTitle("Kromium - JavaFX Browser");
         primaryStage.setScene(scene);
+
+        // Set application icons
+        try (InputStream is = KromiumJavaFxApp.class.getResourceAsStream("/icon.png")) {
+            if (is != null) {
+                primaryStage.getIcons().add(new javafx.scene.image.Image(is));
+            }
+        } catch (Exception ignored) {}
+
+        try {
+            if (Taskbar.isTaskbarSupported()) {
+                Taskbar taskbar = Taskbar.getTaskbar();
+                if (taskbar.isSupported(Taskbar.Feature.ICON_IMAGE)) {
+                    try (InputStream is = KromiumJavaFxApp.class.getResourceAsStream("/icon.png")) {
+                        if (is != null) {
+                            Image awtImg = ImageIO.read(is);
+                            if (awtImg != null) {
+                                taskbar.setIconImage(awtImg);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Throwable ignored) {}
 
         primaryStage.setOnCloseRequest(e -> {
             Kromium.dispose();
@@ -68,25 +97,29 @@ public class KromiumJavaFxApp extends Application {
                     KromiumBrowser browser = client.createBrowser("https://github.com/daviantegroup/kromium", true, true);
                     JComponent uiComp = (JComponent) browser.getUiComponent();
 
-                    // CRITICAL: SwingNode.setContent must run on JavaFX Application Thread
                     Platform.runLater(() -> {
+                        swingNode.setFocusTraversable(true);
                         swingNode.setContent(uiComp);
 
-                        // Dynamically propagate JavaFX Scene resize events to Chromium OSR viewport
-                        scene.widthProperty().addListener((obs, oldW, newW) -> updateBrowserSize(browser, uiComp, scene, toolBar));
-                        scene.heightProperty().addListener((obs, oldH, newH) -> updateBrowserSize(browser, uiComp, scene, toolBar));
-                    });
+                        // Ensure clicking the browser transfers JavaFX scene focus to swingNode
+                        swingNode.setOnMousePressed(e -> swingNode.requestFocus());
+                        swingNode.setOnMouseClicked(e -> swingNode.requestFocus());
 
-                    // Initialize OSR component and trigger native browser creation on Swing EDT
-                    SwingUtilities.invokeLater(() -> {
-                        int initialW = scene.getWidth() > 100 ? (int) scene.getWidth() : 1200;
-                        int initialH = scene.getHeight() > 100 ? Math.max(100, (int) (scene.getHeight() - toolBar.getHeight())) : 750;
+                        // Synchronize JavaFX focus with Chromium OSR engine
+                        swingNode.focusedProperty().addListener((obs, oldVal, isFocused) -> {
+                            SwingUtilities.invokeLater(() -> {
+                                if (isFocused) {
+                                    uiComp.requestFocusInWindow();
+                                }
+                                browser.getRawBrowser().setFocus(isFocused);
+                            });
+                        });
 
-                        uiComp.setPreferredSize(new Dimension(initialW, initialH));
-                        uiComp.setSize(initialW, initialH);
+                        // Dynamically propagate JavaFX Scene resize events to both SwingNode and Chromium OSR viewport
+                        scene.widthProperty().addListener((obs, oldW, newW) -> updateBrowserSize(browser, uiComp, swingNode, scene, toolBar));
+                        scene.heightProperty().addListener((obs, oldH, newH) -> updateBrowserSize(browser, uiComp, swingNode, scene, toolBar));
 
-                        browser.getRawBrowser().createImmediately();
-                        browser.getRawBrowser().wasResized(initialW, initialH);
+                        updateBrowserSize(browser, uiComp, swingNode, scene, toolBar);
                     });
 
                     // Navigation actions
@@ -106,13 +139,17 @@ public class KromiumJavaFxApp extends Application {
                 });
     }
 
-    private static void updateBrowserSize(KromiumBrowser browser, JComponent uiComp, Scene scene, ToolBar toolBar) {
+    private static void updateBrowserSize(KromiumBrowser browser, JComponent uiComp, SwingNode swingNode, Scene scene, ToolBar toolBar) {
         int w = (int) scene.getWidth();
         int h = (int) (scene.getHeight() - toolBar.getHeight());
         if (w > 50 && h > 50) {
+            // Update JavaFX SwingNode layout bounds so hit-testing / mouse picking covers the browser view
+            swingNode.resize(w, h);
+
             SwingUtilities.invokeLater(() -> {
                 uiComp.setPreferredSize(new Dimension(w, h));
                 uiComp.setSize(w, h);
+                browser.getRawBrowser().createImmediately();
                 browser.getRawBrowser().wasResized(w, h);
             });
         }

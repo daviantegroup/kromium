@@ -3,11 +3,15 @@ plugins {
     application
 }
 
-val javafxVersion = "17.0.2"
+val javafxVersion = "21.0.5"
 val osName = System.getProperty("os.name").lowercase()
+val osArch = System.getProperty("os.arch").lowercase()
+val isArm = osArch == "aarch64" || osArch == "arm64"
+
 val platformClassifier = when {
-    osName.contains("win") -> "win"
-    osName.contains("mac") -> "mac"
+    osName.contains("win") -> if (isArm) "win-aarch64" else "win"
+    osName.contains("mac") -> if (isArm) "mac-aarch64" else "mac"
+    osName.contains("linux") -> if (isArm) "linux-aarch64" else "linux"
     else -> "linux"
 }
 
