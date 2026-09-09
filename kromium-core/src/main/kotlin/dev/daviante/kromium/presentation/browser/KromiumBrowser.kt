@@ -155,6 +155,16 @@ class KromiumBrowser(
     
     fun stopLoad() = browser.stopLoad()
     
+    /** Returns the currently focused frame, or the main frame if no subframe is focused. */
+    val activeFrame: CefFrame? get() = browser.focusedFrame ?: browser.mainFrame
+
+    fun copy() { activeFrame?.copy() }
+    fun paste() { activeFrame?.paste() }
+    fun cut() { activeFrame?.cut() }
+    fun selectAll() { activeFrame?.selectAll() }
+    fun undo() { activeFrame?.undo() }
+    fun redo() { activeFrame?.redo() }
+    
     /**
      * Programmatically initiates a file download from the specified URL using this browser session.
      */

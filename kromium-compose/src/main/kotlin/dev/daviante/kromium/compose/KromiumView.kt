@@ -134,6 +134,7 @@ fun KromiumView(
                 modifier = Modifier.fillMaxSize(),
                 factory = {
                     JPanel(BorderLayout()).apply {
+                        isFocusable = true
                         val browser = effectiveClient.createBrowser(
                             url = state.url,
                             isOffScreenRendered = false
@@ -145,7 +146,14 @@ fun KromiumView(
                             browser.loadUrl(pending)
                         }
 
+                        browser.uiComponent.isFocusable = true
                         add(browser.uiComponent, BorderLayout.CENTER)
+
+                        addMouseListener(object : java.awt.event.MouseAdapter() {
+                            override fun mousePressed(e: java.awt.event.MouseEvent) {
+                                browser.uiComponent.requestFocusInWindow()
+                            }
+                        })
 
                         // Dynamically synchronize native surface visibility with Swing hierarchy state
                         val syncVisibility = {

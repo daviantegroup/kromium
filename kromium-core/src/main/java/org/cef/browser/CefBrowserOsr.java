@@ -172,12 +172,11 @@ public class CefBrowserOsr extends CefBrowser_N implements CefRenderHandler {
         this.canvas_.addMouseMotionListener(mouseAdapter);
         this.canvas_.addMouseWheelListener(mouseAdapter);
 
-        // Forward Keyboard Events and handle system shortcuts in OSR mode (Mac Cmd, Windows/Linux Ctrl)
+        // Forward Keyboard Events and handle system shortcuts in OSR mode via KromiumShortcutHandler
         this.canvas_.addKeyListener(new KeyAdapter() {
             @Override
             public void keyTyped(KeyEvent e) {
-                if (isShortcutModifier(e)) {
-                    e.consume();
+                if (dev.daviante.kromium.presentation.keyboard.KromiumShortcutHandler.handleAwtKeyEvent(CefBrowserOsr.this, e)) {
                     return;
                 }
                 sendKeyEvent(e);
@@ -185,41 +184,15 @@ public class CefBrowserOsr extends CefBrowser_N implements CefRenderHandler {
 
             @Override
             public void keyPressed(KeyEvent e) {
-                if (isShortcutModifier(e)) {
-                    if (handleShortcut(e)) {
-                        e.consume();
-                        return;
-                    }
-                }
-                // Standalone F5 on Windows/Linux for page reload
-                if (!IS_MAC && e.getKeyCode() == KeyEvent.VK_F5) {
-                    if (e.isControlDown() || e.isShiftDown()) {
-                        reloadIgnoreCache();
-                    } else {
-                        reload();
-                    }
-                    e.consume();
+                if (dev.daviante.kromium.presentation.keyboard.KromiumShortcutHandler.handleAwtKeyEvent(CefBrowserOsr.this, e)) {
                     return;
-                }
-                // Alt+Left / Alt+Right on Windows/Linux for browser history navigation
-                if (!IS_MAC && e.isAltDown() && !e.isControlDown()) {
-                    if (e.getKeyCode() == KeyEvent.VK_LEFT && canGoBack()) {
-                        goBack();
-                        e.consume();
-                        return;
-                    } else if (e.getKeyCode() == KeyEvent.VK_RIGHT && canGoForward()) {
-                        goForward();
-                        e.consume();
-                        return;
-                    }
                 }
                 sendKeyEvent(e);
             }
 
             @Override
             public void keyReleased(KeyEvent e) {
-                if (isShortcutModifier(e)) {
-                    e.consume();
+                if (dev.daviante.kromium.presentation.keyboard.KromiumShortcutHandler.handleAwtKeyEvent(CefBrowserOsr.this, e)) {
                     return;
                 }
                 sendKeyEvent(e);
@@ -228,105 +201,6 @@ public class CefBrowserOsr extends CefBrowser_N implements CefRenderHandler {
         
         this.canvas_.setFocusable(true);
         this.canvas_.setRequestFocusEnabled(true);
-    }
-
-    private boolean isShortcutModifier(KeyEvent e) {
-        if (IS_MAC) {
-            return e.isMetaDown();
-        } else {
-            // Windows and Linux: Ctrl down, but NOT Alt (AltGr generates Ctrl+Alt)
-            return e.isControlDown() && !e.isAltDown();
-        }
-    }
-
-    private boolean handleShortcut(KeyEvent e) {
-        int keyCode = e.getKeyCode();
-        CefFrame frame = getFocusedFrame();
-        if (frame == null) {
-            frame = getMainFrame();
-        }
-
-        switch (keyCode) {
-            case KeyEvent.VK_C:
-            case KeyEvent.VK_INSERT:
-                if (frame != null) {
-                    if (keyCode == KeyEvent.VK_INSERT && !e.isControlDown()) {
-                        break;
-                    }
-                    frame.copy();
-                    return true;
-                }
-                break;
-            case KeyEvent.VK_V:
-                if (frame != null) {
-                    frame.paste();
-                    return true;
-                }
-                break;
-            case KeyEvent.VK_X:
-                if (frame != null) {
-                    frame.cut();
-                    return true;
-                }
-                break;
-            case KeyEvent.VK_A:
-                if (frame != null) {
-                    frame.selectAll();
-                    return true;
-                }
-                break;
-            case KeyEvent.VK_Z:
-                if (frame != null) {
-                    if (e.isShiftDown()) {
-                        frame.redo();
-                    } else {
-                        frame.undo();
-                    }
-                    return true;
-                }
-                break;
-            case KeyEvent.VK_Y:
-                if (frame != null) {
-                    frame.redo();
-                    return true;
-                }
-                break;
-            case KeyEvent.VK_R:
-                if (e.isShiftDown()) {
-                    reloadIgnoreCache();
-                } else {
-                    reload();
-                }
-                return true;
-            case KeyEvent.VK_EQUALS:
-            case KeyEvent.VK_PLUS:
-            case KeyEvent.VK_ADD:
-                setZoomLevel(getZoomLevel() + 0.25);
-                return true;
-            case KeyEvent.VK_MINUS:
-            case KeyEvent.VK_SUBTRACT:
-                setZoomLevel(getZoomLevel() - 0.25);
-                return true;
-            case KeyEvent.VK_0:
-            case KeyEvent.VK_NUMPAD0:
-                setZoomLevel(0.0);
-                return true;
-            case KeyEvent.VK_LEFT:
-            case KeyEvent.VK_OPEN_BRACKET:
-                if (canGoBack()) {
-                    goBack();
-                    return true;
-                }
-                break;
-            case KeyEvent.VK_RIGHT:
-            case KeyEvent.VK_CLOSE_BRACKET:
-                if (canGoForward()) {
-                    goForward();
-                    return true;
-                }
-                break;
-        }
-        return false;
     }
 
     public void setScaleFactor(double factor) {
