@@ -66,66 +66,73 @@ client.clearPermissionCache();
 
 ## 🔐 SSL/TLS Certificate Verification & Policies
 
-Kromium provides fine-grained control over SSL/TLS certificate handling via `SslErrorPolicy`:
+Kromium provides fine-grained control over SSL/TLS certificate handling via the `SslErrorPolicy` sealed class hierarchy:
 
 ```kotlin
-enum class SslErrorPolicy {
-    Strict, // Immediately aborts navigation on invalid or self-signed certs (Default)
-    Allow,  // Bypasses certificate validation (Use ONLY in internal offline test environments)
-    Ask     // Invokes custom callback to prompt user or inspect certificate chain
+sealed class SslErrorPolicy {
+    /** Reject all certificate errors (Default, strongly recommended for production). */
+    data object Strict : SslErrorPolicy()
+
+    /** Allow certificate errors exclusively for specified domains and subdomains (e.g. "*.corp.internal", "localhost"). */
+    data class AllowDomains(val domains: Set<String>) : SslErrorPolicy()
+
+    /** ⚠️ DANGEROUS: Allow ALL certificate errors for ALL domains (Development/testing only). */
+    data object AllowAll : SslErrorPolicy()
 }
 ```
 
-### Configuring SSL Error Handling (Compose & Java)
+### Configuring SSL Error Handling (Kotlin & Java)
+
+Configure globally on `KromiumConfig` or per-browser instance:
 
 ```kotlin
-// Compose Desktop: Enforce strict certificate validation
-val state = rememberKromiumViewState("https://internal.corp")
-state.sslErrorPolicy = SslErrorPolicy.Strict
+// 1. Globally at engine initialization:
+val config = KromiumConfig().apply {
+    sslErrorPolicy = SslErrorPolicy.AllowDomains("*.internal.corp", "localhost")
+}
+Kromium.initialize(config)
+
+// 2. Or dynamically per browser:
+browser.sslErrorPolicy = SslErrorPolicy.Strict
 ```
 
 ```java
-// Pure Java: Configure custom SSL policy
-browser.setSslErrorPolicy(SslErrorPolicy.Strict);
+// Pure Java with fluent helpers:
+KromiumConfig config = KromiumConfig.builder()
+    .sslErrorPolicy(SslErrorPolicy.allowDomains("*.internal.corp", "localhost"))
+    .build();
+Kromium.initialize(config);
+
+// Dynamically per browser:
+browser.setSslErrorPolicy(SslErrorPolicy.strict());
 ```
 
 ---
 
-## 🌐 Host Locking & Navigation Interception
+## 🌐 Host Locking & Subresource Isolation
 
-Enterprise kiosk, healthcare, and POS applications often need to lock down the browser to authorized corporate domains.
+Enterprise kiosk, healthcare, and POS applications often need to strictly restrict the browser to authorized corporate domains.
 
-Kromium enables declarative URL interception:
+Kromium provides turnkey host locking that enforces origin boundaries on both top-level navigations (`onBeforeBrowse`) and asynchronous background network requests (`onBeforeResourceLoad` for scripts, xhr, and fetch):
 
-### Compose Desktop Host-Locking
+### Kotlin DSL (Compose Desktop & Core)
 
 ```kotlin
-val state = rememberKromiumViewState("https://app.internal.corp")
+// Restrict top-level navigations AND background subresources to authorized domains:
+browser.setHostLock("app.internal.corp", "auth.internal.corp", lockSubresources = true)
 
-state.shouldOverrideUrlLoading = { targetUrl ->
-    val uri = java.net.URI(targetUrl)
-    val allowedHost = "app.internal.corp"
-    
-    if (uri.host == allowedHost || uri.scheme == "app") {
-        false // Allow internal navigation
-    } else {
-        println("Blocked unauthorized navigation attempt to: $targetUrl")
-        true  // Cancel navigation
-    }
-}
+// Or remove restrictions when exiting kiosk mode:
+browser.clearHostLock()
 ```
 
 ### Pure Java / Swing Host-Locking
 
 ```java
-browser.setNavigationFilter(targetUrl -> {
-    try {
-        java.net.URI uri = new java.net.URI(targetUrl);
-        return "app.internal.corp".equalsIgnoreCase(uri.getHost());
-    } catch (Exception e) {
-        return false; // Reject malformed URLs
-    }
-});
+// Turnkey host locking with subresource enforcement:
+browser.setHostLock(java.util.Set.of("app.internal.corp", "auth.internal.corp"), true);
+
+// Or clear lock:
+browser.clearHostLock();
 ```
 
 ---

@@ -332,7 +332,7 @@ class KromiumClient(
                     val reqUrl = request.url
                     if (!allowed.isNullOrEmpty() && !reqUrl.isNullOrBlank()) {
                         if (!KromiumAssetFilter.isHostAllowed(reqUrl, allowed)) {
-                            KromiumLogger.d(TAG, "Subresource blocked by host lock: $reqUrl")
+                            KromiumLogger.w(TAG, "Subresource blocked by host lock: $reqUrl (allowed: $allowed)")
                             return true
                         }
                     }
@@ -579,8 +579,14 @@ class KromiumClient(
                         false
                     }
                     customPath != null -> {
-                        KromiumLogger.i(TAG, "Downloading $cleanName to custom path: $customPath")
-                        callback.Continue(customPath, false)
+                        val resolvedCustom = try {
+                            java.io.File(customPath).canonicalFile.absolutePath
+                        } catch (t: Throwable) {
+                            KromiumLogger.e(TAG, "Invalid custom download path: $customPath", t)
+                            defaultTargetPath
+                        }
+                        KromiumLogger.i(TAG, "Downloading $cleanName to custom path: $resolvedCustom")
+                        callback.Continue(resolvedCustom, false)
                         true
                     }
                     else -> {
