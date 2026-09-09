@@ -97,42 +97,53 @@ fun interface KromiumPermissionHandler {
 
 ### `KromiumPermissionRequest`
 
-| Property | Type | Description |
+| Property / Method | Type | Description |
 |:---|:---|:---|
 | `origin: String` | `String` | Security origin of the requesting page (e.g., `https://meet.google.com`). |
-| `types: Set<KromiumPermissionType>` | `Set<KromiumPermissionType>` | Permissions requested (`DEVICE_AUDIO_CAPTURE`, `DEVICE_VIDEO_CAPTURE`, etc.). |
-| `allow(remember: Boolean = true)` | `Unit` | Grants requested permissions. |
-| `deny(remember: Boolean = true)` | `Unit` | Denies requested permissions. |
+| `url: String` | `String` | Full URL of the frame requesting access. |
+| `requestedTypes: Set<KromiumPermissionType>` | `Set<KromiumPermissionType>` | Media permissions requested (`AUDIO_CAPTURE`, `VIDEO_CAPTURE`, `DESKTOP_AUDIO`, `DESKTOP_VIDEO`). |
+| `hasAudio(): Boolean` | `Boolean` | Convenience check for microphone / audio input access. |
+| `hasVideo(): Boolean` | `Boolean` | Convenience check for camera / webcam video access. |
+| `hasScreenShare(): Boolean` | `Boolean` | Convenience check for desktop / screen video sharing. |
+| `hasDesktopAudio(): Boolean` | `Boolean` | Convenience check for desktop audio capture. |
 
 ### Compose Kotlin Example
 
 ```kotlin
 val state = rememberKromiumViewState("https://meet.jit.si")
 
+// Evaluate requests dynamically:
 state.permissionHandler = KromiumPermissionHandler { request ->
-    val isTrusted = request.origin.startsWith("https://meet.jit.si")
-    if (isTrusted) {
-        request.allow(remember = true)
+    if (request.origin.startsWith("https://meet.jit.si")) {
+        KromiumPermissionDecision.grant(KromiumPermissionType.AUDIO_CAPTURE, KromiumPermissionType.VIDEO_CAPTURE)
     } else {
-        request.deny(remember = true)
+        KromiumPermissionDecision.DENY
     }
 }
+
+// Or use turnkey domain filtering:
+state.permissionHandler = KromiumPermissionHandler.forOrigins("meet.jit.si", "*.corp.internal")
 ```
 
 ### Pure Java Example
 
 ```java
+import dev.daviante.kromium.presentation.handler.KromiumPermissionDecision;
 import dev.daviante.kromium.presentation.handler.KromiumPermissionHandler;
 import dev.daviante.kromium.presentation.handler.KromiumPermissionType;
 
+// Dynamic evaluation:
 client.setPermissionHandler(request -> {
     if (request.getOrigin().startsWith("https://trusted-portal.corp")) {
-        request.allow(true);
+        return KromiumPermissionDecision.grant(KromiumPermissionType.AUDIO_CAPTURE);
     } else {
         System.err.println("Rejected permission request from: " + request.getOrigin());
-        request.deny(true);
+        return KromiumPermissionDecision.DENY;
     }
 });
+
+// Or turnkey domain whitelist:
+client.setPermissionHandler(KromiumPermissionHandler.forOrigins("trusted-portal.corp", "*.internal.net"));
 ```
 
 ---

@@ -11,16 +11,18 @@ Standard Google Chrome builds contain numerous telemetry probes, Google account 
 ### Built-in Hardening Flags
 Kromium automatically injects the following security and privacy switches into the native Chromium bootstrap arguments:
 - `--disable-metrics` / `--disable-metrics-reporter`: Disables all Google UMA metrics collection.
-- `--disable-breakpad`: Prevents automatic crash dump transmissions to external servers.
+- `--disable-breakpad` / `--disable-crash-reporter`: Prevents automatic crash dump transmissions to external servers.
 - `--no-default-browser-check`: Disables system default browser prompts.
 - `--disable-sync`: Disables Google Cloud account profile synchronization.
 - `--disable-background-networking`: Suppresses background speculative DNS prefetching and auto-updates.
+- `--enable-do-not-track`: Transmits Do Not Track (`DNT: 1`) signal on all outbound requests.
+- `--webrtc-ip-handling-policy=default_public_interface_only`: Prevents binding to private LAN interfaces during WebRTC ICE candidate discovery.
 
 ---
 
 ## 🔒 WebRTC & Hardware Device Permission Model
 
-WebRTC audio/video capture, geolocation, and desktop media streams cannot be accessed by web pages without explicit application consent.
+WebRTC audio/video capture, system audio, and desktop media streams cannot be accessed by web pages without explicit application consent.
 
 Kromium features a comprehensive permission architecture via `KromiumPermissionHandler` and `KromiumPermissionRequest`:
 
@@ -41,11 +43,23 @@ Web Page (navigator.mediaDevices.getUserMedia)
 ### Supported Permission Types
 
 Defined in `KromiumPermissionType`:
-- `DEVICE_AUDIO_CAPTURE`: Microphone access.
-- `DEVICE_VIDEO_CAPTURE`: Webcam access.
-- `GEOLOCATION`: Precise GPS / network location.
-- `DESKTOP_AUDIO_CAPTURE` / `DESKTOP_VIDEO_CAPTURE`: Screen sharing / desktop capture.
-- `PROTECTED_MEDIA_IDENTIFIER`: DRM / Encrypted Media Extensions (EME).
+- `AUDIO_CAPTURE`: Microphone / audio input device access (`DEVICE_AUDIO_CAPTURE`).
+- `VIDEO_CAPTURE`: Camera / webcam video input device access (`DEVICE_VIDEO_CAPTURE`).
+- `DESKTOP_AUDIO`: System / desktop audio capture access (`DESKTOP_AUDIO_CAPTURE`).
+- `DESKTOP_VIDEO`: Screen sharing / desktop video capture access (`DESKTOP_VIDEO_CAPTURE`).
+
+### Origin Normalization & Domain Whitelisting
+
+Kromium provides a turnkey origin-based handler `KromiumPermissionHandler.forOrigins` that automatically handles schemes, non-standard ports (e.g. `https://meet.corp.internal:8443`), and wildcards (`*.corp.internal`):
+
+```kotlin
+// Automatically permit trusted origins and reject all others:
+client.permissionHandler = KromiumPermissionHandler.forOrigins(
+    "meet.google.com",
+    "*.corp.internal",
+    "localhost"
+)
+```
 
 ### Session Caching & Memory Protection
 
@@ -60,6 +74,71 @@ state.clearPermissionCache()
 ```java
 // Pure Java
 client.clearPermissionCache();
+```
+
+---
+
+## 🛡️ WebRTC IP Leak Defense & Handling Policies
+
+Standard Chromium gathers ICE candidates across all network interfaces (including private LAN IPs like `192.168.x.x` and VPN adapters) via STUN/TURN over UDP. Even when an application routes through an authenticated corporate proxy, standard WebRTC can bypass the proxy and expose client IP addresses.
+
+Kromium neutralizes this vulnerability by applying strict IP handling policies:
+
+| Policy Value | Behavior | Default When |
+|:---|:---|:---|
+| `default_public_interface_only` | Restricts candidate discovery to public interfaces; prevents LAN IP exposure. | Default when `blockRegistryAndTelemetry = true` |
+| `disable_non_proxied_udp` | Drops all non-proxied UDP traffic; forces WebRTC through configured proxy. | Default when custom proxy is active |
+| `default` | Standard Chromium candidate discovery across all local interfaces. | Explicit opt-in |
+
+### Configuring WebRTC IP Policy
+
+```kotlin
+// Kotlin DSL
+val config = KromiumConfig().apply {
+    webrtcIpHandlingPolicy = KromiumConfig.WEBRTC_POLICY_DISABLE_NON_PROXIED_UDP
+}
+```
+
+```java
+// Pure Java Fluent Builder
+KromiumConfig config = KromiumConfig.builder()
+    .webrtcIpHandlingPolicy(KromiumConfig.WEBRTC_POLICY_DISABLE_NON_PROXIED_UDP)
+    .build();
+```
+
+---
+
+## 📡 Tracking Protection: DNT & Global Privacy Control (GPC)
+
+Kromium asserts tracking protections across both Chromium's native network stack and Kromium's request pipeline out of the box:
+- `--enable-do-not-track` Chromium engine flag.
+- Automatic injection of `DNT: 1` and `Sec-GPC: 1` headers on all outbound HTTP requests.
+
+```kotlin
+// Enabled by default; can be adjusted in config or client:
+config.doNotTrack = true
+client.doNotTrack = true
+```
+
+---
+
+## 🧹 Purging Cookies & Web Storage (Privacy Reset)
+
+For multi-tenant environments, kiosk resets, or secure sign-out flows, Kromium allows clearing both persistent cookies and HTML5 web storage (`localStorage` and `sessionStorage`):
+
+```kotlin
+// Clear cookies and web storage simultaneously:
+browser.clearBrowsingData(clearCookies = true, clearStorage = true)
+
+// Or clear storage independently:
+browser.clearWebStorage()
+```
+
+```java
+// Pure Java asynchronous purge:
+browser.clearBrowsingDataAsync(true, true).thenAccept(success -> {
+    System.out.println("Session data purged: " + success);
+});
 ```
 
 ---

@@ -102,6 +102,12 @@ For multi-tenant sign-out or session cleanup across all browser instances:
 ```kotlin
 import dev.daviante.kromium.presentation.network.KromiumCookieManager
 
+// Inspect/audit all cookies stored across all domains:
+val allCookies: List<CefCookie> = KromiumCookieManager.getAllCookies()
+allCookies.forEach { cookie ->
+    println("${cookie.domain} -> ${cookie.name} (secure=${cookie.secure}, httpOnly=${cookie.httponly})")
+}
+
 // Delete a single cookie:
 KromiumCookieManager.deleteCookie("https://example.com", "authToken")
 
@@ -110,4 +116,22 @@ KromiumCookieManager.clearCookies()
 
 // Flush memory cookie changes to disk immediately:
 KromiumCookieManager.flush()
+```
+
+---
+
+## 🧼 Complete Privacy Reset (`clearBrowsingData`)
+
+In addition to cookie deletion, Kromium allows purging HTML5 `localStorage` and `sessionStorage` in a single coordinated operation:
+
+```kotlin
+// In Kotlin:
+browser.clearBrowsingData(clearCookies = true, clearStorage = true)
+```
+
+```java
+// In Pure Java:
+browser.clearBrowsingDataAsync(true, true).thenAccept(success -> {
+    System.out.println("Session reset complete: " + success);
+});
 ```

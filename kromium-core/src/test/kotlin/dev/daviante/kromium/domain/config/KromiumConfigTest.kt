@@ -149,4 +149,31 @@ class KromiumConfigTest {
             .build()
         assertEquals(policy, built.sslErrorPolicy)
     }
+
+    @Test
+    fun testWebRtcAndDoNotTrackDefaultsAndConfiguration() {
+        val config = KromiumConfig()
+        assertTrue(config.doNotTrack, "doNotTrack should be true by default")
+        assertTrue(config.commandLineArgs.contains("--enable-do-not-track"))
+
+        config.toCefSettings()
+        assertTrue(config.commandLineArgs.contains("--webrtc-ip-handling-policy=default_public_interface_only"))
+
+        // Explicit proxy should default WebRTC to disable_non_proxied_udp
+        val proxyConfig = KromiumConfig().apply {
+            proxy = KromiumProxy.http("127.0.0.1", 8080)
+        }
+        proxyConfig.toCefSettings()
+        assertTrue(proxyConfig.commandLineArgs.contains("--webrtc-ip-handling-policy=disable_non_proxied_udp"))
+
+        // Custom builder configuration
+        val custom = KromiumConfig.builder()
+            .doNotTrack(false)
+            .webrtcIpHandlingPolicy(KromiumConfig.WEBRTC_POLICY_DEFAULT)
+            .build()
+        custom.toCefSettings()
+        assertFalse(custom.doNotTrack)
+        assertFalse(custom.commandLineArgs.contains("--enable-do-not-track"))
+        assertTrue(custom.commandLineArgs.contains("--webrtc-ip-handling-policy=default"))
+    }
 }

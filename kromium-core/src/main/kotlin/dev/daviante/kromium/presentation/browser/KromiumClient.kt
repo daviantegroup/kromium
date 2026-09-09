@@ -169,6 +169,12 @@ class KromiumClient(
         permissionCache.clear()
     }
 
+    /**
+     * Whether to assert Do Not Track (DNT) and Global Privacy Control (Sec-GPC) headers on outbound requests.
+     * Defaults to true.
+     */
+    @Volatile var doNotTrack: Boolean = true
+
     @Volatile var authListener: KromiumAuthListener? = null
     @Volatile var onPopupListener: ((url: String) -> Boolean)? = null
 
@@ -343,7 +349,13 @@ class KromiumClient(
                     request.setHeaderByName("User-Agent", ua, true)
                 }
 
-                // 3. Pass to developer's interceptor if provided
+                // 3. Inject Do Not Track & Global Privacy Control signals if enabled
+                if (doNotTrack) {
+                    request.setHeaderByName("DNT", "1", true)
+                    request.setHeaderByName("Sec-GPC", "1", true)
+                }
+
+                // 4. Pass to developer's interceptor if provided
                 val interceptor = requestInterceptor
                 if (interceptor != null) {
                     val headersMap = mutableMapOf<String, String>()

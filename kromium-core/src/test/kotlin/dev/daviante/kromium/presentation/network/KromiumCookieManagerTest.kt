@@ -25,4 +25,13 @@ class KromiumCookieManagerTest {
         // Should complete in well under 200ms (timeoutMs is 2000ms)
         assertTrue(elapsed < 500, "Non-http URL cookie query took $elapsed ms, should be instantaneous")
     }
+
+    @Test
+    fun testGetAllCookiesGracefullyHandlesUninitializedEngine() = runBlocking {
+        val cookies = KromiumCookieManager.getAllCookies()
+        assertEquals(emptyList(), cookies)
+
+        val future = KromiumCookieManager.getAllCookiesAsync()
+        assertEquals(emptyList(), future.get())
+    }
 }

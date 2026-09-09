@@ -34,15 +34,26 @@ fun interface KromiumPermissionHandler {
          * Creates a handler that automatically grants requests originating from specified trusted domains/origins,
          * denying all other origins.
          *
-         * @param allowedOrigins Set of permitted origins (e.g. "https://meet.company.com", "app://myapp", "localhost").
+         * Supports exact origins (e.g. "https://meet.company.com:8443"), hostnames ("meet.company.com"),
+         * wildcard domains ("*.company.com"), localhost, and custom schemes ("app://myapp").
+         *
+         * @param allowedOrigins Set of permitted origins or hostnames.
          */
         @JvmStatic
         fun forOrigins(allowedOrigins: Set<String>): KromiumPermissionHandler =
             KromiumPermissionHandler { request ->
-                val origin = request.origin.lowercase().trim()
+                val origin = request.origin.lowercase().trim().removeSuffix("/")
+                val reqHost = dev.daviante.kromium.presentation.network.KromiumAssetFilter.extractHost(origin) ?: origin
+
                 val isAllowed = allowedOrigins.any { allowed ->
-                    val norm = allowed.lowercase().trim()
-                    origin == norm || origin == "https://$norm" || origin == "http://$norm" || origin.endsWith(".$norm")
+                    val norm = allowed.lowercase().trim().removeSuffix("/")
+                    if (origin == norm || origin == "https://$norm" || origin == "http://$norm") {
+                        return@any true
+                    }
+                    val normHost = dev.daviante.kromium.presentation.network.KromiumAssetFilter.extractHost(norm)
+                        ?: norm.removePrefix("*.").substringBefore(':')
+                    val cleanNormHost = normHost.removePrefix("*.")
+                    reqHost == cleanNormHost || reqHost.endsWith(".$cleanNormHost")
                 }
                 if (isAllowed) KromiumPermissionDecision.GRANT else KromiumPermissionDecision.DENY
             }

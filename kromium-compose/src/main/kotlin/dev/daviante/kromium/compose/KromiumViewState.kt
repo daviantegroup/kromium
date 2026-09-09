@@ -320,6 +320,24 @@ class KromiumViewState(initialUrl: String) {
      * Deletes all cookies from the underlying cookie store.
      */
     fun clearCookies(): Boolean = KromiumCookieManager.clearCookies()
+
+    /**
+     * Retrieves all cookies across all domains stored in the global cookie store.
+     */
+    suspend fun getAllCookies(): List<org.cef.network.CefCookie> =
+        browser?.getAllCookies() ?: KromiumCookieManager.getAllCookies()
+
+    /**
+     * Clears HTML5 `localStorage` and `sessionStorage` for the active page origin.
+     */
+    suspend fun clearWebStorage(): Boolean =
+        browser?.clearWebStorage() ?: false
+
+    /**
+     * Purges browsing data including cookies and HTML5 web storage.
+     */
+    suspend fun clearBrowsingData(clearCookies: Boolean = true, clearStorage: Boolean = true): Boolean =
+        browser?.clearBrowsingData(clearCookies, clearStorage) ?: if (clearCookies) clearCookies() else true
 }
 
 @Composable

@@ -717,6 +717,59 @@ class KromiumBrowser(
      */
     fun clearCookies(): Boolean = KromiumCookieManager.clearCookies()
 
+    /**
+     * Retrieves all cookies across all domains stored in the global cookie store.
+     */
+    suspend fun getAllCookies(): List<org.cef.network.CefCookie> =
+        KromiumCookieManager.getAllCookies()
+
+    /**
+     * Asynchronously retrieves all cookies across all domains stored in the global cookie store returning a Java [CompletableFuture].
+     */
+    fun getAllCookiesAsync(): CompletableFuture<List<org.cef.network.CefCookie>> =
+        KromiumCookieManager.getAllCookiesAsync()
+
+    /**
+     * Clears HTML5 `localStorage` and `sessionStorage` for the active page origin.
+     */
+    suspend fun clearWebStorage(): Boolean {
+        return try {
+            val res = evaluateJavaScript("try { localStorage.clear(); sessionStorage.clear(); 'OK'; } catch (e) { 'ERR:' + e; }")
+            res == "OK"
+        } catch (e: Throwable) {
+            KromiumLogger.w("KromiumBrowser", "Failed to clear web storage", e)
+            false
+        }
+    }
+
+    /**
+     * Asynchronously clears HTML5 `localStorage` and `sessionStorage` for the active page origin returning a Java [CompletableFuture].
+     */
+    fun clearWebStorageAsync(): CompletableFuture<Boolean> =
+        FutureBridge.toCompletableFuture { clearWebStorage() }
+
+    /**
+     * Purges browsing data including cookies and HTML5 web storage.
+     */
+    @JvmOverloads
+    suspend fun clearBrowsingData(clearCookies: Boolean = true, clearStorage: Boolean = true): Boolean {
+        var success = true
+        if (clearCookies) {
+            success = clearCookies() && success
+        }
+        if (clearStorage) {
+            success = clearWebStorage() && success
+        }
+        return success
+    }
+
+    /**
+     * Asynchronously purges browsing data including cookies and HTML5 web storage returning a Java [CompletableFuture].
+     */
+    @JvmOverloads
+    fun clearBrowsingDataAsync(clearCookies: Boolean = true, clearStorage: Boolean = true): CompletableFuture<Boolean> =
+        FutureBridge.toCompletableFuture { clearBrowsingData(clearCookies, clearStorage) }
+
     private val attachedHandlers = java.util.concurrent.CopyOnWriteArrayList<Any>()
 
     /**

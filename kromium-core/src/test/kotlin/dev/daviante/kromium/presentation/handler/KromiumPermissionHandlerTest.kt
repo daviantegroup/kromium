@@ -119,6 +119,21 @@ class KromiumPermissionHandlerTest {
     }
 
     @Test
+    fun `KromiumPermissionHandler forOrigins supports ports and wildcards`() {
+        val handler = KromiumPermissionHandler.forOrigins("meet.corp.internal", "*.internal.net", "localhost")
+
+        val portReq = KromiumPermissionRequest.from("https://meet.corp.internal:8443/room", 3)
+        val wildcardPortReq = KromiumPermissionRequest.from("https://video.internal.net:9090/session", 3)
+        val localhostPortReq = KromiumPermissionRequest.from("http://localhost:3000/app", 3)
+        val untrustedPortReq = KromiumPermissionRequest.from("https://evil.corp.internal.fake:8443", 3)
+
+        assertEquals(KromiumPermissionDecision.GRANT, handler.onRequestPermission(portReq))
+        assertEquals(KromiumPermissionDecision.GRANT, handler.onRequestPermission(wildcardPortReq))
+        assertEquals(KromiumPermissionDecision.GRANT, handler.onRequestPermission(localhostPortReq))
+        assertEquals(KromiumPermissionDecision.DENY, handler.onRequestPermission(untrustedPortReq))
+    }
+
+    @Test
     fun `KromiumClient defaults to Deny when no permission handler is configured`() {
         val mockRawClient = mockk<CefClient>(relaxed = true)
         val permHandlerSlot = slot<CefPermissionHandler>()

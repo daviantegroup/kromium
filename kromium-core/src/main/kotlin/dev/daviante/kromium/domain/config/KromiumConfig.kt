@@ -127,6 +127,25 @@ class KromiumConfig {
         dev.daviante.kromium.domain.exception.SslErrorPolicy.Strict
 
     /**
+     * Controls WebRTC candidate gathering and IP address exposure.
+     *
+     * Options:
+     * - [WEBRTC_POLICY_DEFAULT]: Standard WebRTC behavior.
+     * - [WEBRTC_POLICY_DEFAULT_PUBLIC_INTERFACE_ONLY]: Prevents binding to private LAN IP addresses (Default when [blockRegistryAndTelemetry] is true).
+     * - [WEBRTC_POLICY_DISABLE_NON_PROXIED_UDP]: Prevents any non-proxied UDP traffic (Default when an explicit proxy is configured).
+     *
+     * Set to null to use automatic selection based on proxy and telemetry configuration.
+     */
+    var webrtcIpHandlingPolicy: String? = null
+
+    /**
+     * Enables the standard Do Not Track (DNT) header and Global Privacy Control signals.
+     * Automatically injects `--enable-do-not-track` into Chromium startup arguments.
+     * Defaults to true.
+     */
+    var doNotTrack: Boolean = true
+
+    /**
      * Command-line arguments passed to the CEF process.
      *
      * Default includes rendering optimization flags, security hardening, and
@@ -144,6 +163,9 @@ class KromiumConfig {
     init {
         if (blockRegistryAndTelemetry) {
             applyRegistrySuppressionFlags()
+        }
+        if (doNotTrack && commandLineArgs.none { it.equals("--enable-do-not-track", ignoreCase = true) }) {
+            commandLineArgs.add("--enable-do-not-track")
         }
     }
 
@@ -376,12 +398,41 @@ class KromiumConfig {
             commandLineArgs.add(arg)
         }
 
+        // Apply WebRTC IP handling policy
+        val effectiveWebRtcPolicy = webrtcIpHandlingPolicy ?: when {
+            proxy !is KromiumProxy.Direct && proxy !is KromiumProxy.System -> WEBRTC_POLICY_DISABLE_NON_PROXIED_UDP
+            blockRegistryAndTelemetry -> WEBRTC_POLICY_DEFAULT_PUBLIC_INTERFACE_ONLY
+            else -> null
+        }
+        if (effectiveWebRtcPolicy != null) {
+            commandLineArgs.removeAll { it.startsWith("--webrtc-ip-handling-policy=") }
+            commandLineArgs.add("--webrtc-ip-handling-policy=$effectiveWebRtcPolicy")
+        }
+
+        // Apply Do Not Track (DNT)
+        if (doNotTrack) {
+            if (commandLineArgs.none { it.equals("--enable-do-not-track", ignoreCase = true) }) {
+                commandLineArgs.add("--enable-do-not-track")
+            }
+        } else {
+            commandLineArgs.removeAll { it.equals("--enable-do-not-track", ignoreCase = true) }
+        }
+
         return settings
     }
 
     companion object {
         @JvmStatic
         fun builder(): Builder = Builder()
+
+        /** Standard WebRTC IP gathering across all interfaces. */
+        const val WEBRTC_POLICY_DEFAULT: String = "default"
+
+        /** WebRTC only binds to public interfaces, preventing internal LAN IP leaks. */
+        const val WEBRTC_POLICY_DEFAULT_PUBLIC_INTERFACE_ONLY: String = "default_public_interface_only"
+
+        /** WebRTC drops all non-proxied UDP traffic, preventing any proxy IP bypass. */
+        const val WEBRTC_POLICY_DISABLE_NON_PROXIED_UDP: String = "disable_non_proxied_udp"
 
         /**
          * Core Chromium flags that completely suppress background telemetry,
@@ -434,6 +485,8 @@ class KromiumConfig {
         fun authNegotiateDelegateAllowlist(allowlist: List<String>) = apply { config.authNegotiateDelegateAllowlist = allowlist }
         fun emulateDesktopEnvironment(enable: Boolean) = apply { config.emulateDesktopEnvironment = enable }
         fun sslErrorPolicy(policy: dev.daviante.kromium.domain.exception.SslErrorPolicy) = apply { config.sslErrorPolicy = policy }
+        fun webrtcIpHandlingPolicy(policy: String?) = apply { config.webrtcIpHandlingPolicy = policy }
+        fun doNotTrack(enabled: Boolean) = apply { config.doNotTrack = enabled }
 
         fun build(): KromiumConfig {
             config.validate()

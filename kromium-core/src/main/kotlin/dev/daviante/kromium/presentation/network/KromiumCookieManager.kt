@@ -57,24 +57,29 @@ object KromiumCookieManager {
                     return@suspendCancellableCoroutine
                 }
 
-                val success = manager.visitUrlCookies(url, includeHttpOnly, object : CefCookieVisitor {
-                    override fun visit(
-                        cookie: CefCookie?,
-                        count: Int,
-                        total: Int,
-                        deleteCookie: BoolRef?
-                    ): Boolean {
-                        if (cookie != null && cookie.name.isNotBlank()) {
-                            cookies[cookie.name] = cookie.value
-                        }
-                        if (count >= total - 1) {
-                            if (continuation.isActive) {
-                                continuation.resume(cookies)
+                val success = try {
+                    manager.visitUrlCookies(url, includeHttpOnly, object : CefCookieVisitor {
+                        override fun visit(
+                            cookie: CefCookie?,
+                            count: Int,
+                            total: Int,
+                            deleteCookie: BoolRef?
+                        ): Boolean {
+                            if (cookie != null && cookie.name.isNotBlank()) {
+                                cookies[cookie.name] = cookie.value
                             }
+                            if (count >= total - 1) {
+                                if (continuation.isActive) {
+                                    continuation.resume(cookies)
+                                }
+                            }
+                            return true
                         }
-                        return true
-                    }
-                })
+                    })
+                } catch (e: Throwable) {
+                    KromiumLogger.w(TAG, "Failed to visit URL cookies for $url", e)
+                    false
+                }
 
                 if (!success && continuation.isActive) {
                     // visitUrlCookies returned false — manager rejected the request
@@ -112,6 +117,72 @@ object KromiumCookieManager {
     @JvmStatic
     fun getCookieAsync(url: String, name: String): CompletableFuture<String?> =
         FutureBridge.toCompletableFuture { getCookie(url, name) }
+
+    /**
+     * Retrieves all cookies across all domains stored in Chromium's global cookie store.
+     * Useful for privacy audits, session inspection, and GDPR compliance validation.
+     */
+    @JvmStatic
+    suspend fun getAllCookies(): List<CefCookie> {
+        val result = withTimeoutOrNull(timeoutMs) {
+            suspendCancellableCoroutine { continuation ->
+                val cookies = mutableListOf<CefCookie>()
+                val manager = try {
+                    rawManager
+                } catch (e: Throwable) {
+                    KromiumLogger.w(TAG, "Could not access global cookie manager", e)
+                    null
+                }
+
+                if (manager == null) {
+                    continuation.resume(emptyList())
+                    return@suspendCancellableCoroutine
+                }
+
+                val success = try {
+                    manager.visitAllCookies(object : CefCookieVisitor {
+                        override fun visit(
+                            cookie: CefCookie?,
+                            count: Int,
+                            total: Int,
+                            deleteCookie: BoolRef?
+                        ): Boolean {
+                            if (cookie != null) {
+                                cookies.add(cookie)
+                            }
+                            if (count >= total - 1) {
+                                if (continuation.isActive) {
+                                    continuation.resume(cookies)
+                                }
+                            }
+                            return true
+                        }
+                    })
+                } catch (e: Throwable) {
+                    KromiumLogger.w(TAG, "Failed to visit all cookies", e)
+                    false
+                }
+
+                if (!success && continuation.isActive) {
+                    continuation.resume(emptyList())
+                }
+            }
+        }
+
+        if (result == null) {
+            KromiumLogger.d(TAG, "All-cookies retrieval timed out (${timeoutMs}ms), returning empty list")
+        }
+
+        return result ?: emptyList()
+    }
+
+    /**
+     * Asynchronously retrieves all cookies across all domains stored in the global cookie store,
+     * returning a Java [CompletableFuture].
+     */
+    @JvmStatic
+    fun getAllCookiesAsync(): CompletableFuture<List<CefCookie>> =
+        FutureBridge.toCompletableFuture { getAllCookies() }
 
     /**
      * Sets a cookie for the specified [url].
