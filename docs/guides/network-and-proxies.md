@@ -53,6 +53,31 @@ public final class ProxySwitchDemo {
 }
 ```
 
+### Direct Browser Forwarder
+
+You can also update the proxy directly via any `KromiumBrowser` instance:
+
+```kotlin
+browser.setProxy(KromiumProxy.socks5("127.0.0.1", 1080))
+```
+
+---
+
+## 🔒 Isolated Client Sessions & Multi-Proxy Routing
+
+By default, creating a client via `Kromium.newClient()` inherits the global request context. When you require **independent, concurrent proxies across different tabs or web crawlers**, instantiate an **isolated client**:
+
+```kotlin
+// Create an isolated client with a dedicated CefRequestContext:
+val isolatedClient = Kromium.newIsolatedClient()
+// Or: Kromium.newClient(isolated = true)
+
+// Any proxy update here affects ONLY this client and its browsers:
+isolatedClient.setProxy(KromiumProxy.http("proxy-node-1.corp", 8080))
+
+val browser1 = isolatedClient.createBrowser("https://checkip.amazonaws.com")
+```
+
 ---
 
 ## 🔑 Authenticated Proxies & HTTP Basic Auth

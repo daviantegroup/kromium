@@ -93,6 +93,7 @@ object Kromium {
     private var cefApp: CefApp? = null
     private var _activeConfig: KromiumConfig? = null
 
+    @Volatile
     private var _activeProxy: KromiumProxy = KromiumProxy.System
     @JvmStatic val activeProxy: KromiumProxy get() = _activeProxy
 
@@ -300,14 +301,20 @@ object Kromium {
     /**
      * Creates a new [KromiumClient] backed by a fresh CEF client instance.
      *
+     * @param isolated When true, instantiates an isolated [org.cef.browser.CefRequestContext] allowing
+     *                 independent proxy configurations and cookie jars without affecting global browser routing.
      * @throws KromiumException.NotInitialized if Kromium hasn't been initialized
      * @throws KromiumException.Disposed if Kromium has been disposed
      */
     @JvmStatic
-    fun newClient(): KromiumClient {
+    @JvmOverloads
+    fun newClient(isolated: Boolean = false): KromiumClient {
         if (_state.value is KromiumState.Disposed) throw KromiumException.Disposed
         val app = cefApp ?: throw KromiumException.NotInitialized
-        val client = KromiumClient(app.createClient())
+        val requestContext = if (isolated) {
+            org.cef.browser.CefRequestContext.createContext(null)
+        } else null
+        val client = KromiumClient(app.createClient(), requestContext = requestContext)
         if (_activeConfig?.emulateDesktopEnvironment == true) {
             client.emulateDesktopEnvironment = true
         }
@@ -315,27 +322,39 @@ object Kromium {
     }
 
     /**
+     * Creates a new [KromiumClient] backed by an isolated request context.
+     * Ensures changes to proxy or cookies do not impact other browser sessions.
+     */
+    @JvmStatic
+    fun newIsolatedClient(): KromiumClient = newClient(isolated = true)
+
+    /**
      * Suspends until Kromium is ready, then creates a new [KromiumClient].
      *
+     * @param isolated When true, creates a client backed by an isolated request context.
      * @throws KromiumException if initialization failed
      */
     @JvmStatic
-    suspend fun awaitClient(): KromiumClient {
+    @JvmOverloads
+    suspend fun awaitClient(isolated: Boolean = false): KromiumClient {
         if (_state.value is KromiumState.Disposed) {
             throw KromiumException.Disposed
         }
         if (!isReady) {
             awaitReadyState()
         }
-        return newClient()
+        return newClient(isolated = isolated)
     }
 
     /**
      * Asynchronously waits until Kromium is ready and returns a new [KromiumClient] via a [CompletableFuture].
+     *
+     * @param isolated When true, creates a client backed by an isolated request context.
      */
     @JvmStatic
-    fun awaitClientAsync(): CompletableFuture<KromiumClient> =
-        FutureBridge.toCompletableFuture { awaitClient() }
+    @JvmOverloads
+    fun awaitClientAsync(isolated: Boolean = false): CompletableFuture<KromiumClient> =
+        FutureBridge.toCompletableFuture { awaitClient(isolated = isolated) }
 
     /**
      * Creates a new [KromiumBrowser] instance using a fresh client.

@@ -79,6 +79,7 @@ class KromiumClient(
     internal val routerCancelName: String = "kromiumQueryCancel"
 ) {
 
+    @Volatile
     private var clientProxy: KromiumProxy? = null
 
     /**

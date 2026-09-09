@@ -136,6 +136,16 @@ The following APIs are active when the browser is running in OSR mode (Java Swin
 | `bufferedImageType` | `Int` | `TYPE_INT_ARGB_PRE` | Overrides the internal `BufferedImage` raster format. |
 | `byteOrder` | `ByteOrder` | `LITTLE_ENDIAN` | Overrides the byte order used when interpreting native Chromium frames. |
 
+### Dynamic Proxy & Network Filtering
+
+```kotlin
+val activeProxy: KromiumProxy // Active proxy strategy on this browser's client
+fun setProxy(proxy: KromiumProxy): Result<Unit>
+fun updateProxy(proxy: KromiumProxy): Boolean // Pure Java friendly boolean return
+fun setHostLock(vararg allowedHosts: String, lockSubresources: Boolean = false)
+fun blockMediaAssets(images: Boolean = true, media: Boolean = true, fonts: Boolean = true, stylesheets: Boolean = false)
+```
+
 ### Lifecycle & Disposal
 
 ```kotlin

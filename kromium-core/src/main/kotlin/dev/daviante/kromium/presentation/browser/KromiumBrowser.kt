@@ -2,6 +2,7 @@ package dev.daviante.kromium.presentation.browser
 
 import dev.daviante.kromium.core.logging.KromiumLogger
 import dev.daviante.kromium.core.util.FutureBridge
+import dev.daviante.kromium.domain.config.KromiumProxy
 import dev.daviante.kromium.domain.exception.KromiumException
 import dev.daviante.kromium.domain.model.KromiumPdfSettings
 import dev.daviante.kromium.presentation.automation.KromiumAutomation
@@ -636,6 +637,26 @@ class KromiumBrowser(
         client.hostLock = null
         client.hostLockSubresources = false
     }
+
+    /**
+     * The active proxy configuration for this browser's client session.
+     */
+    val activeProxy: KromiumProxy get() = client.activeProxy
+
+    /**
+     * Dynamically updates the proxy strategy for this browser's client context.
+     *
+     * @param proxy The new [KromiumProxy] configuration to apply.
+     * @return [Result.success] if applied, or [Result.failure] with error details.
+     */
+    fun setProxy(proxy: KromiumProxy): Result<Unit> = client.setProxy(proxy)
+
+    /**
+     * Dynamically updates the proxy strategy for this browser's client context returning a boolean.
+     * Provides 100% clean Java compatibility bypassing Kotlin Result value class mangling.
+     */
+    @JvmName("updateProxy")
+    fun updateProxy(proxy: KromiumProxy): Boolean = client.updateProxy(proxy)
 
     /**
      * Retrieves all cookies for the current page as a key-value map.

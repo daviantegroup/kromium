@@ -194,12 +194,61 @@ sealed class KromiumProxy {
         val socks: String? = null,
         val bypassList: List<String> = emptyList()
     ) : KromiumProxy() {
+        private data class ParsedEndpoint(val cleanSpec: String, val host: String?, val port: Int?, val credentials: Pair<String, String>?)
+
+        private fun parseEndpoint(raw: String): ParsedEndpoint {
+            val trimmed = raw.trim()
+            if (!trimmed.contains("://")) {
+                // E.g. "proxy.corp:8080" or "user:pass@proxy.corp:8080"
+                return if (trimmed.contains("@")) {
+                    val userPart = trimmed.substringBeforeLast("@")
+                    val hostPort = trimmed.substringAfterLast("@")
+                    val creds = if (userPart.contains(":")) {
+                        userPart.substringBefore(":") to userPart.substringAfter(":")
+                    } else {
+                        userPart to ""
+                    }
+                    val host = hostPort.substringBefore(":")
+                    val port = hostPort.substringAfter(":", "").toIntOrNull()
+                    ParsedEndpoint(cleanSpec = hostPort, host = host, port = port, credentials = creds)
+                } else {
+                    val host = trimmed.substringBefore(":")
+                    val port = trimmed.substringAfter(":", "").toIntOrNull()
+                    ParsedEndpoint(cleanSpec = trimmed, host = host, port = port, credentials = null)
+                }
+            }
+
+            return try {
+                val uri = java.net.URI(trimmed)
+                val host = uri.host
+                val port = if (uri.port != -1) uri.port else null
+                val creds = uri.userInfo?.let { info ->
+                    if (info.contains(":")) {
+                        info.substringBefore(":") to info.substringAfter(":")
+                    } else {
+                        info to ""
+                    }
+                }
+                val scheme = uri.scheme
+                val hostPort = if (port != null) "$host:$port" else host ?: ""
+                val cleanSpec = if (scheme != null) "$scheme://$hostPort" else hostPort
+                ParsedEndpoint(cleanSpec = cleanSpec, host = host, port = port, credentials = creds)
+            } catch (_: Throwable) {
+                ParsedEndpoint(cleanSpec = trimmed, host = null, port = null, credentials = null)
+            }
+        }
+
+        private val parsedHttp = http?.takeIf { it.isNotBlank() }?.let { parseEndpoint(it) }
+        private val parsedHttps = https?.takeIf { it.isNotBlank() }?.let { parseEndpoint(it) }
+        private val parsedFtp = ftp?.takeIf { it.isNotBlank() }?.let { parseEndpoint(it) }
+        private val parsedSocks = socks?.takeIf { it.isNotBlank() }?.let { parseEndpoint(it) }
+
         val serverSpec: String get() {
             val rules = mutableListOf<String>()
-            http?.takeIf { it.isNotBlank() }?.let { rules.add("http=$it") }
-            https?.takeIf { it.isNotBlank() }?.let { rules.add("https=$it") }
-            ftp?.takeIf { it.isNotBlank() }?.let { rules.add("ftp=$it") }
-            socks?.takeIf { it.isNotBlank() }?.let { rules.add("socks=$it") }
+            parsedHttp?.let { rules.add("http=${it.cleanSpec}") }
+            parsedHttps?.let { rules.add("https=${it.cleanSpec}") }
+            parsedFtp?.let { rules.add("ftp=${it.cleanSpec}") }
+            parsedSocks?.let { rules.add("socks=${it.cleanSpec}") }
             return rules.joinToString(";")
         }
 
@@ -225,6 +274,19 @@ sealed class KromiumProxy {
                 map["bypass_list"] = bypassList.joinToString(";")
             }
             return map
+        }
+
+        override fun getCredentials(targetHost: String?, targetPort: Int?): Pair<String, String>? {
+            val endpoints = listOfNotNull(parsedHttp, parsedHttps, parsedFtp, parsedSocks)
+            for (ep in endpoints) {
+                val creds = ep.credentials ?: continue
+                if (targetHost.isNullOrBlank() || targetHost.equals(ep.host, ignoreCase = true)) {
+                    if (targetPort == null || targetPort == ep.port || targetPort == 0 || ep.port == null) {
+                        return creds
+                    }
+                }
+            }
+            return null
         }
 
         override fun validate() {
@@ -275,6 +337,16 @@ sealed class KromiumProxy {
             isSecure: Boolean = false,
             bypassList: List<String> = emptyList()
         ): KromiumProxy = Http(host, port, username, password, isSecure, bypassList)
+
+        @JvmStatic
+        @JvmOverloads
+        fun https(
+            host: String,
+            port: Int,
+            username: String? = null,
+            password: String? = null,
+            bypassList: List<String> = emptyList()
+        ): KromiumProxy = Http(host, port, username, password, isSecure = true, bypassList = bypassList)
 
         @JvmStatic
         @JvmOverloads
