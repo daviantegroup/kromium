@@ -267,6 +267,21 @@ class KromiumClient(
     private val permissionHandlers = java.util.concurrent.CopyOnWriteArrayList<CefPermissionHandler>()
 
     internal val htmlPayloads = java.util.concurrent.ConcurrentHashMap<String, String>()
+    private val htmlPayloadKeys = java.util.concurrent.ConcurrentLinkedDeque<String>()
+
+    /**
+     * Registers an in-memory synthetic HTML payload, capping cache size to prevent memory leaks.
+     */
+    internal fun registerHtmlPayload(url: String, html: String, maxCapacity: Int = 50) {
+        htmlPayloads[url] = html
+        htmlPayloadKeys.add(url)
+        while (htmlPayloadKeys.size > maxCapacity) {
+            val oldest = htmlPayloadKeys.pollFirst()
+            if (oldest != null && oldest != url) {
+                htmlPayloads.remove(oldest)
+            }
+        }
+    }
 
     /**
      * SSL error handling policy. Defaults to [SslErrorPolicy.Strict] which rejects all
@@ -1327,6 +1342,8 @@ class KromiumClient(
             focusHandlers.clear()
             keyboardHandlers.clear()
             permissionHandlers.clear()
+            htmlPayloads.clear()
+            htmlPayloadKeys.clear()
             rawClient.dispose()
             if (requestContext != null && !requestContext.isGlobal) {
                 try {
