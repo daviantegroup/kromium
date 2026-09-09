@@ -16,7 +16,7 @@ dependencies {
 }
 
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain(17)
 }
 
 val osName = System.getProperty("os.name")?.lowercase() ?: ""
