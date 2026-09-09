@@ -59,6 +59,16 @@ class FileUtilsTest {
     }
 
     @Test
+    fun testResolveChildUnderUserHomePermitted() {
+        val userHome = System.getProperty("user.home")
+        if (!userHome.isNullOrBlank()) {
+            val child = FileUtils.resolveChild(File(userHome), ".kromium")
+            assertNotNull(child, "resolveChild should permit safe child directories under user.home")
+            assertEquals(File(userHome, ".kromium").canonicalPath, child.canonicalPath)
+        }
+    }
+
+    @Test
     fun testResolveChildValid() {
         val child = FileUtils.resolveChild(tempDir, "subdir/file.txt")
         assertNotNull(child)

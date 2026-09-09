@@ -378,6 +378,18 @@ object Kromium {
     ): KromiumBrowser = newClient(isolated = isolated).createBrowser(url, isOffScreenRendered, isTransparent)
 
     /**
+     * Creates a new [KromiumBrowser] instance using an existing [KromiumClient].
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun createBrowser(
+        client: KromiumClient,
+        url: String? = "about:blank",
+        isOffScreenRendered: Boolean = true,
+        isTransparent: Boolean = false
+    ): KromiumBrowser = client.createBrowser(url, isOffScreenRendered, isTransparent)
+
+    /**
      * Creates a new [KromiumBrowser] instance backed by an isolated session and cookie store.
      */
     @JvmStatic

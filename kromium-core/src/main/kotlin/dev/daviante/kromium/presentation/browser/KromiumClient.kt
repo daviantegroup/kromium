@@ -274,10 +274,11 @@ class KromiumClient(
      */
     internal fun registerHtmlPayload(url: String, html: String, maxCapacity: Int = 50) {
         htmlPayloads[url] = html
+        htmlPayloadKeys.remove(url)
         htmlPayloadKeys.add(url)
         while (htmlPayloadKeys.size > maxCapacity) {
             val oldest = htmlPayloadKeys.pollFirst()
-            if (oldest != null && oldest != url) {
+            if (oldest != null) {
                 htmlPayloads.remove(oldest)
             }
         }
@@ -402,7 +403,11 @@ class KromiumClient(
                     }
                 }
 
-                activeRequestCount.incrementAndGet()
+                // Synthetic in-memory HTML payloads are resolved locally via getResourceHandler and do not fire onResourceLoadComplete
+                val isSyntheticPayload = request.url?.let { htmlPayloads.containsKey(it) } == true
+                if (!isSyntheticPayload) {
+                    activeRequestCount.incrementAndGet()
+                }
                 return false // Proceed
             }
 
@@ -725,18 +730,6 @@ class KromiumClient(
         isTransparent: Boolean = false,
         requestContext: CefRequestContext? = null
     ): KromiumBrowser {
-        if (false) {
-            KromiumLogger.w(
-                TAG,
-                "isOffScreenRendered requested but JOGL (com.jogamp.opengl.GLEventListener) is not present on classpath. " +
-                    "Transparently falling back to zero-dependency offscreen Swing native peer browser."
-            )
-            return createHeadlessBrowser(
-                url = url,
-                requestContext = requestContext
-            )
-        }
-
         val rendering = if (isOffScreenRendered) CefRendering.OFFSCREEN else CefRendering.DEFAULT
         val effectiveContext = requestContext ?: this.requestContext
         val browser = if (effectiveContext != null) {

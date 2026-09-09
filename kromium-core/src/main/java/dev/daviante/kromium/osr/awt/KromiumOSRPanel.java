@@ -28,7 +28,7 @@ public class KromiumOSRPanel extends JPanel {
     private BufferedImage popupBuffer;
     private int[] popupBufferData;
     private Rectangle popupRect;
-    private boolean isPopupVisible;
+    private volatile boolean isPopupVisible;
 
     // Configurable rendering properties with optimal defaults
     private volatile int bufferedImageType = BufferedImage.TYPE_INT_ARGB_PRE;
@@ -152,20 +152,24 @@ public class KromiumOSRPanel extends JPanel {
     }
     
     private void handlePopupPaint(ByteBuffer buffer, int width, int height) {
-        if (popupBuffer == null || popupBuffer.getWidth() != width || popupBuffer.getHeight() != height || popupBuffer.getType() != bufferedImageType) {
-            popupBuffer = new BufferedImage(width, height, bufferedImageType);
-            popupBufferData = ((DataBufferInt) popupBuffer.getRaster().getDataBuffer()).getData();
+        synchronized (bufferLock) {
+            if (popupBuffer == null || popupBuffer.getWidth() != width || popupBuffer.getHeight() != height || popupBuffer.getType() != bufferedImageType) {
+                popupBuffer = new BufferedImage(width, height, bufferedImageType);
+                popupBufferData = ((DataBufferInt) popupBuffer.getRaster().getDataBuffer()).getData();
+            }
+            
+            IntBuffer intBuffer = buffer.order(byteOrder).asIntBuffer();
+            int pixelsToCopy = Math.min(intBuffer.remaining(), popupBufferData.length);
+            intBuffer.get(popupBufferData, 0, pixelsToCopy);
         }
-        
-        IntBuffer intBuffer = buffer.order(byteOrder).asIntBuffer();
-        int pixelsToCopy = Math.min(intBuffer.remaining(), popupBufferData.length);
-        intBuffer.get(popupBufferData, 0, pixelsToCopy);
         
         repaint();
     }
     
     public void setPopupBounds(Rectangle rect) {
-        this.popupRect = rect;
+        synchronized (bufferLock) {
+            this.popupRect = rect;
+        }
     }
     
     public void setPopupVisible(boolean visible) {
@@ -193,13 +197,13 @@ public class KromiumOSRPanel extends JPanel {
                 // Java2D draws the image directly into the Swing hierarchy
                 g.drawImage(frontBuffer, 0, 0, getWidth(), getHeight(), null);
             }
-        }
-        
-        if (isPopupVisible && popupBuffer != null && popupRect != null) {
-            // popupRect contains the logical coordinates and size provided by JCEF.
-            // Swing Graphics 'g' operates in logical coordinates.
-            // Java2D will automatically handle downscaling the high-res popupBuffer to fit the logical rect.
-            g.drawImage(popupBuffer, popupRect.x, popupRect.y, popupRect.width, popupRect.height, null);
+            
+            if (isPopupVisible && popupBuffer != null && popupRect != null) {
+                // popupRect contains the logical coordinates and size provided by JCEF.
+                // Swing Graphics 'g' operates in logical coordinates.
+                // Java2D will automatically handle downscaling the high-res popupBuffer to fit the logical rect.
+                g.drawImage(popupBuffer, popupRect.x, popupRect.y, popupRect.width, popupRect.height, null);
+            }
         }
     }
 }

@@ -122,4 +122,27 @@ class KromiumClientMultiplexerTest {
         verify(exactly = 1) { mockRawClient.addFocusHandler(any()) }
         verify(exactly = 1) { mockRawClient.addKeyboardHandler(any()) }
     }
+
+    @Test
+    fun testRegisterHtmlPayloadCapAndEviction() {
+        val mockRawClient = mockk<CefClient>(relaxed = true)
+        val client = KromiumClient(mockRawClient)
+
+        // Register 3 payloads with a max capacity of 2
+        client.registerHtmlPayload("http://local/1", "<h1>1</h1>", maxCapacity = 2)
+        client.registerHtmlPayload("http://local/2", "<h1>2</h1>", maxCapacity = 2)
+        assertEquals(2, client.htmlPayloads.size)
+
+        client.registerHtmlPayload("http://local/3", "<h1>3</h1>", maxCapacity = 2)
+        assertEquals(2, client.htmlPayloads.size)
+        // Oldest (1) must be evicted!
+        assertEquals(null, client.htmlPayloads["http://local/1"])
+        assertEquals("<h1>2</h1>", client.htmlPayloads["http://local/2"])
+        assertEquals("<h1>3</h1>", client.htmlPayloads["http://local/3"])
+
+        // Re-registering existing key should update and not cause desynchronized eviction
+        client.registerHtmlPayload("http://local/2", "<h1>2-updated</h1>", maxCapacity = 2)
+        assertEquals(2, client.htmlPayloads.size)
+        assertEquals("<h1>2-updated</h1>", client.htmlPayloads["http://local/2"])
+    }
 }

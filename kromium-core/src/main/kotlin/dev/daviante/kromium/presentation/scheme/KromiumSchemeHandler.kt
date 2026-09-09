@@ -47,7 +47,8 @@ object KromiumSchemeHandler {
             val targetRelPath = if (cleanPath.isEmpty() || cleanPath == "/") "index.html" else cleanPath.trimStart('/')
             val fullResourcePath = if (normalizedBase.isEmpty()) targetRelPath else "$normalizedBase/$targetRelPath"
 
-            var stream: InputStream? = classLoader.getResourceAsStream(fullResourcePath)
+            var stream = classLoader.getResourceAsStream(fullResourcePath)
+            var resolvedPath = fullResourcePath
             var resolvedMime = MimeTypes.lookup(targetRelPath)
 
             // Secure SPA Fallback routing
@@ -57,8 +58,10 @@ object KromiumSchemeHandler {
                 } else {
                     "$normalizedBase/${spaFallback.trimStart('/')}"
                 }
-                stream = classLoader.getResourceAsStream(fallbackPath)
-                if (stream != null) {
+                val fallbackStream = classLoader.getResourceAsStream(fallbackPath)
+                if (fallbackStream != null) {
+                    stream = fallbackStream
+                    resolvedPath = fallbackPath
                     resolvedMime = MimeTypes.lookup(spaFallback)
                 }
             }
@@ -68,10 +71,16 @@ object KromiumSchemeHandler {
                     .withHeaders(defaultHeaders)
             }
 
+            // Close the probe stream to avoid leaking unclosed handles in custom classloaders
+            try { stream.close() } catch (_: Throwable) {}
+
             KromiumAssetResponse.stream(
                 mimeType = resolvedMime,
                 contentLength = null,
-                streamProvider = { stream }
+                streamProvider = {
+                    classLoader.getResourceAsStream(resolvedPath)
+                        ?: throw java.io.FileNotFoundException("Classpath resource not found: $resolvedPath")
+                }
             ).withHeaders(defaultHeaders)
         }
     }

@@ -146,6 +146,19 @@ fun KromiumView(
                         }
 
                         add(browser.uiComponent, BorderLayout.CENTER)
+
+                        // Dynamically synchronize native surface visibility with Swing hierarchy state
+                        val syncVisibility = {
+                            state.browser?.let { b ->
+                                b.uiComponent.isVisible = isShowing && width > 0 && height > 0
+                            }
+                        }
+                        addHierarchyListener { syncVisibility() }
+                        addComponentListener(object : java.awt.event.ComponentAdapter() {
+                            override fun componentResized(e: java.awt.event.ComponentEvent) { syncVisibility() }
+                            override fun componentShown(e: java.awt.event.ComponentEvent) { syncVisibility() }
+                            override fun componentHidden(e: java.awt.event.ComponentEvent) { syncVisibility() }
+                        })
                     }
                 },
                 update = { panel ->

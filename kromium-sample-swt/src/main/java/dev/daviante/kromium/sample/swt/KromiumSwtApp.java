@@ -19,6 +19,7 @@ import org.eclipse.swt.widgets.Text;
 
 import java.awt.BorderLayout;
 import java.io.InputStream;
+import java.util.Locale;
 
 public class KromiumSwtApp {
 
@@ -86,7 +87,7 @@ public class KromiumSwtApp {
         // 4. Configure and initialize Kromium
         // On macOS Cocoa, SWT_AWT embedded frames return a native window handle of 0,
         // preventing native heavyweight window reparenting. Lightweight OSR renders flawlessly via Java2D.
-        boolean isMac = System.getProperty("os.name", "").toLowerCase().contains("mac");
+        boolean isMac = System.getProperty("os.name", "").toLowerCase(Locale.ENGLISH).contains("mac");
         boolean windowless = isMac;
 
         KromiumConfig config = KromiumConfig.builder()

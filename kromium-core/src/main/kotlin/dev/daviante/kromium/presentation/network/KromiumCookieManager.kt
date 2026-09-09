@@ -68,7 +68,7 @@ object KromiumCookieManager {
                             if (cookie != null && cookie.name.isNotBlank()) {
                                 cookies[cookie.name] = cookie.value
                             }
-                            if (count >= total - 1) {
+                            if (total == 0 || count >= total - 1) {
                                 if (continuation.isActive) {
                                     continuation.resume(cookies)
                                 }
@@ -150,7 +150,7 @@ object KromiumCookieManager {
                             if (cookie != null) {
                                 cookies.add(cookie)
                             }
-                            if (count >= total - 1) {
+                            if (total == 0 || count >= total - 1) {
                                 if (continuation.isActive) {
                                     continuation.resume(cookies)
                                 }

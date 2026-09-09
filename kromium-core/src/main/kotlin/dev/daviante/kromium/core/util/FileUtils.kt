@@ -14,7 +14,9 @@ object FileUtils {
      *
      * @return The canonical, validated [File] or null if validation fails.
      */
-    fun sanitizeDirectory(dir: File): File? {
+    @JvmStatic
+    @JvmOverloads
+    fun sanitizeDirectory(dir: File, allowUserHome: Boolean = false): File? {
         val rawPath = dir.path
         if (rawPath.contains("..")) {
             KromiumLogger.w(TAG, "Path traversal sequence detected in: $rawPath")
@@ -40,11 +42,13 @@ object FileUtils {
             return null
         }
 
-        // Refuse operations directly on the user's home directory root
-        val userHome = System.getProperty("user.home")?.let { File(it).canonicalPath }
-        if (userHome != null && canonicalPath == userHome) {
-            KromiumLogger.w(TAG, "Refusing operation on user home root directory: $canonicalPath")
-            return null
+        // Refuse operations directly on the user's home directory root unless explicitly permitted as a parent container
+        if (!allowUserHome) {
+            val userHome = System.getProperty("user.home")?.let { File(it).canonicalPath }
+            if (userHome != null && canonicalPath == userHome) {
+                KromiumLogger.w(TAG, "Refusing operation on user home root directory: $canonicalPath")
+                return null
+            }
         }
 
         return canonical
@@ -53,15 +57,17 @@ object FileUtils {
     /**
      * Resolves a child file safely under [baseDir], ensuring it does not escape [baseDir].
      */
+    @JvmStatic
     fun resolveChild(baseDir: File, relativePath: String): File? {
         if (relativePath.contains("..")) return null
-        val safeBase = sanitizeDirectory(baseDir) ?: return null
+        val safeBase = sanitizeDirectory(baseDir, allowUserHome = true) ?: return null
         val basePath = safeBase.toPath().toAbsolutePath().normalize()
         val resolved = basePath.resolve(relativePath).normalize()
         if (!resolved.startsWith(basePath)) return null
         return resolved.toFile()
     }
 
+    @JvmStatic
     fun deleteDirectory(dir: File): Boolean {
         val safeDir = sanitizeDirectory(dir) ?: return false
         if (!safeDir.exists()) return true
@@ -77,6 +83,7 @@ object FileUtils {
         }
     }
 
+    @JvmStatic
     fun ensureDirectory(dir: File): Boolean {
         val safeDir = sanitizeDirectory(dir) ?: return false
         return if (safeDir.exists()) {
@@ -90,6 +97,7 @@ object FileUtils {
         }
     }
 
+    @JvmStatic
     fun removeMacQuarantine(dir: File) {
         val safeDir = sanitizeDirectory(dir) ?: return
         if (!safeDir.exists() || !safeDir.isDirectory) return

@@ -91,10 +91,8 @@ object EngineRegistry {
 
         val hasBinaries = when (platform.os) {
             OperatingSystem.Windows -> {
-                checkFile("jcef.dll") ||
-                    checkFile("libcef.dll") ||
-                    checkFile("bin/jcef.dll") ||
-                    checkFile("bin/libcef.dll")
+                (checkFile("jcef.dll") || checkFile("bin/jcef.dll")) &&
+                    (checkFile("libcef.dll") || checkFile("bin/libcef.dll"))
             }
             OperatingSystem.MacOS -> {
                 OperatingSystem.MacOS.ensureMacFrameworkLinks(safeDir)
@@ -103,10 +101,8 @@ object EngineRegistry {
                     checkFile("Frameworks/cef_server.app/Contents/Frameworks/Chromium Embedded Framework.framework")
             }
             OperatingSystem.Linux -> {
-                checkFile("libcef.so") ||
-                    checkFile("libjcef.so") ||
-                    checkFile("lib/libcef.so") ||
-                    checkFile("lib/libjcef.so")
+                (checkFile("libcef.so") || checkFile("lib/libcef.so")) &&
+                    (checkFile("libjcef.so") || checkFile("lib/libjcef.so"))
             }
         }
         if (!hasBinaries) return false

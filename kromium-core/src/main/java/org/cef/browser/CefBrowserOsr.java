@@ -20,6 +20,7 @@ import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.awt.event.*;
 import java.nio.ByteBuffer;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
@@ -33,7 +34,7 @@ public class CefBrowserOsr extends CefBrowser_N implements CefRenderHandler {
     private boolean autoDetectScaleFactor_ = true;
     private double scrollMultiplier_ = 1.0;
     private double scrollRemainder_ = 0.0;
-    private static final boolean IS_MAC = System.getProperty("os.name", "").toLowerCase().contains("mac");
+    private static final boolean IS_MAC = System.getProperty("os.name", "").toLowerCase(Locale.ENGLISH).contains("mac");
     private int depth = 32;
     private int depth_per_component = 8;
     private boolean isTransparent_;

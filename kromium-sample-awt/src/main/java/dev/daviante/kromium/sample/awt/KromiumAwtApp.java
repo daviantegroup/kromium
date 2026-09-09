@@ -16,6 +16,7 @@ import java.awt.TextField;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.InputStream;
+import java.util.Locale;
 import javax.imageio.ImageIO;
 import javax.swing.SwingUtilities;
 
@@ -75,7 +76,7 @@ public class KromiumAwtApp {
         // 3. Configure and initialize Kromium
         // On macOS, native heavyweight embedding directly into an AWT Frame suffers from coordinate displacement
         // and missing CALayer container hierarchies in JCEF; lightweight OSR provides seamless, reliable rendering across all platforms.
-        boolean isMac = System.getProperty("os.name", "").toLowerCase().contains("mac");
+        boolean isMac = System.getProperty("os.name", "").toLowerCase(Locale.ENGLISH).contains("mac");
         boolean windowless = isMac;
 
         KromiumConfig config = KromiumConfig.builder()

@@ -304,7 +304,7 @@ class KromiumBrowser(
         val id = java.util.UUID.randomUUID().toString()
         val separator = if (baseUrl.endsWith("/")) "" else "/"
         val url = "$baseUrl$separator$id"
-        client.htmlPayloads[url] = html
+        client.registerHtmlPayload(url, html)
         browser.loadURL(url)
     }
 
@@ -896,14 +896,15 @@ class KromiumBrowser(
      * @param force When true, immediately terminates ongoing navigation without prompting.
      */
     fun close(force: Boolean) {
-        dispose()
+        dispose(force)
     }
 
     override fun close() {
-        dispose()
+        dispose(force = true)
     }
 
-    fun dispose() {
+    @JvmOverloads
+    fun dispose(force: Boolean = true) {
         try {
             for (h in attachedHandlers) {
                 when (h) {
@@ -914,7 +915,7 @@ class KromiumBrowser(
             attachedHandlers.clear()
             browser.stopLoad()
             browser.setCloseAllowed()
-            browser.close(true)
+            browser.close(force)
         } catch (e: Exception) {
             KromiumLogger.w(TAG, "Error during browser disposal", e)
         } finally {
