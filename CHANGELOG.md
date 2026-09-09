@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [3.0.150-b11] - 2026-09-09 [Major Release]
+## [3.0.150-b11] - 2026-09-10 [Major Release]
 
 Major release establishing first-class **100% Pure Java & Swing enterprise dual ergonomics**, delivering all 5 strategic roadmap milestones (virtual custom schemes, asynchronous vector PDF export, declarative context menu DSL, native window chrome insets, WebRTC device permissions), and rebuilding the technical documentation suite from scratch under the Diátaxis framework.
 
