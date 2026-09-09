@@ -88,7 +88,7 @@ browser.loadUrl("app://local/index.html")
 
 ## 🚫 Resource Interception & Asset Filtering
 
-For web scraping, automation, or enterprise data-saving mode, blocking heavyweight assets (images, video, audio, fonts) dramatically reduces bandwidth and CPU utilization.
+For automated data extraction, synthetic monitoring, or enterprise bandwidth optimization, blocking heavyweight assets (images, video, audio, fonts) dramatically reduces bandwidth and CPU utilization.
 
 ### One-Line Asset Blocking
 

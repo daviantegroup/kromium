@@ -5,7 +5,7 @@ import java.net.URI
 
 /**
  * Filter configuration for blocking unnecessary network assets (images, media, fonts, stylesheets).
- * Significantly speeds up headless scraping, web automation, and reduces bandwidth usage.
+ * Significantly speeds up headless automation, content extraction, and reduces bandwidth usage.
  */
 data class KromiumAssetFilter(
     val blockImages: Boolean = false,

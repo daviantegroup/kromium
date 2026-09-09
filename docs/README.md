@@ -89,7 +89,7 @@ Step-by-step guides for common desktop application requirements:
 - [**Downloads & Native Dialogs**](guides/downloads-and-dialogs.md)  
   Intercept file downloads with progress tracking, pause/resume, and customize native file choosers and JavaScript alert/prompt dialogs.
 - [**Headless Automation & PDF Generation**](guides/headless-and-automation.md)  
-  Run off-screen headless instances for automated testing, web scraping, and background vector PDF generation in CI/CD pipelines.
+  Run off-screen headless instances for automated testing, content extraction, synthetic monitoring, and background vector PDF generation in CI/CD pipelines.
 
 ---
 

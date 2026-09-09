@@ -453,7 +453,7 @@ browser.registerJsInterface(new NativeBridge(), "desktopApp");
 
 ### 6. 🤖 Headless Automation, DOM Interaction DSL & Screenshots
 
-Perform server-side web scraping, E2E workflow automation, DOM extraction, and automated screenshot capture in offscreen headless environments with full desktop environment normalization and network idle synchronization.
+Perform server-side web automation, E2E workflow testing, structured DOM extraction, and automated screenshot capture in offscreen headless environments with full desktop environment normalization and network idle synchronization.
 
 #### Kotlin (Coroutines)
 ```kotlin
@@ -468,7 +468,7 @@ val browser = Kromium.newClient().createBrowser("https://example.com/login")
 
 // 2. Automate user interaction with auto-waiting DSL:
 browser.waitForSelector("#username")
-browser.fill("#username", "service-bot")
+browser.fill("#username", "service-account")
 browser.fill("#password", "SecureKey456!")
 browser.click("button[type='submit']")
 
@@ -553,7 +553,7 @@ Comprehensive, in-depth documentation organized according to the **Diátaxis fra
 | **🚀 Getting Started** | [Installation Guide](docs/getting-started/installation.md)<br/>[Compose Quickstart](docs/getting-started/quickstart-compose.md)<br/>[Swing JVM Quickstart](docs/getting-started/quickstart-jvm.md) | Repository setup, multi-module configurations, Gradle dependencies, first browser window. |
 | **🏛️ Core Concepts** | [Architecture](docs/core-concepts/architecture.md)<br/>[State & Lifecycle](docs/core-concepts/state-and-lifecycle.md)<br/>[Security & Privacy](docs/core-concepts/security-and-privacy.md) | Bootstrap pipeline, multi-process Chromium architecture, `KromiumState` flow, and telemetry suppression. |
 | **📖 Guides** | [Compose UI Integration](docs/guides/compose-ui.md)<br/>[Navigation & History](docs/guides/navigation-and-history.md)<br/>[JavaScript & DOM](docs/guides/javascript-and-dom.md)<br/>[Network & Proxies](docs/guides/network-and-proxies.md) | Multi-tab UI, navigation controls, coroutine JS execution, IPC routers, and enterprise proxy configuration. |
-| **📖 Guides (Cont.)** | [Asset Filtering & Schemes](docs/guides/asset-filtering-and-security.md)<br/>[Cookie Management](docs/guides/cookie-management.md)<br/>[Downloads & Dialogs](docs/guides/downloads-and-dialogs.md)<br/>[Headless & Automation](docs/guides/headless-and-automation.md) | Virtual asset streaming, ad blocking, host locking, async cookie store, modal dialogs, and off-screen scraping. |
+| **📖 Guides (Cont.)** | [Asset Filtering & Schemes](docs/guides/asset-filtering-and-security.md)<br/>[Cookie Management](docs/guides/cookie-management.md)<br/>[Downloads & Dialogs](docs/guides/downloads-and-dialogs.md)<br/>[Headless & Automation](docs/guides/headless-and-automation.md) | Virtual asset streaming, ad blocking, host locking, async cookie store, modal dialogs, and off-screen data extraction. |
 | **📋 API Reference** | [Configuration (`KromiumConfig`)](docs/reference/configuration.md)<br/>[Browser & Client API](docs/reference/browser-and-client-api.md)<br/>[Handlers & Events](docs/reference/handlers-and-events.md)<br/>[Exceptions & Logging](docs/reference/exceptions-and-logging.md) | Complete property catalogs, method signatures, composite multiplexers, and pluggable logging. |
 | **📦 Deployment** | [Packaging & Distribution](docs/deployment/packaging-and-distribution.md)<br/>[Platform Considerations](docs/deployment/platform-specifics.md)<br/>[Troubleshooting & FAQ](docs/deployment/troubleshooting-and-faq.md) | Desktop installers (MSI, DMG, DEB), ProGuard/R8 rules, macOS framework symlinks, and Linux dependencies. |
 

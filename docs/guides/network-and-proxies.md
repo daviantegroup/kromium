@@ -65,7 +65,7 @@ browser.setProxy(KromiumProxy.socks5("127.0.0.1", 1080))
 
 ## 🔒 Isolated Client Sessions & Multi-Proxy Routing
 
-By default, creating a client via `Kromium.newClient()` inherits the global request context. When you require **independent, concurrent proxies across different tabs or web crawlers**, instantiate an **isolated client**:
+By default, creating a client via `Kromium.newClient()` inherits the global request context. When you require **independent, concurrent proxies across different browser instances or automated extraction workers**, instantiate an **isolated client**:
 
 ```kotlin
 // Create an isolated client with a dedicated CefRequestContext:

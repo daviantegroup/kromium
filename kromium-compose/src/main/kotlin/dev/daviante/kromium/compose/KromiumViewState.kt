@@ -346,7 +346,7 @@ class KromiumViewState(initialUrl: String) {
         browser?.clearBrowsingData(clearCookies, clearStorage) ?: if (clearCookies) clearCookies() else true
 
     // ==========================================
-    // Web Automation & Scraping Forwarders
+    // Web Automation & Content Extraction Forwarders
     // ==========================================
 
     /**

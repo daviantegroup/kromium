@@ -344,8 +344,8 @@ class KromiumBrowser(
     }
 
     /**
-     * High-level web automation and scraping controller for auto-waiting, clicking,
-     * filling inputs, extracting data, network idle tracking, and stealth evasion.
+     * High-level web automation and content extraction controller for auto-waiting, clicking,
+     * filling inputs, extracting data, network idle tracking, and desktop environment emulation.
      */
     val automation: KromiumAutomation by lazy { KromiumAutomation(this) }
 

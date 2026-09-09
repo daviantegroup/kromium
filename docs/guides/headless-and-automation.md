@@ -1,6 +1,6 @@
 # Headless Automation & PDF Generation
 
-Kromium can execute headlessly without rendering a visible desktop window. This makes it ideal for background web scrapers, automated regression testing, scheduled report generation, and vector PDF printing in backend servers or CI/CD pipelines.
+Kromium can execute headlessly without rendering a visible desktop window. This makes it ideal for background content extraction, automated regression testing, synthetic monitoring, scheduled report generation, and vector PDF printing in backend servers or CI/CD pipelines.
 
 ---
 
@@ -118,7 +118,7 @@ if (screenshot != null) {
 
 ---
 
-## 🚀 High-Level Web Automation & Scraping DSL
+## 🚀 High-Level Web Automation & Content Extraction DSL
 
 Kromium provides a native, high-level interaction DSL designed for automated End-to-End (E2E) testing, robotic process automation (RPA), and reliable web data extraction.
 
@@ -202,7 +202,7 @@ browser.emulateDesktopEnvironment()
 
 ## 💡 Complete End-to-End Enterprise Automation Examples
 
-### Kotlin Automation & Scraping Flow
+### Kotlin Automation & Content Extraction Flow
 
 ```kotlin
 package com.example.automation
@@ -342,7 +342,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libgtk-3-0 libasound2 libnss3 libxss1 xvfb
 
-      # Run automated PDF/scraping tests under xvfb:
+      # Run automated PDF and content extraction tests under xvfb:
       - name: Run Headless Suite
         run: |
           xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" ./gradlew test

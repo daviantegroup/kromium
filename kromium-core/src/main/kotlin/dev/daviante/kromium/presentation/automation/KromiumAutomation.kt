@@ -10,10 +10,10 @@ import java.util.concurrent.CompletableFuture
 private const val TAG = "KromiumAutomation"
 
 /**
- * High-level browser automation and scraping controller.
+ * High-level browser automation and content extraction controller.
  *
  * Provides smart auto-waiting, React/Angular/Vue-compatible DOM interactions,
- * network idle synchronization, and anti-bot stealth capabilities.
+ * network idle synchronization, and desktop environment emulation capabilities.
  */
 class KromiumAutomation(private val browser: KromiumBrowser) {
 
@@ -521,7 +521,7 @@ class KromiumAutomation(private val browser: KromiumBrowser) {
         FutureBridge.toCompletableFuture { waitForUrl(pattern, isRegex, timeoutMs) }
 
     // =========================================================================
-    // Stealth Control
+    // Desktop Emulation & Environment Normalization
     // =========================================================================
 
     /**

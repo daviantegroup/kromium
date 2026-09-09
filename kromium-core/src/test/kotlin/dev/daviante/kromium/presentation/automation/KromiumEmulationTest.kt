@@ -50,6 +50,6 @@ class KromiumEmulationTest {
         assertTrue(script.contains("contentWindow"))
 
         // 9. Zero global variable pollution on window
-        assertFalse(script.contains("window.__kromium_stealth_injected"))
+        assertFalse(script.contains("window.__kromium_emulation_injected"))
     }
 }
