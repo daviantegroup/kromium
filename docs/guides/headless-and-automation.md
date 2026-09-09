@@ -118,6 +118,182 @@ if (screenshot != null) {
 
 ---
 
+## 🚀 High-Level Web Automation & Scraping DSL
+
+Kromium provides a native, high-level interaction DSL designed for automated End-to-End (E2E) testing, robotic process automation (RPA), and reliable web data extraction.
+
+### Key Capabilities
+
+* **Auto-Waiting Execution**: All interaction methods (`click`, `fill`, `type`, `selectOption`) automatically poll the DOM until the target selector is attached and visible before dispatching events.
+* **Modern Framework Compatibility**: `fill()` and `type()` properly invoke property descriptors (`HTMLInputElement.prototype`), simulate natural keystrokes, and dispatch `input`, `change`, and `keydown` events to trigger state updates in **React**, **Angular**, **Vue**, and **Svelte**.
+* **Direct Access to `automation`**: Available directly on any `KromiumBrowser` instance via `browser.automation` or through top-level convenience forwarders (`browser.click(...)`, `browser.fill(...)`, `browser.waitForSelector(...)`).
+* **Dual Kotlin Coroutine & Java CompletableFuture APIs**: Every method offers non-blocking suspending execution in Kotlin alongside standard `Async` variants returning `CompletableFuture` in Java.
+
+### Automation DSL Method Reference
+
+| Method (Kotlin / Java Async) | Parameters | Return Type | Description |
+|:---|:---|:---|:---|
+| `waitForSelector(selector, timeoutMs)`<br/>`waitForSelectorAsync(...)` | `selector: String`, `timeoutMs: Long = 10_000` | `Boolean` | Suspends until an element matching the CSS selector is present in the DOM. |
+| `click(selector, timeoutMs)`<br/>`clickAsync(...)` | `selector: String`, `timeoutMs: Long = 10_000` | `Boolean` | Waits for the element to appear, scrolls it into view, and dispatches native-equivalent click events. |
+| `fill(selector, text, timeoutMs)`<br/>`fillAsync(...)` | `selector: String`, `text: String`, `timeoutMs: Long = 10_000` | `Boolean` | Clears existing content and inputs text with full reactive framework event dispatching. |
+| `type(selector, text, delayMs, timeoutMs)`<br/>`typeAsync(...)` | `selector: String`, `text: String`, `delayMs: Long = 50`, `timeoutMs: Long = 10_000` | `Boolean` | Types characters sequentially with a realistic configurable inter-keystroke delay. |
+| `selectOption(selector, value, timeoutMs)`<br/>`selectOptionAsync(...)` | `selector: String`, `value: String`, `timeoutMs: Long = 10_000` | `Boolean` | Selects `<option>` elements matching value, text, or index, triggering `change` events. |
+| `getTextContent(selector, timeoutMs)`<br/>`getTextContentAsync(...)` | `selector: String`, `timeoutMs: Long = 10_000` | `String?` | Extracts rendered `.innerText` or `.textContent` from the target element. |
+| `getAttribute(selector, attribute, timeoutMs)`<br/>`getAttributeAsync(...)` | `selector: String`, `attribute: String`, `timeoutMs: Long = 10_000` | `String?` | Retrieves an HTML attribute or DOM property value. |
+| `isVisible(selector)`<br/>`isVisibleAsync(...)` | `selector: String` | `Boolean` | Checks if element exists and is rendered (bounding rect dimensions > 0 and `visibility != hidden`). |
+| `isChecked(selector)`<br/>`isCheckedAsync(...)` | `selector: String` | `Boolean` | Checks the `.checked` property of a checkbox or radio input. |
+| `count(selector)`<br/>`countAsync(...)` | `selector: String` | `Int` | Returns the total count of matching DOM nodes currently attached. |
+| `waitForUrl(urlOrPattern, timeoutMs)`<br/>`waitForUrlAsync(...)` | `urlOrPattern: String`, `timeoutMs: Long = 10_000` | `Boolean` | Suspends until current URL matches an exact string, substring, or regex pattern. |
+| `waitForNetworkIdle(idleTimeMs, maxWaitMs)`<br/>`waitForNetworkIdleAsync(...)` | `idleTimeMs: Long = 500`, `maxWaitMs: Long = 10_000` | `Boolean` | Waits until in-flight HTTP(S) network requests settle and stay at zero for `idleTimeMs`. |
+
+---
+
+## 🌐 Network Lifecycle Synchronization
+
+Single-Page Applications (SPAs) frequently perform asynchronous background fetches (`fetch`, `XMLHttpRequest`) after the initial HTML page load completes. To prevent race conditions in automated workflows, Kromium tracks in-flight network requests at the engine level.
+
+```kotlin
+// Navigate to an SPA dashboard:
+browser.loadUrl("https://app.enterprise.internal/dashboard")
+
+// Wait until all asynchronous GraphQL/REST requests settle:
+val isNetworkIdle = browser.waitForNetworkIdle(idleTimeMs = 500, maxWaitMs = 15_000)
+
+// Extract fully populated dashboard metric:
+val revenue = browser.getTextContent(".stat-revenue-value")
+println("Quarterly Revenue: $revenue")
+```
+
+---
+
+## 🖥️ Headless Desktop Environment Normalization
+
+When Chromium runs in headless or containerized environments, certain standard desktop browser characteristics (such as `navigator.webdriver`, desktop `navigator.plugins`, and standard audio/video hardware codecs) default to automated test configurations. Many modern enterprise web applications, single-sign-on (SSO) portals, and interactive media dashboards require consistent desktop environment fidelity to render full rich-client experiences.
+
+Kromium's **Desktop Environment Normalization** configures Chromium's runtime to match standard interactive desktop browser profiles:
+
+* **Prototype-Level Object Consistency**: Normalizes `navigator.webdriver` on `Navigator.prototype` while preserving prototype chains and native `toString()` outputs.
+* **Standard Desktop Plugin Profiles**: Supplies mock desktop `PluginArray` and `MimeTypeArray` structures typical of desktop Chrome (PDF Viewer, Native Client).
+* **Hardware API Consistency**: Configures realistic `navigator.hardwareConcurrency` and standard desktop screen geometries.
+* **Subframe Isolation Fidelity**: Automatically propagates desktop environment properties across newly attached subframes (`HTMLIFrameElement.prototype.contentWindow`).
+
+### Configuration Options
+
+Desktop Environment Normalization can be enabled globally via `KromiumConfig` or per-browser instance:
+
+#### Option A: Global Configuration in `KromiumConfig`
+
+```kotlin
+val config = KromiumConfig().apply {
+    windowlessRendering = true
+    emulateDesktopEnvironment = true // Enabled globally for all browser instances
+}
+Kromium.initialize(config)
+```
+
+#### Option B: Per-Browser Activation
+
+```kotlin
+val browser = client.createBrowser("https://portal.enterprise.internal")
+browser.emulateDesktopEnvironment()
+```
+
+---
+
+## 💡 Complete End-to-End Enterprise Automation Examples
+
+### Kotlin Automation & Scraping Flow
+
+```kotlin
+package com.example.automation
+
+import dev.daviante.kromium.domain.config.KromiumConfig
+import dev.daviante.kromium.presentation.browser.Kromium
+import kotlinx.coroutines.runBlocking
+
+fun main() = runBlocking {
+    // 1. Initialize Headless Engine with Desktop Normalization:
+    val config = KromiumConfig().apply {
+        windowlessRendering = true
+        emulateDesktopEnvironment = true
+    }
+    Kromium.initialize(config)
+
+    val client = Kromium.newClient()
+    val browser = client.createBrowser("https://example.com/login")
+
+    // 2. Automate Login Form (React/Angular friendly):
+    browser.waitForSelector("#username")
+    browser.fill("#username", "enterprise-service-account")
+    browser.fill("#password", "SecretToken123!")
+    browser.click("button[type='submit']")
+
+    // 3. Synchronize with background network activity:
+    browser.waitForNetworkIdle(idleTimeMs = 500, maxWaitMs = 10_000)
+
+    // 4. Extract dynamic data:
+    val rowCount = browser.count(".data-table tbody tr")
+    println("Successfully loaded $rowCount dashboard records.")
+
+    for (i in 1..rowCount) {
+        val rowTitle = browser.getTextContent(".data-table tbody tr:nth-child($i) .title")
+        println("Record #$i: $rowTitle")
+    }
+
+    // 5. Clean teardown:
+    browser.close(true)
+    client.dispose()
+    Kromium.dispose()
+}
+```
+
+### Pure Java Automation Flow (`CompletableFuture`)
+
+```java
+package com.example.automation;
+
+import dev.daviante.kromium.domain.config.KromiumConfig;
+import dev.daviante.kromium.presentation.browser.Kromium;
+import dev.daviante.kromium.presentation.browser.KromiumBrowser;
+import dev.daviante.kromium.presentation.browser.KromiumClient;
+
+public final class JavaAutomationDemo {
+    public static void main(String[] args) {
+        KromiumConfig config = KromiumConfig.builder()
+            .windowlessRendering(true)
+            .emulateDesktopEnvironment(true)
+            .build();
+
+        Kromium.initialize(config);
+
+        KromiumClient client = Kromium.newClient();
+        KromiumBrowser browser = client.createBrowser("https://example.com/portal");
+
+        // Chain asynchronous automation steps with CompletableFuture:
+        browser.waitForSelectorAsync("#search-input", 5_000)
+            .thenCompose(found -> browser.fillAsync("#search-input", "Chromium Enterprise", 5_000))
+            .thenCompose(clicked -> browser.clickAsync("#btn-search", 5_000))
+            .thenCompose(idle -> browser.waitForNetworkIdleAsync(500, 10_000))
+            .thenCompose(extracted -> browser.getTextContentAsync(".result-header", 5_000))
+            .thenAccept(headerText -> {
+                System.out.println("Search Result Header: " + headerText);
+                browser.close(true);
+                client.dispose();
+                Kromium.dispose();
+            })
+            .exceptionally(ex -> {
+                System.err.println("Automation pipeline failed: " + ex.getMessage());
+                browser.close(true);
+                client.dispose();
+                Kromium.dispose();
+                return null;
+            });
+    }
+}
+```
+
+---
+
 ## 🤖 CI/CD Linux Environment Setup (GitHub Actions)
 
 On Linux servers without a physical monitor, run with a virtual framebuffer (`xvfb`):

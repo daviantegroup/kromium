@@ -4,6 +4,7 @@ import dev.daviante.kromium.core.logging.KromiumLogger
 import dev.daviante.kromium.core.util.FutureBridge
 import dev.daviante.kromium.domain.exception.KromiumException
 import dev.daviante.kromium.domain.model.KromiumPdfSettings
+import dev.daviante.kromium.presentation.automation.KromiumAutomation
 import dev.daviante.kromium.presentation.js.JsEvaluator
 import dev.daviante.kromium.presentation.network.KromiumAssetFilter
 import dev.daviante.kromium.presentation.network.KromiumCookieManager
@@ -197,12 +198,14 @@ class KromiumBrowser(
     /**
      * Executes arbitrary JavaScript asynchronously and returns the stringified response.
      */
-    suspend fun evaluateJavaScript(expression: String): String? {
+    @JvmOverloads
+    suspend fun evaluateJavaScript(expression: String, timeoutMs: Long? = null): String? {
         return JsEvaluator.evaluate(
             browser = browser,
             handler = client.jsHandler,
             expression = expression,
-            routerQueryName = client.routerQueryName
+            routerQueryName = client.routerQueryName,
+            timeoutMs = timeoutMs
         )
     }
 
@@ -337,6 +340,140 @@ class KromiumBrowser(
         component.dispatchEvent(press)
         component.dispatchEvent(release)
         component.dispatchEvent(click)
+    }
+
+    /**
+     * High-level web automation and scraping controller for auto-waiting, clicking,
+     * filling inputs, extracting data, network idle tracking, and stealth evasion.
+     */
+    val automation: KromiumAutomation by lazy { KromiumAutomation(this) }
+
+    /**
+     * Waits until an element matching [selector] appears in the DOM and is ready.
+     */
+    @JvmOverloads
+    suspend fun waitForSelector(selector: String, timeoutMs: Long = 10_000L): Boolean =
+        automation.waitForSelector(selector, timeoutMs)
+
+    @JvmOverloads
+    fun waitForSelectorAsync(selector: String, timeoutMs: Long = 10_000L): CompletableFuture<Boolean> =
+        automation.waitForSelectorAsync(selector, timeoutMs)
+
+    /**
+     * Auto-waits for [selector] and performs a synthetic user click sequence.
+     */
+    @JvmOverloads
+    suspend fun click(selector: String, timeoutMs: Long = 10_000L): Boolean =
+        automation.click(selector, timeoutMs)
+
+    @JvmOverloads
+    fun clickAsync(selector: String, timeoutMs: Long = 10_000L): CompletableFuture<Boolean> =
+        automation.clickAsync(selector, timeoutMs)
+
+    /**
+     * Auto-waits for [selector] and fills it with [value], compatible with React/Vue/Angular synthetic events.
+     */
+    @JvmOverloads
+    suspend fun fill(selector: String, value: String, timeoutMs: Long = 10_000L): Boolean =
+        automation.fill(selector, value, timeoutMs)
+
+    @JvmOverloads
+    fun fillAsync(selector: String, value: String, timeoutMs: Long = 10_000L): CompletableFuture<Boolean> =
+        automation.fillAsync(selector, value, timeoutMs)
+
+    /**
+     * Types [text] character-by-character into the selected input with an optional [delayMs] between keystrokes.
+     */
+    @JvmOverloads
+    suspend fun type(selector: String, text: String, delayMs: Long = 20L, timeoutMs: Long = 10_000L): Boolean =
+        automation.type(selector, text, delayMs, timeoutMs)
+
+    @JvmOverloads
+    fun typeAsync(selector: String, text: String, delayMs: Long = 20L, timeoutMs: Long = 10_000L): CompletableFuture<Boolean> =
+        automation.typeAsync(selector, text, delayMs, timeoutMs)
+
+    /**
+     * Selects an `<option>` within a `<select>` element by its value or visible label.
+     */
+    @JvmOverloads
+    suspend fun selectOption(selector: String, value: String, timeoutMs: Long = 10_000L): Boolean =
+        automation.selectOption(selector, value, timeoutMs)
+
+    @JvmOverloads
+    fun selectOptionAsync(selector: String, value: String, timeoutMs: Long = 10_000L): CompletableFuture<Boolean> =
+        automation.selectOptionAsync(selector, value, timeoutMs)
+
+    /**
+     * Gets the visible inner text or textContent of an element matching [selector].
+     */
+    @JvmOverloads
+    suspend fun getTextContent(selector: String, timeoutMs: Long = 10_000L): String? =
+        automation.getTextContent(selector, timeoutMs)
+
+    @JvmOverloads
+    fun getTextContentAsync(selector: String, timeoutMs: Long = 10_000L): CompletableFuture<String?> =
+        automation.getTextContentAsync(selector, timeoutMs)
+
+    /**
+     * Gets the specified attribute value of an element matching [selector].
+     */
+    @JvmOverloads
+    suspend fun getAttribute(selector: String, attribute: String, timeoutMs: Long = 10_000L): String? =
+        automation.getAttribute(selector, attribute, timeoutMs)
+
+    @JvmOverloads
+    fun getAttributeAsync(selector: String, attribute: String, timeoutMs: Long = 10_000L): CompletableFuture<String?> =
+        automation.getAttributeAsync(selector, attribute, timeoutMs)
+
+    /**
+     * Checks whether an element matching [selector] is currently visible in the DOM.
+     */
+    suspend fun isVisible(selector: String): Boolean = automation.isVisible(selector)
+
+    fun isVisibleAsync(selector: String): CompletableFuture<Boolean> = automation.isVisibleAsync(selector)
+
+    /**
+     * Checks whether a checkbox or radio element matching [selector] is checked.
+     */
+    suspend fun isChecked(selector: String): Boolean = automation.isChecked(selector)
+
+    fun isCheckedAsync(selector: String): CompletableFuture<Boolean> = automation.isCheckedAsync(selector)
+
+    /**
+     * Returns the count of DOM elements matching [selector].
+     */
+    suspend fun count(selector: String): Int = automation.count(selector)
+
+    fun countAsync(selector: String): CompletableFuture<Int> = automation.countAsync(selector)
+
+    /**
+     * Waits until there are zero active network requests in flight for at least [idleTimeMs].
+     */
+    @JvmOverloads
+    suspend fun waitForNetworkIdle(idleTimeMs: Long = 500L, maxTimeoutMs: Long = 15_000L): Boolean =
+        automation.waitForNetworkIdle(idleTimeMs, maxTimeoutMs)
+
+    @JvmOverloads
+    fun waitForNetworkIdleAsync(idleTimeMs: Long = 500L, maxTimeoutMs: Long = 15_000L): CompletableFuture<Boolean> =
+        automation.waitForNetworkIdleAsync(idleTimeMs, maxTimeoutMs)
+
+    /**
+     * Waits until the browser URL matches [pattern].
+     */
+    @JvmOverloads
+    suspend fun waitForUrl(pattern: String, isRegex: Boolean = false, timeoutMs: Long = 15_000L): Boolean =
+        automation.waitForUrl(pattern, isRegex, timeoutMs)
+
+    @JvmOverloads
+    fun waitForUrlAsync(pattern: String, isRegex: Boolean = false, timeoutMs: Long = 15_000L): CompletableFuture<Boolean> =
+        automation.waitForUrlAsync(pattern, isRegex, timeoutMs)
+
+    /**
+     * Normalizes the headless environment and emulates standard desktop browser properties immediately
+     * for this session, persisting across all subsequent navigations.
+     */
+    fun emulateDesktopEnvironment() {
+        automation.emulateDesktopEnvironment()
     }
 
     /**

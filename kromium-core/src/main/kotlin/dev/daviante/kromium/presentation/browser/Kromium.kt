@@ -91,6 +91,7 @@ object Kromium {
 
     private val mutex = Mutex()
     private var cefApp: CefApp? = null
+    private var _activeConfig: KromiumConfig? = null
 
     private var _activeProxy: KromiumProxy = KromiumProxy.System
     @JvmStatic val activeProxy: KromiumProxy get() = _activeProxy
@@ -232,6 +233,7 @@ object Kromium {
 
                 _state.value = KromiumState.Initializing
                 KromiumLogger.i(TAG, "Bootstrapping CEF...")
+                _activeConfig = config
                 _activeProxy = config.proxy
                 val app = CefBootstrapper.bootstrap(
                     installDir = installDir,
@@ -305,7 +307,11 @@ object Kromium {
     fun newClient(): KromiumClient {
         if (_state.value is KromiumState.Disposed) throw KromiumException.Disposed
         val app = cefApp ?: throw KromiumException.NotInitialized
-        return KromiumClient(app.createClient())
+        val client = KromiumClient(app.createClient())
+        if (_activeConfig?.emulateDesktopEnvironment == true) {
+            client.emulateDesktopEnvironment = true
+        }
+        return client
     }
 
     /**

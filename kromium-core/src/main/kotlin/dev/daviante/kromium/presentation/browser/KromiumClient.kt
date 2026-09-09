@@ -17,6 +17,7 @@ import dev.daviante.kromium.presentation.handler.KromiumJsDialogListener
 import dev.daviante.kromium.presentation.handler.KromiumJsDialogType
 import dev.daviante.kromium.presentation.handler.KromiumPermissionDecision
 import dev.daviante.kromium.presentation.handler.KromiumPermissionHandler
+import dev.daviante.kromium.presentation.automation.KromiumEmulation
 import dev.daviante.kromium.presentation.handler.KromiumPermissionRequest
 import dev.daviante.kromium.presentation.handler.KromiumPermissionType
 import dev.daviante.kromium.presentation.menu.KromiumContextMenuContext
@@ -226,6 +227,30 @@ class KromiumClient(
      */
     @Volatile var hostLockSubresources: Boolean = false
 
+    /**
+     * When true, automatically normalizes the headless environment to emulate a standard desktop browser.
+     */
+    @Volatile var emulateDesktopEnvironment: Boolean = false
+
+    private val activeRequestCount = java.util.concurrent.atomic.AtomicInteger(0)
+    private val lastRequestCompletedAt = java.util.concurrent.atomic.AtomicLong(System.currentTimeMillis())
+
+    /**
+     * Number of currently active, in-flight network requests.
+     */
+    val inFlightRequestCount: Int
+        get() = activeRequestCount.get()
+
+    /**
+     * Returns true if there are currently any active network requests in flight.
+     */
+    fun hasPendingRequests(): Boolean = activeRequestCount.get() > 0
+
+    /**
+     * Returns the elapsed time in milliseconds since the last network request completed.
+     */
+    fun timeSinceLastRequestMs(): Long = System.currentTimeMillis() - lastRequestCompletedAt.get()
+
     private val loadHandlers = java.util.concurrent.CopyOnWriteArrayList<CefLoadHandler>()
     private val displayHandlers = java.util.concurrent.CopyOnWriteArrayList<CefDisplayHandler>()
     private val lifeSpanHandlers = java.util.concurrent.CopyOnWriteArrayList<CefLifeSpanHandler>()
@@ -348,7 +373,20 @@ class KromiumClient(
                     }
                 }
 
+                activeRequestCount.incrementAndGet()
                 return false // Proceed
+            }
+
+            override fun onResourceLoadComplete(
+                browser: CefBrowser?,
+                frame: CefFrame?,
+                request: CefRequest?,
+                response: org.cef.network.CefResponse?,
+                status: org.cef.network.CefURLRequest.Status?,
+                receivedContentLength: Long
+            ) {
+                activeRequestCount.updateAndGet { count -> if (count > 0) count - 1 else 0 }
+                lastRequestCompletedAt.set(System.currentTimeMillis())
             }
 
             override fun getResourceHandler(
@@ -777,6 +815,11 @@ class KromiumClient(
                 canGoBack: Boolean,
                 canGoForward: Boolean
             ) {
+                if (!isLoading) {
+                    if (activeRequestCount.get() <= 0) {
+                        lastRequestCompletedAt.set(System.currentTimeMillis())
+                    }
+                }
                 for (h in loadHandlers) {
                     try {
                         h.onLoadingStateChange(browser, isLoading, canGoBack, canGoForward)
@@ -791,6 +834,9 @@ class KromiumClient(
                 frame: CefFrame?,
                 transitionType: org.cef.network.CefRequest.TransitionType?
             ) {
+                if (emulateDesktopEnvironment) {
+                    KromiumEmulation.inject(frame)
+                }
                 for (h in loadHandlers) {
                     try {
                         h.onLoadStart(browser, frame, transitionType)
@@ -801,6 +847,9 @@ class KromiumClient(
             }
 
             override fun onLoadEnd(browser: CefBrowser?, frame: CefFrame?, httpStatusCode: Int) {
+                if (emulateDesktopEnvironment) {
+                    KromiumEmulation.inject(frame)
+                }
                 for (h in loadHandlers) {
                     try {
                         h.onLoadEnd(browser, frame, httpStatusCode)
@@ -817,6 +866,8 @@ class KromiumClient(
                 errorText: String?,
                 failedUrl: String?
             ) {
+                activeRequestCount.updateAndGet { count -> if (count > 0) count - 1 else 0 }
+                lastRequestCompletedAt.set(System.currentTimeMillis())
                 if (frame?.isMain == true) {
                     loadErrorListener?.let { listener ->
                         try {

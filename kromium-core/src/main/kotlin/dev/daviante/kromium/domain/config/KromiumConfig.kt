@@ -112,6 +112,14 @@ class KromiumConfig {
         }
 
     /**
+     * Enables desktop environment emulation for headless / OSR mode.
+     * Normalizes navigator properties (plugins, languages, chrome runtime, WebGL context)
+     * to match a standard interactive desktop browser session.
+     * Defaults to false.
+     */
+    var emulateDesktopEnvironment: Boolean = false
+
+    /**
      * Command-line arguments passed to the CEF process.
      *
      * Default includes rendering optimization flags, security hardening, and
@@ -417,6 +425,7 @@ class KromiumConfig {
         fun addArgs(vararg args: String) = apply { config.addArgs(*args) }
         fun authServerAllowlist(allowlist: List<String>) = apply { config.authServerAllowlist = allowlist }
         fun authNegotiateDelegateAllowlist(allowlist: List<String>) = apply { config.authNegotiateDelegateAllowlist = allowlist }
+        fun emulateDesktopEnvironment(enable: Boolean) = apply { config.emulateDesktopEnvironment = enable }
 
         fun build(): KromiumConfig {
             config.validate()

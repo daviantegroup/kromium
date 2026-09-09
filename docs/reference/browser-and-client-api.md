@@ -49,11 +49,31 @@ browser.stopLoad();
 
 | Method | Signature | Description |
 |:---|:---|:---|
-| `evaluateJavaScript` | `suspend (expression: String): String?` | Coroutine-based evaluation. Returns stringified result. |
+| `evaluateJavaScript` | `suspend (expression: String, timeoutMs: Long? = null): String?` | Coroutine-based evaluation. Returns stringified result. |
 | `evaluateJavaScriptAsync` | `(expression: String, timeoutMs: Long? = null): CompletableFuture<String?>` | Java-idiomatic non-blocking future. |
 | `getHtml` / `getHtmlAsync` | `suspend (): String` / `(): CompletableFuture<String>` | Convenience method fetching `document.documentElement.outerHTML`. |
 | `getText` / `getTextAsync` | `suspend (): String` / `(): CompletableFuture<String>` | Convenience method fetching `document.body.innerText`. |
 | `getFaviconUrl` / `getFaviconUrlAsync` | `suspend (): String?` / `(): CompletableFuture<String?>` | Resolves page favicon URL via DOM `<link rel="icon">` inspection. |
+
+### Web Automation & Interaction DSL
+
+High-level automation methods with smart auto-waiting, React/Angular synthetic event compatibility, and zero raw JavaScript requirements:
+
+| Method | Signature | Description |
+|:---|:---|:---|
+| `waitForSelector` / `waitForSelectorAsync` | `(selector: String, timeoutMs: Long = 10000): Boolean` | Auto-waits using `MutationObserver` until the CSS selector exists in the DOM. |
+| `click` / `clickAsync` | `(selector: String, timeoutMs: Long = 10000): Boolean` | Auto-waits, scrolls into view, and dispatches full pointer/mouse click sequence. |
+| `fill` / `fillAsync` | `(selector: String, value: String, timeoutMs: Long = 10000): Boolean` | Auto-waits and sets value via prototype setter (React/Angular/Vue compatible) with input/change events. |
+| `type` / `typeAsync` | `(selector: String, text: String, delayMs: Long = 20, timeoutMs: Long = 10000): Boolean` | Types character-by-character with optional delay to trigger live autocomplete dropdowns. |
+| `selectOption` / `selectOptionAsync` | `(selector: String, value: String, timeoutMs: Long = 10000): Boolean` | Selects dropdown `<option>` by value or label and emits change events. |
+| `getTextContent` / `getTextContentAsync` | `(selector: String, timeoutMs: Long = 10000): String?` | Returns visible inner text or textContent of selector. |
+| `getAttribute` / `getAttributeAsync` | `(selector: String, attribute: String, timeoutMs: Long = 10000): String?` | Returns attribute value (e.g. `href`, `src`, `data-*`). |
+| `isVisible` / `isVisibleAsync` | `(selector: String): Boolean` | Checks if element exists, has non-zero bounding rect, and is not hidden by CSS. |
+| `isChecked` / `isCheckedAsync` | `(selector: String): Boolean` | Checks if checkbox or radio element is checked. |
+| `count` / `countAsync` | `(selector: String): Int` | Returns number of elements matching selector. |
+| `waitForNetworkIdle` / `waitForNetworkIdleAsync` | `(idleTimeMs: Long = 500, maxTimeoutMs: Long = 15000): Boolean` | Waits until 0 active in-flight network requests exist for `idleTimeMs` (essential for SPAs). |
+| `waitForUrl` / `waitForUrlAsync` | `(pattern: String, isRegex: Boolean = false, timeoutMs: Long = 15000): Boolean` | Waits until browser navigates to a URL matching substring or regex. |
+| `emulateDesktopEnvironment()` | `(): Unit` | Normalizes headless environment (plugins, languages, chrome runtime, WebGL) to match desktop sessions. |
 
 ### Printing & PDF Generation
 

@@ -120,4 +120,18 @@ class KromiumConfigTest {
             .build()
         assertFalse(builtConfig.autoDownload, "Builder should properly configure autoDownload")
     }
+
+    @Test
+    fun testEmulateDesktopEnvironmentDefaultsAndToggling() {
+        val config = KromiumConfig()
+        assertFalse(config.emulateDesktopEnvironment, "emulateDesktopEnvironment should be disabled by default")
+
+        config.emulateDesktopEnvironment = true
+        assertTrue(config.emulateDesktopEnvironment, "emulateDesktopEnvironment should be configurable to true")
+
+        val built = KromiumConfig.builder()
+            .emulateDesktopEnvironment(true)
+            .build()
+        assertTrue(built.emulateDesktopEnvironment, "Builder should properly configure emulateDesktopEnvironment")
+    }
 }

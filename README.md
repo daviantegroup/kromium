@@ -45,7 +45,7 @@ Backed by **CEF 150** and the battle-tested JetBrains JCEF runtime, Kromium deli
 * ⚡ **Two-Way JavaScript Bridge**: Coroutine and `CompletableFuture` JS evaluation, DOM extraction, and secure type-safe bidirectional IPC routing using `@JavascriptInterface`.
 * 🏢 **Enterprise Proxy & Network Management**: Dynamic runtime proxy switching (PAC, WPAD, HTTPS TLS tunnels, SOCKS5 remote DNS), NTLM/Kerberos SSO, SSL error policies, and host locking.
 * ☕ **Zero JVM Module Configuration**: Automatic runtime module opening eliminates manual `--add-opens` flags on Java 17, 21, and 23+.
-* 🤖 **Zero-Dependency Headless Automation**: Automated offscreen rendering, DOM scraping, and screenshot capture without display servers or fragile OpenGL bindings.
+* 🤖 **Enterprise Web Automation & Headless Normalization**: Rich, auto-waiting DOM automation DSL (`click`, `fill`, `waitForSelector`, `selectOption`), in-flight network synchronization (`waitForNetworkIdle`), and headless desktop environment normalization for reliable E2E testing and server-side data extraction without external drivers or fragile Selenium/Playwright processes.
 
 ---
 
@@ -451,23 +451,46 @@ browser.registerJsInterface(new NativeBridge(), "desktopApp");
 
 ---
 
-### 6. 🤖 Headless Mode & Automated Screenshot Capture
+### 6. 🤖 Headless Automation, DOM Interaction DSL & Screenshots
 
-Perform server-side web scraping, DOM analysis, and automated screenshot capture in offscreen headless environments without requiring OpenGL/JOGL or display servers.
+Perform server-side web scraping, E2E workflow automation, DOM extraction, and automated screenshot capture in offscreen headless environments with full desktop environment normalization and network idle synchronization.
 
-#### Kotlin & Pure Java
+#### Kotlin (Coroutines)
 ```kotlin
-// 1. Initialize headless browser instance:
-val headlessBrowser = client.createBrowser(
-    url = "https://example.com",
-    isOffScreenRendered = true
-)
-
-// 2. Capture vector-rendered raster screenshot:
-val image: java.awt.image.BufferedImage? = headlessBrowser.takeScreenshot()
-if (image != null) {
-    javax.imageio.ImageIO.write(image, "PNG", java.io.File("screenshot.png"))
+// 1. Initialize headless browser with desktop normalization:
+val config = KromiumConfig().apply {
+    windowlessRendering = true
+    emulateDesktopEnvironment = true
 }
+Kromium.initialize(config)
+
+val browser = Kromium.newClient().createBrowser("https://example.com/login")
+
+// 2. Automate user interaction with auto-waiting DSL:
+browser.waitForSelector("#username")
+browser.fill("#username", "service-bot")
+browser.fill("#password", "SecureKey456!")
+browser.click("button[type='submit']")
+
+// 3. Synchronize with background network activity:
+browser.waitForNetworkIdle(idleTimeMs = 500)
+
+// 4. Extract data or capture raster screenshot:
+val headline = browser.getTextContent(".welcome-title")
+val screenshot: java.awt.image.BufferedImage? = browser.takeScreenshot()
+```
+
+#### Pure Java (CompletableFuture)
+```java
+KromiumBrowser browser = client.createBrowser("https://example.com/portal");
+
+// Chain interaction steps asynchronously:
+browser.waitForSelectorAsync("#search", 5_000)
+    .thenCompose(ok -> browser.fillAsync("#search", "Enterprise Chromium", 5_000))
+    .thenCompose(ok -> browser.clickAsync("#submit", 5_000))
+    .thenCompose(ok -> browser.waitForNetworkIdleAsync(500, 10_000))
+    .thenCompose(ok -> browser.getTextContentAsync(".result-text", 5_000))
+    .thenAccept(result -> System.out.println("Extracted Result: " + result));
 ```
 
 📖 *Deep dive: [`docs/guides/headless-and-automation.md`](docs/guides/headless-and-automation.md)*
