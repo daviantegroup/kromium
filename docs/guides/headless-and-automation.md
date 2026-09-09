@@ -247,6 +247,28 @@ fun main() = runBlocking {
 }
 ```
 
+### Compose Multiplatform Automation (`KromiumViewState`)
+
+In Compose Desktop, you can execute the exact same automation DSL directly through your reactive `KromiumViewState`:
+
+```kotlin
+val state = rememberKromiumState(initialUrl = "https://example.com/login")
+
+LaunchedEffect(state) {
+    // Automate directly through the state holder:
+    state.waitForSelector("#username")
+    state.fill("#username", "enterprise-service-account")
+    state.fill("#password", "SecretToken123!")
+    state.click("button[type='submit']")
+    state.waitForNetworkIdle()
+
+    val count = state.count(".data-table tbody tr")
+    println("Loaded $count records inside Compose Desktop")
+}
+
+KromiumView(state = state, modifier = Modifier.fillMaxSize())
+```
+
 ### Pure Java Automation Flow (`CompletableFuture`)
 
 ```java

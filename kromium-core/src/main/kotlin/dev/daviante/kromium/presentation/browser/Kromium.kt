@@ -178,13 +178,16 @@ object Kromium {
                 if (canonicalInstallPath.contains("..")) {
                     throw KromiumException.InstallationFailed("Invalid installation directory: traversal detected in $canonicalInstallPath")
                 }
-                val roots = File.listRoots() ?: emptyArray()
-                val root = roots.firstOrNull { r ->
-                    val rPath = r.canonicalPath
-                    canonicalInstallPath.startsWith(rPath) && canonicalInstallPath.length > rPath.length
-                } ?: throw KromiumException.InstallationFailed("Invalid installation directory: not within valid filesystem root")
-                if (!canonicalInstallPath.startsWith(root.canonicalPath)) {
-                    throw KromiumException.InstallationFailed("Invalid installation directory: root validation failed")
+                val isUncPath = canonicalInstallPath.startsWith("\\\\")
+                if (!isUncPath) {
+                    val roots = File.listRoots() ?: emptyArray()
+                    val root = roots.firstOrNull { r ->
+                        val rPath = r.canonicalPath
+                        canonicalInstallPath.startsWith(rPath) && canonicalInstallPath.length > rPath.length
+                    } ?: throw KromiumException.InstallationFailed("Invalid installation directory: not within valid filesystem root")
+                    if (!canonicalInstallPath.startsWith(root.canonicalPath)) {
+                        throw KromiumException.InstallationFailed("Invalid installation directory: root validation failed")
+                    }
                 }
                 KromiumLogger.i(TAG, "Install directory: ${installDir.absolutePath}")
 
@@ -320,6 +323,7 @@ object Kromium {
                 client.emulateDesktopEnvironment = true
             }
             client.sslErrorPolicy = cfg.sslErrorPolicy
+            client.doNotTrack = cfg.doNotTrack
         }
         return client
     }
@@ -361,14 +365,28 @@ object Kromium {
 
     /**
      * Creates a new [KromiumBrowser] instance using a fresh client.
+     *
+     * @param isolated When true, creates a browser backed by an isolated request context and cookie store.
      */
     @JvmStatic
     @JvmOverloads
     fun createBrowser(
         url: String? = "about:blank",
         isOffScreenRendered: Boolean = true,
+        isTransparent: Boolean = false,
+        isolated: Boolean = false
+    ): KromiumBrowser = newClient(isolated = isolated).createBrowser(url, isOffScreenRendered, isTransparent)
+
+    /**
+     * Creates a new [KromiumBrowser] instance backed by an isolated session and cookie store.
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun createIsolatedBrowser(
+        url: String? = "about:blank",
+        isOffScreenRendered: Boolean = true,
         isTransparent: Boolean = false
-    ): KromiumBrowser = newClient().createBrowser(url, isOffScreenRendered, isTransparent)
+    ): KromiumBrowser = createBrowser(url, isOffScreenRendered, isTransparent, isolated = true)
 
     /**
      * Creates a new zero-dependency headless [KromiumBrowser] instance backed by an off-screen Swing peer.

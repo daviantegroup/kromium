@@ -102,6 +102,12 @@ class KromiumViewState(initialUrl: String) {
 
     var hostLockSubresources: Boolean by mutableStateOf(false)
 
+    /**
+     * Whether to assert Do Not Track (DNT) and Global Privacy Control (Sec-GPC) headers on outbound requests.
+     * Defaults to true.
+     */
+    var doNotTrack: Boolean by mutableStateOf(true)
+
     var browser: KromiumBrowser? by mutableStateOf(null)
         internal set
 
@@ -338,6 +344,82 @@ class KromiumViewState(initialUrl: String) {
      */
     suspend fun clearBrowsingData(clearCookies: Boolean = true, clearStorage: Boolean = true): Boolean =
         browser?.clearBrowsingData(clearCookies, clearStorage) ?: if (clearCookies) clearCookies() else true
+
+    // ==========================================
+    // Web Automation & Scraping Forwarders
+    // ==========================================
+
+    /**
+     * Waits until an element matching [selector] appears in the DOM.
+     */
+    suspend fun waitForSelector(selector: String, timeoutMs: Long = 10_000L): Boolean =
+        browser?.waitForSelector(selector, timeoutMs) ?: false
+
+    /**
+     * Waits for an element matching [selector] and clicks it.
+     */
+    suspend fun click(selector: String, timeoutMs: Long = 10_000L): Boolean =
+        browser?.click(selector, timeoutMs) ?: false
+
+    /**
+     * Waits for an input element matching [selector] and sets its value.
+     */
+    suspend fun fill(selector: String, value: String, timeoutMs: Long = 10_000L): Boolean =
+        browser?.fill(selector, value, timeoutMs) ?: false
+
+    /**
+     * Waits for an input element matching [selector] and types [text] simulating human keystrokes.
+     */
+    suspend fun type(selector: String, text: String, delayMs: Long = 20L, timeoutMs: Long = 10_000L): Boolean =
+        browser?.type(selector, text, delayMs, timeoutMs) ?: false
+
+    /**
+     * Selects an option in a `<select>` element matching [selector] by option value or label.
+     */
+    suspend fun selectOption(selector: String, value: String, timeoutMs: Long = 10_000L): Boolean =
+        browser?.selectOption(selector, value, timeoutMs) ?: false
+
+    /**
+     * Retrieves the text content of the element matching [selector].
+     */
+    suspend fun getTextContent(selector: String, timeoutMs: Long = 10_000L): String? =
+        browser?.getTextContent(selector, timeoutMs)
+
+    /**
+     * Retrieves the value of [attributeName] for the element matching [selector].
+     */
+    suspend fun getAttribute(selector: String, attributeName: String, timeoutMs: Long = 10_000L): String? =
+        browser?.getAttribute(selector, attributeName, timeoutMs)
+
+    /**
+     * Checks whether an element matching [selector] is currently visible in the DOM.
+     */
+    suspend fun isVisible(selector: String): Boolean =
+        browser?.isVisible(selector) ?: false
+
+    /**
+     * Checks whether a checkbox or radio button matching [selector] is checked.
+     */
+    suspend fun isChecked(selector: String): Boolean =
+        browser?.isChecked(selector) ?: false
+
+    /**
+     * Counts the number of elements in the DOM matching [selector].
+     */
+    suspend fun count(selector: String): Int =
+        browser?.count(selector) ?: 0
+
+    /**
+     * Waits until in-flight network requests cease for at least [idleTimeMs].
+     */
+    suspend fun waitForNetworkIdle(idleTimeMs: Long = 500L, maxTimeoutMs: Long = 15_000L): Boolean =
+        browser?.waitForNetworkIdle(idleTimeMs, maxTimeoutMs) ?: false
+
+    /**
+     * Waits until the browser navigates to a URL matching [urlPattern].
+     */
+    suspend fun waitForUrl(urlPattern: String, isRegex: Boolean = false, timeoutMs: Long = 15_000L): Boolean =
+        browser?.waitForUrl(urlPattern, isRegex, timeoutMs) ?: false
 }
 
 @Composable

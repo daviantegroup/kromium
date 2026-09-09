@@ -73,6 +73,7 @@ fun KromiumView(
         effectiveClient.assetFilter = state.assetFilter
         effectiveClient.hostLock = state.hostLock
         effectiveClient.hostLockSubresources = state.hostLockSubresources
+        effectiveClient.doNotTrack = state.doNotTrack
     }
 
     // Reactively handle URL loading (if loadUrl was called when browser was not ready)

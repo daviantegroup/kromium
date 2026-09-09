@@ -242,18 +242,21 @@ fun dispose()
 
 ---
 
-## 🚀 `KromiumEngine`
+## 🚀 `Kromium` (Unified Engine Facade)
 
-Package: `dev.daviante.kromium.KromiumEngine`
+Package: `dev.daviante.kromium.presentation.browser.Kromium`
 
-Singleton lifecycle manager for the global Chromium runtime.
+Singleton lifecycle and factory manager for the global Chromium runtime.
 
 ### Methods
 
 | Method | Return Type | Description |
 |:---|:---|:---|
-| `KromiumEngine.getInstance()` | `KromiumEngine` | Returns the global singleton instance. |
-| `initialize(config: KromiumConfig)` | `Unit` | Initializes the CEF C++ runtime, unpacks native binaries, and registers custom schemes. Must be invoked before creating clients. |
-| `createClient(): KromiumClient` | `KromiumClient` | Spawns a new client context. |
-| `registerSchemeHandler(factory)` | `Unit` | Registers a global custom scheme (e.g. `app://`). |
+| `initialize(config: KromiumConfig)` | `Unit` / `suspend` | Initializes the CEF C++ runtime, unpacks native binaries, and registers custom schemes. |
+| `initialize(configure: KromiumConfig.() -> Unit)` | `Unit` / `suspend` | Kotlin DSL initialization. |
+| `newClient(isolated: Boolean = false)` | `KromiumClient` | Spawns a new client context. Set `isolated = true` for private session isolation. |
+| `newIsolatedClient()` | `KromiumClient` | Convenience helper for spawning a client backed by an isolated `CefRequestContext`. |
+| `createBrowser(url, isOffScreenRendered, isTransparent, isolated)` | `KromiumBrowser` | Creates a new browser instance with optional session isolation. |
+| `createIsolatedBrowser(url, isOffScreenRendered, isTransparent)` | `KromiumBrowser` | Convenience helper for spawning an isolated browser instance with independent cookie jar. |
+| `createHeadlessBrowser(url, width, height, isolated)` | `KromiumBrowser` | Creates an off-screen headless browser backed by Swing peer. |
 | `dispose()` | `Unit` | Completely shuts down Chromium processes and releases native DLLs/dylibs. |

@@ -67,6 +67,8 @@ public class KromiumJavaInteropTest {
                 .addArgs("--test-arg-1", "--test-arg-2")
                 .authServerAllowlist(List.of("*.corp.internal"))
                 .autoDownload(false)
+                .webrtcIpHandlingPolicy(KromiumConfig.WEBRTC_POLICY_DISABLE_NON_PROXIED_UDP)
+                .doNotTrack(true)
                 .build();
 
         assertNotNull(config);
@@ -76,11 +78,15 @@ public class KromiumJavaInteropTest {
         assertFalse(config.getAutoDownload());
         assertTrue(config.getSandboxEnabled());
         assertTrue(config.getBlockRegistryAndTelemetry());
+        assertTrue(config.getDoNotTrack());
+        assertEquals(KromiumConfig.WEBRTC_POLICY_DISABLE_NON_PROXIED_UDP, config.getWebrtcIpHandlingPolicy());
         assertTrue(config.getCommandLineArgs().contains("--test-arg-1"));
         assertTrue(config.getCommandLineArgs().contains("--test-arg-2"));
         assertEquals(List.of("*.corp.internal"), config.getAuthServerAllowlist());
         config.toCefSettings();
         assertTrue(config.getCommandLineArgs().stream().anyMatch(a -> a.startsWith("--auth-server-allowlist=")));
+        assertTrue(config.getCommandLineArgs().contains("--webrtc-ip-handling-policy=disable_non_proxied_udp"));
+        assertTrue(config.getCommandLineArgs().contains("--enable-do-not-track"));
     }
 
     @Test
