@@ -220,11 +220,11 @@ jobs:
             if ! git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
               echo "Creating Git Tag: $TAG_NAME"
               if [ -n "${{ steps.app_token.outputs.token }}" ]; then
-                git config user.name "${{ steps.app_token.outputs.app-slug || 'daviante-releaser' }}[bot]"
-                git config user.email "${{ steps.app_token.outputs.app-slug || 'daviante-releaser' }}[bot]@users.noreply.github.com"
+                git config user.name "${{ steps.app_token.outputs.app-slug || 'daviante-releaser' }}"
+                git config user.email "${{ steps.app_token.outputs.app-slug || 'daviante-releaser' }}@users.noreply.github.com"
               else
-                git config user.name "github-actions[bot]"
-                git config user.email "github-actions[bot]@users.noreply.github.com"
+                git config user.name "daviante-releaser"
+                git config user.email "daviante-releaser@users.noreply.github.com"
               fi
               git tag -a "$TAG_NAME" -m "Release $TAG_NAME"
               git push origin "$TAG_NAME"
@@ -434,3 +434,30 @@ jobs:
           echo "Track Validation & Publication Status:"
           echo "https://central.sonatype.com/publishing/deployments/$DEPLOYMENT_ID"
           echo "=========================================================="
+
+      - name: Publish to GitHub Packages (maven.pkg.github.com)
+        if: steps.check_trigger.outputs.proceed == 'true' && steps.preflight.outputs.proceed == 'true' && inputs.dry_run != true
+        env:
+          GITHUB_ACTOR: ${{ steps.app_token.outputs.app-slug || 'daviante-releaser' }}
+          GITHUB_TOKEN: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
+          GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
+          GPG_SIGNING_PASSWORD: ${{ secrets.GPG_SIGNING_PASSWORD }}
+        run: |
+          echo "=========================================================="
+          echo "📦 Publishing signed artifacts to GitHub Packages..."
+          echo "Actor: $GITHUB_ACTOR"
+          echo "Target: https://maven.pkg.github.com/daviantegroup/kromium"
+          echo "=========================================================="
+          ./gradlew publishAllPublicationsToGitHubPackagesRepository --no-daemon
+          echo "🚀 Successfully published to GitHub Packages!"
+
+      - name: Attach Bundle Asset to GitHub Release
+        if: steps.check_trigger.outputs.proceed == 'true' && steps.preflight.outputs.proceed == 'true' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.event_name == 'push') && inputs.dry_run != true
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME="v${{ steps.preflight.outputs.project_version }}"
+          echo "Attaching build/bundle.zip to GitHub Release $TAG_NAME..."
+          gh release upload "$TAG_NAME" build/bundle.zip --clobber
+          echo "✅ Release asset attached successfully."
+

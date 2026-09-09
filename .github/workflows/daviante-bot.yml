@@ -1,0 +1,283 @@
+name: Daviante Bot
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened]
+    branches:
+      - master
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  statuses: write
+
+jobs:
+  cla-verification:
+    name: CLA Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Generate Daviante Bot Token
+        id: generate-token
+        continue-on-error: true
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.DAVIANTE_BOT_APP_ID }}
+          private-key: ${{ secrets.DAVIANTE_BOT_PRIVATE_KEY }}
+
+      - name: Run CLA Verification & Bot Handler
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.generate-token.outputs.token || secrets.GITHUB_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const botTag = '<!-- daviante-bot-cla -->';
+            const claDocUrl = `https://github.com/${owner}/${repo}/blob/master/CONTRIBUTING.md#contributor-license-agreement-cla`;
+            const statusContext = 'daviante-bot / CLA Verification';
+
+            // ─────────────────────────────────────────────────────────────
+            // Helper: Read existing signers from .github/cla-signers.json
+            // ─────────────────────────────────────────────────────────────
+            async function getRegisteredSigners() {
+              try {
+                const res = await github.rest.repos.getContent({
+                  owner,
+                  repo,
+                  path: '.github/cla-signers.json',
+                  ref: 'master'
+                });
+                const content = Buffer.from(res.data.content, 'base64').toString('utf8');
+                const parsed = JSON.parse(content);
+                return { signers: parsed.signers || [], sha: res.data.sha };
+              } catch (err) {
+                core.info(`Could not read .github/cla-signers.json (may not exist yet): ${err.message}`);
+                return { signers: [], sha: null };
+              }
+            }
+
+            // ─────────────────────────────────────────────────────────────
+            // Helper: Append a new signer to .github/cla-signers.json on master
+            // ─────────────────────────────────────────────────────────────
+            async function registerSigner(username, currentSha, existingSigners) {
+              if (existingSigners.includes(username)) return;
+
+              try {
+                const updatedSigners = [...existingSigners, username].sort();
+                const newJson = JSON.stringify({
+                  description: "Registry of contributors who have agreed to the Kromium Contributor License Agreement (CLA).",
+                  signers: updatedSigners
+                }, null, 2) + '\n';
+
+                await github.rest.repos.createOrUpdateFileContents({
+                  owner,
+                  repo,
+                  path: '.github/cla-signers.json',
+                  branch: 'master',
+                  sha: currentSha,
+                  message: `chore: record CLA agreement for @${username} [skip ci]`,
+                  content: Buffer.from(newJson).toString('base64'),
+                  committer: {
+                    name: 'daviante-bot[bot]',
+                    email: 'daviante-bot[bot]@users.noreply.github.com'
+                  },
+                  author: {
+                    name: 'daviante-bot[bot]',
+                    email: 'daviante-bot[bot]@users.noreply.github.com'
+                  }
+                });
+                core.info(`Successfully recorded @${username} in .github/cla-signers.json`);
+              } catch (err) {
+                core.warning(`Could not commit signer to .github/cla-signers.json: ${err.message}`);
+              }
+            }
+
+            // ─────────────────────────────────────────────────────────────
+            // Helper: Set commit status check
+            // ─────────────────────────────────────────────────────────────
+            async function setStatus(sha, state, description) {
+              await github.rest.repos.createCommitStatus({
+                owner,
+                repo,
+                sha,
+                state,
+                context: statusContext,
+                description,
+                target_url: claDocUrl
+              });
+            }
+
+            // ─────────────────────────────────────────────────────────────
+            // SCENARIO 1: Triggered by PR Comment (e.g. /agree)
+            // ─────────────────────────────────────────────────────────────
+            if (context.eventName === 'issue_comment') {
+              // Ignore comments on standard issues (only handle PRs)
+              if (!context.payload.issue.pull_request) {
+                return;
+              }
+
+              const commentBody = (context.payload.comment.body || '').trim().toLowerCase();
+              const commenter = context.payload.comment.user.login;
+
+              // Check for slash command or affirmative signature statement
+              const isAgreeCommand = commentBody === '/agree' ||
+                                     commentBody === '/sign-cla' ||
+                                     commentBody.startsWith('/agree') ||
+                                     commentBody === 'i agree to the contributor license agreement' ||
+                                     commentBody === 'i agree to the cla';
+
+              if (!isAgreeCommand) {
+                return;
+              }
+
+              core.info(`Processing /agree command from @${commenter} on PR #${context.payload.issue.number}...`);
+
+              // Retrieve PR details
+              const { data: pr } = await github.rest.pulls.get({
+                owner,
+                repo,
+                pull_number: context.payload.issue.number
+              });
+
+              // Add reaction to the user's comment
+              try {
+                await github.rest.reactions.createForIssueComment({
+                  owner,
+                  repo,
+                  comment_id: context.payload.comment.id,
+                  content: 'rocket'
+                });
+              } catch (e) {
+                core.info(`Could not react to comment: ${e.message}`);
+              }
+
+              // Register signer in registry file
+              const { signers, sha } = await getRegisteredSigners();
+              await registerSigner(commenter, sha, signers);
+
+              // Set status check to SUCCESS on the PR head commit
+              await setStatus(pr.head.sha, 'success', `CLA agreed by @${commenter}`);
+
+              // Post or update confirmation comment
+              const { data: comments } = await github.rest.issues.listComments({
+                owner,
+                repo,
+                issue_number: pr.number
+              });
+              const existingBotComment = comments.find(c => c.body && c.body.includes(botTag));
+
+              const confirmationBody = [
+                botTag,
+                `### 🤖 Daviante Bot: Contributor License Agreement (CLA) Verified ✅`,
+                ``,
+                `Thank you @${commenter}! Your agreement to the [Kromium Contributor License Agreement](${claDocUrl}) has been verified and recorded.`,
+                ``,
+                `The **${statusContext}** check has passed and maintainers have been notified that this PR is ready for review.`,
+              ].join('\n');
+
+              if (existingBotComment) {
+                await github.rest.issues.updateComment({
+                  owner,
+                  repo,
+                  comment_id: existingBotComment.id,
+                  body: confirmationBody
+                });
+              } else {
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: pr.number,
+                  body: confirmationBody
+                });
+              }
+
+              core.info(`CLA verification for PR #${pr.number} passed via /agree command.`);
+              return;
+            }
+
+            // ─────────────────────────────────────────────────────────────
+            // SCENARIO 2: Triggered by Pull Request Event (opened/edited/sync)
+            // ─────────────────────────────────────────────────────────────
+            if (context.eventName === 'pull_request_target') {
+              const pr = context.payload.pull_request;
+              const author = pr.user.login;
+
+              core.info(`Evaluating CLA status for @${author} on PR #${pr.number}...`);
+
+              // 1. Maintainers / repository owners are automatically exempt
+              if (author === owner || pr.author_association === 'OWNER' || pr.author_association === 'MEMBER') {
+                core.info(`@${author} is a repository owner/member. Marking CLA check as passed automatically.`);
+                await setStatus(pr.head.sha, 'success', `Core maintainer @${author} automatically exempt`);
+                return;
+              }
+
+              // 2. Check if author is already recorded in .github/cla-signers.json
+              const { signers, sha } = await getRegisteredSigners();
+              if (signers.includes(author)) {
+                core.info(`@${author} is already in the CLA signers ledger. Auto-passing.`);
+                await setStatus(pr.head.sha, 'success', `CLA previously agreed by @${author}`);
+                return;
+              }
+
+              // 3. Check if the CLA box is checked in the PR body
+              const prBody = pr.body || '';
+              const claCheckedRegex = /-\s*\[[xX]\]\s*.*\bContributor\s+License\s+Agreement\b/i;
+              const isCheckedInBody = claCheckedRegex.test(prBody);
+
+              const { data: comments } = await github.rest.issues.listComments({
+                owner,
+                repo,
+                issue_number: pr.number
+              });
+              const existingBotComment = comments.find(c => c.body && c.body.includes(botTag));
+
+              if (isCheckedInBody) {
+                core.info(`@${author} checked the CLA box in PR description. Registering and passing.`);
+                await registerSigner(author, sha, signers);
+                await setStatus(pr.head.sha, 'success', `CLA agreed by @${author}`);
+
+                if (existingBotComment) {
+                  await github.rest.issues.updateComment({
+                    owner,
+                    repo,
+                    comment_id: existingBotComment.id,
+                    body: `${botTag}\n### 🤖 Daviante Bot: Contributor License Agreement (CLA) Verified ✅\n\nThank you @${author}! Your agreement to the [Kromium Contributor License Agreement](${claDocUrl}) has been verified and recorded.`
+                  });
+                }
+              } else {
+                // Not yet agreed — block merge and post instructions
+                await setStatus(pr.head.sha, 'failure', `CLA agreement required for @${author}`);
+
+                const instructions = [
+                  botTag,
+                  `### 🤖 Daviante Bot: Contributor License Agreement (CLA) Required`,
+                  ``,
+                  `Welcome to **Kromium**, @${author}! Thank you for your contribution.`,
+                  ``,
+                  `Before we can review and merge your pull request, all community contributors must agree to the [Kromium Contributor License Agreement (CLA)](${claDocUrl}).`,
+                  ``,
+                  `#### How to sign (choose either option):`,
+                  `1. **Reply with a comment**: Simply comment \`/agree\` on this pull request.`,
+                  `2. **Check the box**: Edit your PR description and check the CLA box under the **Contributor Checklist**:`,
+                  `   \`\`\`markdown`,
+                  `   - [x] **Contributor License Agreement (CLA)**: By submitting this pull request...`,
+                  `   \`\`\``,
+                  ``,
+                  `Once signed, **Daviante Bot** will automatically verify your agreement and unblock this PR for review.`,
+                ].join('\n');
+
+                if (!existingBotComment) {
+                  await github.rest.issues.createComment({
+                    owner,
+                    repo,
+                    issue_number: pr.number,
+                    body: instructions
+                  });
+                }
+
+                core.setFailed(`Pull request merge blocked: @${author} has not agreed to the Contributor License Agreement.`);
+              }
+            }

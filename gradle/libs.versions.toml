@@ -22,7 +22,6 @@ composeIcons = "1.1.1"
 # Engine & Parsers
 kaml = "0.72.0"
 ksoup = "0.2.0"
-jogl = "2.3.2"
 
 # Room KMP & DataStore
 androidx-room = "2.7.0-alpha13"
@@ -64,10 +63,6 @@ ktor-client-mock = { module = "io.ktor:ktor-client-mock", version.ref = "ktor" }
 # YAML & HTML Parsers (KMP)
 kaml = { module = "com.charleskorn.kaml:kaml", version.ref = "kaml" }
 ksoup = { module = "com.fleeksoft.ksoup:ksoup", version.ref = "ksoup" }
-
-# JOGL for JCEF OSR
-jogl-all-main = { module = "org.jogamp.jogl:jogl-all-main", version.ref = "jogl" }
-gluegen-rt-main = { module = "org.jogamp.gluegen:gluegen-rt-main", version.ref = "jogl" }
 
 # Coil 3 Image Loading
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil3" }
