@@ -98,6 +98,24 @@ fun find(searchText: String, forward: Boolean = true, matchCase: Boolean = false
 fun stopFinding(clearSelection: Boolean)
 ```
 
+### Off-Screen Rendering (OSR) & HiDPI Configuration
+
+The following APIs are active when the browser is running in OSR mode (Java Swing, JavaFX, or headless):
+
+| Property / Method | Type | Default | Description |
+|:---|:---|:---|:---|
+| `isOffScreenRendered` | `Boolean` | — | `true` if this browser is running in lightweight OSR mode. |
+| `osrPanel` | `KromiumOSRPanel?` | — | Accesses the underlying pure Java2D Swing panel hosting the raster buffer. |
+| `scaleFactor` | `Double` | Auto | Gets the active DPI scale or sets a manual override (disables auto-detection). |
+| `isAutoDetectScaleFactor` | `Boolean` | `true` | When true, dynamically tracks display scaling from `Graphics2D.getTransform()`. |
+| `resetScaleFactorToAuto()` | `Unit` | — | Re-enables automatic display DPI tracking and triggers an immediate resample. |
+| `scrollMultiplier` | `Double` | `1.0` | Sensitivity factor for mouse wheel and trackpad scroll deltas. |
+| `setRenderingHint(key, value)` | `Unit` | — | Sets a custom Java2D `RenderingHints` key on the OSR panel. |
+| `getRenderingHint(key)` | `Any?` | — | Retrieves a custom Java2D `RenderingHints` value from the OSR panel. |
+| `setInterpolation(hint)` | `Unit` | Bilinear | Sets image scaling hint (`VALUE_INTERPOLATION_BILINEAR`, `BICUBIC`, `NEAREST_NEIGHBOR`). |
+| `bufferedImageType` | `Int` | `TYPE_INT_ARGB_PRE` | Overrides the internal `BufferedImage` raster format. |
+| `byteOrder` | `ByteOrder` | `LITTLE_ENDIAN` | Overrides the byte order used when interpreting native Chromium frames. |
+
 ### Lifecycle & Disposal
 
 ```kotlin

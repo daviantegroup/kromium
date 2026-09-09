@@ -46,6 +46,24 @@ When distributing macOS apps outside the Mac App Store:
 </plist>
 ```
 
+### Trackpad & Smooth Scrolling
+macOS trackpads and Magic Mice emit high-frequency (60–120 Hz) events with fractional sub-pixel deltas. Kromium's `CefBrowserOsr` reads `e.getPreciseWheelRotation()` and maintains a fractional delta accumulator, ensuring instantaneous, fluid 60fps scrolling without the dead-zone lag caused by standard AWT integer truncation.
+
+### Command (⌘) Shortcuts in OSR Mode
+In headless OSR rendering on macOS (Swing, JavaFX, SWT), Chromium does not have an attached `NSWindow` or `NSMenu`. Kromium automatically intercepts `KeyEvent.isMetaDown()` and executes native macOS shortcuts directly on the active frame:
+- **Clipboard & Edit**: `Cmd+C` (Copy), `Cmd+V` (Paste), `Cmd+X` (Cut), `Cmd+A` (Select All), `Cmd+Z` (Undo), `Cmd+Shift+Z / Cmd+Y` (Redo)
+- **Navigation**: `Cmd+R` / `Cmd+Shift+R` (Reload), `Cmd+[` / `Cmd+]` (Back / Forward)
+- **Zoom**: `Cmd +` / `Cmd -` / `Cmd 0` (Zoom In / Out / Reset)
+
+### Eclipse SWT on macOS
+1. **JVM Flag Required**: Cocoa requires the Cocoa event loop to execute on the process primary thread. In Gradle:
+   ```kotlin
+   if (System.getProperty("os.name").lowercase().contains("mac")) {
+       jvmArgs("-XstartOnFirstThread")
+   }
+   ```
+2. **OSR Fallback**: On macOS Cocoa, `SWT_AWT.new_Frame()` returns a window handle of `0`. Kromium automatically uses Lightweight OSR on macOS for SWT while utilizing direct windowed HWND embedding on Windows and Linux.
+
 ---
 
 ## 🪟 Windows (Windows 10 / 11 / ARM64)

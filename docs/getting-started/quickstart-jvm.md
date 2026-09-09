@@ -168,15 +168,18 @@ public class SwtApp {
         java.awt.Frame frame = SWT_AWT.new_Frame(composite);
         frame.setLayout(new BorderLayout());
 
-        // 3. Configure Kromium for Windowed Heavyweight rendering
+        // 3. Configure Kromium (Windowed for Windows/Linux, OSR for macOS Cocoa bridge)
+        boolean isMac = System.getProperty("os.name", "").toLowerCase().contains("mac");
+        boolean windowless = isMac;
+
         KromiumConfig config = KromiumConfig.builder()
-                .windowlessRendering(false)
+                .windowlessRendering(windowless)
                 .build();
 
         Kromium.initializeAsync(config)
                 .thenCompose(v -> Kromium.awaitClientAsync())
                 .thenAccept(client -> {
-                    KromiumBrowser browser = client.createBrowser("https://adoptium.net", false, false);
+                    KromiumBrowser browser = client.createBrowser("https://adoptium.net", windowless, windowless);
 
                     display.asyncExec(() -> {
                         if (shell.isDisposed()) return;
@@ -264,32 +267,43 @@ public class JavaFxApp extends Application {
 
                     // CRITICAL: swingNode.setContent must be called on JavaFX Application Thread
                     Platform.runLater(() -> {
+                        swingNode.setFocusTraversable(true);
                         swingNode.setContent(uiComp);
 
-                        // Synchronize JavaFX scene resize events to Chromium viewport
-                        scene.widthProperty().addListener((obs, oldW, newW) -> updateSize(browser, uiComp, scene));
-                        scene.heightProperty().addListener((obs, oldH, newH) -> updateSize(browser, uiComp, scene));
-                    });
+                        // Transfer JavaFX scene focus to swingNode when clicked
+                        swingNode.setOnMousePressed(e -> swingNode.requestFocus());
+                        swingNode.setOnMouseClicked(e -> swingNode.requestFocus());
 
-                    // Trigger initial sizing and native creation on Swing EDT
-                    SwingUtilities.invokeLater(() -> {
-                        int w = (int) scene.getWidth();
-                        int h = (int) scene.getHeight();
-                        uiComp.setPreferredSize(new Dimension(w, h));
-                        uiComp.setSize(w, h);
-                        browser.getRawBrowser().createImmediately();
-                        browser.getRawBrowser().wasResized(w, h);
+                        // Synchronize JavaFX focus with Chromium OSR engine
+                        swingNode.focusedProperty().addListener((obs, oldVal, isFocused) -> {
+                            SwingUtilities.invokeLater(() -> {
+                                if (isFocused) {
+                                    uiComp.requestFocusInWindow();
+                                }
+                                browser.getRawBrowser().setFocus(isFocused);
+                            });
+                        });
+
+                        // Synchronize JavaFX scene resize events to both SwingNode bounds and Chromium viewport
+                        scene.widthProperty().addListener((obs, oldW, newW) -> updateSize(browser, uiComp, swingNode, scene));
+                        scene.heightProperty().addListener((obs, oldH, newH) -> updateSize(browser, uiComp, swingNode, scene));
+
+                        updateSize(browser, uiComp, swingNode, scene);
                     });
                 });
     }
 
-    private static void updateSize(KromiumBrowser browser, JComponent uiComp, Scene scene) {
+    private static void updateSize(KromiumBrowser browser, JComponent uiComp, SwingNode swingNode, Scene scene) {
         int w = (int) scene.getWidth();
         int h = (int) scene.getHeight();
         if (w > 50 && h > 50) {
+            // Update JavaFX node layout bounds so mouse picking / hit-testing covers the browser surface
+            swingNode.resize(w, h);
+
             SwingUtilities.invokeLater(() -> {
                 uiComp.setPreferredSize(new Dimension(w, h));
                 uiComp.setSize(w, h);
+                browser.getRawBrowser().createImmediately();
                 browser.getRawBrowser().wasResized(w, h);
             });
         }

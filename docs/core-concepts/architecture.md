@@ -97,7 +97,7 @@ To permanently resolve this architectural flaw without introducing fragile nativ
 
 #### How the Java2D Pipeline Works:
 1. **Direct Memory Mapping**: Chromium renders off-screen web frames directly into a shared native memory `ByteBuffer` in BGRA format.
-2. **Zero-Overhead IntBuffer Copy**: `KromiumOSRPanel` maps the byte buffer to a little-endian `IntBuffer` and performs a high-speed CPU array copy directly into the `DataBufferInt` of a pre-allocated `BufferedImage` (`TYPE_INT_ARGB_PRE`).
+2. **Zero-Overhead True-Color IntBuffer Copy**: Naive OSR integrations load BGRA buffers into standard RGB models, flipping red and blue color channels (the classic "Smurf" bug). `KromiumOSRPanel` configures `ByteOrder.LITTLE_ENDIAN` and maps the memory into an `IntBuffer`. Because 32-bit little-endian integer layout (`0xAARRGGBB`) maps 1:1 to Java's `BufferedImage.TYPE_INT_ARGB_PRE`, pixels copy directly into the `DataBufferInt` at native memory bus speed with **zero per-pixel CPU color swizzling**.
 3. **Double-Buffering & Atomic Swap**: To prevent screen tearing during rapid DOM animations or 60 FPS video playback, `KromiumOSRPanel` maintains separate front and back buffers, atomically swapping references inside a synchronized lock.
 4. **Popup Layer Compositing**: HTML select dropdowns, autocomplete menus, and context popups are rendered via an independent `popupBuffer` and composited directly at their logical coordinates during `paintComponent()`.
 
@@ -112,7 +112,66 @@ A classic challenge with off-screen rendering is blurry or pixelated text on fra
 Kromium solves this via automated runtime DPI detection inside `CefBrowserOsr`:
 - During each paint pass, `CefBrowserOsr` queries `Graphics2D.getTransform().getScaleX()` and the display's `GraphicsConfiguration`.
 - If a DPI scale change is detected (or upon initial layout on a HiDPI screen), Kromium immediately invokes `notifyScreenInfoChanged()` and notifies Chromium via `wasResized(width, height)`.
-- Chromium automatically rasterizes frames at the native physical pixel resolution, while Java2D renders the high-res buffer crisp and sharp without scaling artifacts or downsampling blur.
+- Chromium automatically rasterizes frames at the native physical pixel resolution, while Java2D renders the high-res buffer crisp and sharp using bilinear interpolation without downsampling blur.
+
+---
+
+### 🖱️ Continuous Sub-Pixel Mouse Wheel & Trackpad Scrolling
+
+On macOS trackpads and modern precision mice, the operating system dispatches continuous scroll events at 60–120 Hz with tiny fractional deltas (e.g. `0.05`, `0.12`). Standard Java AWT truncates these values in `getWheelRotation()` to `0` until a full integer tick accumulates, which historically caused an artificial "stuck" dead-zone and delayed response in OSR browsers.
+
+Kromium solves this via sub-pixel precision event translation in `CefBrowserOsr`:
+- Reads **`e.getPreciseWheelRotation()`** to capture every micro-movement from Apple Trackpads and Windows Precision Touchpads.
+- Maintains a floating-point accumulator (`scrollRemainder_`) so no fractional movement is discarded.
+- Normalizes the scroll event so JCEF receives the exact calculated pixel delta (`getUnitsToScroll() = deltaPixels`) without artificial double-multiplication or jerky spikes.
+
+---
+
+### ⌨️ Native macOS Command (⌘) Shortcut Interception
+
+In native windowed browsers on macOS, keyboard shortcuts like **Cmd+C**, **Cmd+V**, **Cmd+A**, and **Cmd+Z** are caught by the native Cocoa Application Menu (`NSMenu`) and sent through the macOS responder chain. In OSR mode, Chromium runs headlessly without a native `NSWindow` or `NSMenu`, causing raw Command key events to be dropped by Chromium's default handler.
+
+Kromium transparently bridges this gap by intercepting macOS Command (`META`) shortcuts inside `CefBrowserOsr` and directly executing the corresponding action on the active `CefFrame`:
+- **Editing**: `Cmd+C` (`copy()`), `Cmd+V` (`paste()`), `Cmd+X` (`cut()`), `Cmd+A` (`selectAll()`), `Cmd+Z` (`undo()`), `Cmd+Shift+Z` / `Cmd+Y` (`redo()`)
+- **Navigation**: `Cmd+R` / `Cmd+Shift+R` (reload / force reload), `Cmd+[` / `Cmd+]` (back / forward)
+- **Viewport**: `Cmd +` / `Cmd -` / `Cmd 0` (zoom in, zoom out, reset zoom)
+
+---
+
+### 🛠️ Developer OSR Customization APIs
+
+While Kromium provides optimal defaults out-of-the-box, developers can override any rendering or input behavior via `KromiumBrowser`:
+
+```java
+// Java API
+if (browser.isOffScreenRendered()) {
+    // 1. Override DPI scale factor (disables auto-detection)
+    browser.setScaleFactor(1.5);
+    browser.resetScaleFactorToAuto(); // Re-enable auto-detection
+
+    // 2. Adjust mouse scroll sensitivity multiplier (default: 1.0)
+    browser.setScrollMultiplier(1.2);
+
+    // 3. Configure Java2D scaling interpolation & rendering hints
+    browser.setInterpolation(RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+    browser.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_LCD_HRGB);
+
+    // 4. Customize underlying BufferedImage raster type or ByteOrder
+    browser.setBufferedImageType(BufferedImage.TYPE_INT_ARGB_PRE);
+    browser.setByteOrder(ByteOrder.LITTLE_ENDIAN);
+
+    // 5. Access the raw OSR JPanel
+    KromiumOSRPanel panel = browser.getOsrPanel();
+}
+```
+
+```kotlin
+// Kotlin API
+browser.scaleFactor = 2.0
+browser.isAutoDetectScaleFactor = true
+browser.scrollMultiplier = 1.0
+browser.setInterpolation(RenderingHints.VALUE_INTERPOLATION_BILINEAR)
+```
 
 ---
 
