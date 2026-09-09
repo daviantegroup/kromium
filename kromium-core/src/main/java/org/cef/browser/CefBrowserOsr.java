@@ -15,6 +15,7 @@ import java.awt.Rectangle;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GraphicsConfiguration;
+import java.awt.GraphicsEnvironment;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.awt.event.*;
@@ -28,11 +29,20 @@ class CefBrowserOsr extends CefBrowser_N implements CefRenderHandler {
     private boolean justCreated_ = false;
     private Rectangle browser_rect_ = new Rectangle(0, 0, 1, 1);
     private Point screenPoint_ = new Point(0, 0);
-    private double scaleFactor_ = 1.0;
+    private double scaleFactor_ = detectDefaultScaleFactor();
     private int depth = 32;
     private int depth_per_component = 8;
     private boolean isTransparent_;
     private CopyOnWriteArrayList<Consumer<CefPaintEvent>> onPaintListeners = new CopyOnWriteArrayList<>();
+
+    private static double detectDefaultScaleFactor() {
+        try {
+            return GraphicsEnvironment.getLocalGraphicsEnvironment()
+                .getDefaultScreenDevice().getDefaultConfiguration().getDefaultTransform().getScaleX();
+        } catch (Throwable t) {
+            return 1.0;
+        }
+    }
 
     CefBrowserOsr(CefClient client, String url, boolean transparent, CefRequestContext context, CefBrowserSettings settings) {
         this(client, url, transparent, context, null, null, settings);
@@ -46,12 +56,16 @@ class CefBrowserOsr extends CefBrowser_N implements CefRenderHandler {
             @Override
             public void paint(Graphics g) {
                 if (g instanceof Graphics2D) {
-                    GraphicsConfiguration config = ((Graphics2D) g).getDeviceConfiguration();
+                    Graphics2D g2d = (Graphics2D) g;
+                    GraphicsConfiguration config = g2d.getDeviceConfiguration();
                     depth = config.getColorModel().getPixelSize();
                     depth_per_component = config.getColorModel().getComponentSize()[0];
-                    AffineTransform transform = config.getDefaultTransform();
+                    AffineTransform transform = g2d.getTransform();
                     
                     double newScaleFactor = transform.getScaleX();
+                    if (newScaleFactor <= 0.0) {
+                        newScaleFactor = detectDefaultScaleFactor();
+                    }
                     if (scaleFactor_ != newScaleFactor) {
                         scaleFactor_ = newScaleFactor;
                         notifyScreenInfoChanged();
@@ -145,6 +159,16 @@ class CefBrowserOsr extends CefBrowser_N implements CefRenderHandler {
         
         this.canvas_.setFocusable(true);
         this.canvas_.setRequestFocusEnabled(true);
+    }
+
+    public void setScaleFactor(double factor) {
+        if (factor > 0.0 && this.scaleFactor_ != factor) {
+            this.scaleFactor_ = factor;
+            notifyScreenInfoChanged();
+            if (canvas_.getWidth() > 0 && canvas_.getHeight() > 0) {
+                wasResized(canvas_.getWidth(), canvas_.getHeight());
+            }
+        }
     }
 
     @Override
@@ -277,9 +301,3 @@ class CefBrowserOsr extends CefBrowser_N implements CefRenderHandler {
         return true;
     }
 }
-
-
-
-
-
-

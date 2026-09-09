@@ -2,7 +2,9 @@ package dev.daviante.kromium.osr.awt;
 
 import javax.swing.JPanel;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.Rectangle;
+import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
 import java.nio.ByteBuffer;
@@ -105,6 +107,11 @@ public class KromiumOSRPanel extends JPanel {
         
         synchronized (bufferLock) {
             if (frontBuffer != null) {
+                if (g instanceof Graphics2D g2d) {
+                    g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                    g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                    g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                }
                 // Java2D draws the image directly into the Swing hierarchy
                 g.drawImage(frontBuffer, 0, 0, getWidth(), getHeight(), null);
             }
@@ -118,4 +125,3 @@ public class KromiumOSRPanel extends JPanel {
         }
     }
 }
-
