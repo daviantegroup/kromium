@@ -609,7 +609,10 @@ The repository includes ready-to-run desktop browser applications demonstrating 
 
 ---
 
-## ⚖️ License
+## ⚖️ License & Contributing
 
 Kromium is open-source software licensed under the **[Apache License, Version 2.0](LICENSE)**.
 Commercial friendly, royalty-free, and compliant with standard patent and distribution requirements.
+
+All community contributions are welcomed and governed by our [Contributor License Agreement (CLA)](CONTRIBUTING.md#contributor-license-agreement-cla).
+
