@@ -146,6 +146,120 @@ fun main() = application {
 
 ---
 
+## ⌨️ Handling Keyboard Shortcuts & macOS MenuBar Integration
+
+When building desktop applications with embedded web views, keyboard shortcuts require deliberate architectural consideration—especially on **macOS**.
+
+### The macOS Responder Chain & MenuBar Architecture
+
+In macOS Cocoa, Command shortcuts (`⌘C`, `⌘V`, `⌘X`, `⌘A`, `⌘Z`, `⌘W`, `⌘R`, `⌘T`) are dispatched through the application **Main Menu (`NSMenu`)** responder chain, rather than raw window key down events. If a desktop app does not declare these items in its `MenuBar`, macOS intercepts Command combinations as unhandled system actions, plays an alert beep, and drops the event before it ever reaches the embedded Chromium view.
+
+### Why `KromiumView` Avoids Fragile Global Hooks
+
+> [!IMPORTANT]
+> **Component Isolation Principle:** `KromiumView` intentionally **does not** register global AWT `KeyEventDispatcher` hooks on the window.
+>
+> If a library embeds global key dispatchers, it forcibly intercepts `Ctrl+C` / `⌘C` across the entire application, breaking outside UI elements such as:
+> - Compose `BasicTextField` address bars and search inputs
+> - Modal dialogs, drawer text fields, and inspector inputs
+> - Other third-party desktop components
+>
+> Instead, `KromiumView` remains pure and non-invasive:
+> 1. Native key events are processed directly by Chromium when the browser component has focus.
+> 2. Direct manipulation APIs (`browser.copy()`, `browser.paste()`, `browser.cut()`, `browser.selectAll()`, `browser.undo()`, `browser.redo()`) are exposed for host UI orchestration.
+> 3. Global application shortcuts belong at the **Window / MenuBar** layer of your Compose application.
+
+### Recommended Compose Desktop `MenuBar` Setup
+
+Use Compose Multiplatform's declarative `MenuBar` API in your root `Window`. This seamlessly mounts into the macOS top screen menu bar (`NSMenu`) on macOS, and renders native window menus on Windows/Linux:
+
+```kotlin
+package com.example.ui
+
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyShortcut
+import androidx.compose.ui.window.MenuBar
+import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.application
+import dev.daviante.kromium.compose.KromiumView
+import dev.daviante.kromium.compose.rememberKromiumViewState
+import dev.daviante.kromium.presentation.browser.KromiumBrowser
+import java.awt.KeyboardFocusManager
+import javax.swing.SwingUtilities
+
+// Helper to determine if the active AWT focus resides within the Chromium web view
+fun isBrowserFocused(browser: KromiumBrowser?): Boolean {
+    val comp = browser?.uiComponent ?: return false
+    val focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager().focusOwner ?: return false
+    return focusOwner === comp || SwingUtilities.isDescendingFrom(focusOwner, comp)
+}
+
+fun main() = application {
+    val isMac = System.getProperty("os.name", "").lowercase().contains("mac")
+
+    Window(onCloseRequest = ::exitApplication, title = "Kromium App") {
+        val state = rememberKromiumViewState("https://github.com/daviante/kromium")
+
+        // Declarative desktop menu bar providing native macOS & cross-platform shortcuts
+        MenuBar {
+            Menu("File", mnemonic = 'F') {
+                Item("Close Window", shortcut = KeyShortcut(Key.W, meta = isMac, ctrl = !isMac)) {
+                    exitApplication()
+                }
+            }
+
+            Menu("Edit", mnemonic = 'E') {
+                // Focus-safe clipboard routing:
+                // If the webview is focused, route to Chromium; otherwise, allow
+                // Compose TextFields (e.g. address bar) to handle editing natively.
+                Item("Undo", shortcut = KeyShortcut(Key.Z, meta = isMac, ctrl = !isMac)) {
+                    if (isBrowserFocused(state.browser)) state.browser?.undo()
+                }
+                Item("Redo", shortcut = KeyShortcut(Key.Z, meta = isMac, ctrl = !isMac, shift = true)) {
+                    if (isBrowserFocused(state.browser)) state.browser?.redo()
+                }
+                Separator()
+                Item("Cut", shortcut = KeyShortcut(Key.X, meta = isMac, ctrl = !isMac)) {
+                    if (isBrowserFocused(state.browser)) state.browser?.cut()
+                }
+                Item("Copy", shortcut = KeyShortcut(Key.C, meta = isMac, ctrl = !isMac)) {
+                    if (isBrowserFocused(state.browser)) state.browser?.copy()
+                }
+                Item("Paste", shortcut = KeyShortcut(Key.V, meta = isMac, ctrl = !isMac)) {
+                    if (isBrowserFocused(state.browser)) state.browser?.paste()
+                }
+                Item("Select All", shortcut = KeyShortcut(Key.A, meta = isMac, ctrl = !isMac)) {
+                    if (isBrowserFocused(state.browser)) state.browser?.selectAll()
+                }
+            }
+
+            Menu("View", mnemonic = 'V') {
+                Item("Reload", shortcut = KeyShortcut(Key.R, meta = isMac, ctrl = !isMac)) {
+                    state.reload()
+                }
+                Item("Force Reload", shortcut = KeyShortcut(Key.R, meta = isMac, ctrl = !isMac, shift = true)) {
+                    state.reloadIgnoreCache()
+                }
+                Separator()
+                Item("Zoom In", shortcut = KeyShortcut(Key.Equals, meta = isMac, ctrl = !isMac)) {
+                    state.zoomIn()
+                }
+                Item("Zoom Out", shortcut = KeyShortcut(Key.Minus, meta = isMac, ctrl = !isMac)) {
+                    state.zoomOut()
+                }
+                Item("Actual Size", shortcut = KeyShortcut(Key.Zero, meta = isMac, ctrl = !isMac)) {
+                    state.resetZoom()
+                }
+            }
+        }
+
+        KromiumView(state = state)
+    }
+}
+```
+
+---
+
 ## ☕ Pure Java / Swing Window Integration
 
 In pure Java Swing applications, mount the browser directly inside a `JFrame` with custom titlebar styling:

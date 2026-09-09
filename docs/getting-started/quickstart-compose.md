@@ -59,6 +59,10 @@ Run the application:
 
 On first launch, Kromium will automatically download the platform native JCEF binaries, extract them to user cache, and render the page with hardware-accelerated GPU graphics.
 
+> [!TIP]
+> **macOS Keyboard Shortcuts (⌘C, ⌘V, ⌘R, ⌘W):**
+> On macOS, standard shortcuts are routed via the operating system's top screen menu bar (`NSMenu`). To enable native Command shortcuts without interfering with Compose text inputs, declare a Compose `MenuBar` on your root `Window`. See [Keyboard Shortcuts & macOS MenuBar Integration](../guides/compose-ui.md#️-handling-keyboard-shortcuts--macos-menubar-integration).
+
 ---
 
 ## 2. Understanding `KromiumViewState`

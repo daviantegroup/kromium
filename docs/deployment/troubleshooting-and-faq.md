@@ -117,3 +117,8 @@ Then navigate to `http://localhost:9222` in any external Chrome or Edge browser.
 
 ### Is Kromium thread-safe?
 **Yes.** UI component mounting occurs on the Java AWT Event Dispatch Thread (EDT), Chromium executes in isolated native processes, and all heavy evaluations (JavaScript, PDF printing, downloads) return asynchronous `CompletableFuture` objects or suspending Kotlin coroutines.
+
+### Why are macOS Command shortcuts (⌘C, ⌘V, ⌘W, ⌘R) not firing in my Compose Desktop app?
+On macOS Cocoa, Command key combinations (`⌘`) are intercepted by `NSApplication` and routed exclusively through the top screen **Main Menu (`NSMenu`)** responder chain. If your Compose application does not declare a `MenuBar` with standard `KeyShortcut` items (e.g., `KeyShortcut(Key.C, meta = true)`), macOS drops the event with a system beep before it ever reaches the embedded Chromium view.
+
+Declare a declarative `MenuBar` on your root `Window` to enable native macOS shortcuts cleanly without hijacking outside Compose text inputs. See the full architectural guide and code example in [Compose UI Integration & Window Chrome](../guides/compose-ui.md#️-handling-keyboard-shortcuts--macos-menubar-integration).
