@@ -284,13 +284,14 @@ jobs:
 
           type_badge = f"https://img.shields.io/badge/Type-{release_type}-{badge_color}?style=flat-square"
           cache_dir = re.sub(r"^[0-9]+\.[0-9]+\.", "", version)
+          clean_type = release_type.replace("_", " ")
 
           release_body = f"""<div align=\"center\">
             <img src=\"https://kromium.daviante.dev/android-chrome-192x192.png\" alt=\"Kromium Logo\" width=\"80\" height=\"80\" />
             <h2>Kromium {tag_name}</h2>
             <p>
               <img src=\"https://img.shields.io/badge/Channel-Stable-107c41?style=flat-square&logo=shield\" alt=\"Stable\" />
-              <img src=\"{type_badge}\" alt=\"{release_type.replace('_', ' ')}\" />
+              <img src=\"{type_badge}\" alt=\"{clean_type}\" />
               <img src=\"https://img.shields.io/badge/Engine-JetBrains_Certified_JCEF-5c2d91?style=flat-square\" alt=\"JetBrains Certified\" />
               <img src=\"https://img.shields.io/badge/Chromium-CEF_150-e36209?style=flat-square&logo=googlechrome\" alt=\"Chromium 150\" />
             </p>
