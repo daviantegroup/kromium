@@ -5,8 +5,6 @@ on:
     types: [closed]
     branches:
       - master
-  release:
-    types: [published]
   push:
     tags:
       - 'v*'
@@ -437,9 +435,10 @@ jobs:
 
       - name: Publish to GitHub Packages (maven.pkg.github.com)
         if: steps.check_trigger.outputs.proceed == 'true' && steps.preflight.outputs.proceed == 'true' && inputs.dry_run != true
+        continue-on-error: true
         env:
-          GITHUB_ACTOR: ${{ steps.app_token.outputs.app-slug || 'daviante-releaser' }}
-          GITHUB_TOKEN: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
           GPG_SIGNING_PASSWORD: ${{ secrets.GPG_SIGNING_PASSWORD }}
         run: |
