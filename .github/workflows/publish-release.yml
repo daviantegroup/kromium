@@ -197,7 +197,7 @@ jobs:
             fi
           fi
 
-          if [ "$IS_DRY_RUN" != "true" ]; then
+          if [ "$IS_DRY_RUN" != "true" ] && [ "${{ inputs.target }}" != "GITHUB_ONLY" ]; then
             if [ -z "$SONATYPE_USERNAME" ] || [ -z "$SONATYPE_PASSWORD" ]; then
               echo "::error::SONATYPE_USERNAME and SONATYPE_PASSWORD secrets are required for Central Portal upload!"
               MISSING_SECRETS=1
