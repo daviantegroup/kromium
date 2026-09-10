@@ -45,7 +45,7 @@ jobs:
             const repo = context.repo.repo;
             const botTag = '<!-- daviante-bot-cla -->';
             const claDocUrl = `https://github.com/${owner}/${repo}/blob/master/CONTRIBUTING.md#contributor-license-agreement-cla`;
-            const statusContext = 'daviante-bot / CLA Verification';
+            const statusContext = 'daviantegroup-bot / CLA Verification';
 
             // ─────────────────────────────────────────────────────────────
             // Helper: Read existing signers from .github/cla-signers.json
@@ -104,27 +104,21 @@ jobs:
             }
 
             // ─────────────────────────────────────────────────────────────
-            // Helper: Set commit status check (supports both context names)
+            // Helper: Set commit status check
             // ─────────────────────────────────────────────────────────────
             async function setStatus(sha, state, description) {
-              const contexts = [
-                'daviantegroup-bot / CLA Verification',
-                'daviante-bot / CLA Verification'
-              ];
-              for (const context of contexts) {
-                try {
-                  await github.rest.repos.createCommitStatus({
-                    owner,
-                    repo,
-                    sha,
-                    state,
-                    context,
-                    description,
-                    target_url: claDocUrl
-                  });
-                } catch (e) {
-                  core.info(`Could not report status for ${context}: ${e.message}`);
-                }
+              try {
+                await github.rest.repos.createCommitStatus({
+                  owner,
+                  repo,
+                  sha,
+                  state,
+                  context: statusContext,
+                  description,
+                  target_url: claDocUrl
+                });
+              } catch (e) {
+                core.info(`Could not report status for ${statusContext}: ${e.message}`);
               }
             }
 
