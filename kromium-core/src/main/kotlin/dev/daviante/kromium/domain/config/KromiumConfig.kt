@@ -273,14 +273,16 @@ class KromiumConfig {
             if (commandLineArgs.none { it.equals("--disable-gpu-watchdog", ignoreCase = true) }) {
                 commandLineArgs.add("--disable-gpu-watchdog")
             }
-            // Use Microsoft WARP (d3d10warp.dll) for Chromium's ANGLE rasterization on Windows.
-            // This prevents Chromium from acquiring exclusive locks on the physical D3D11 adapter,
-            // completely eliminating DXGI_ERROR_DEVICE_REMOVED (0x887a0005) on Skiko/Compose Desktop.
-            if (commandLineArgs.none { it.startsWith("--use-gl=") }) {
-                commandLineArgs.add("--use-gl=angle")
-            }
-            if (commandLineArgs.none { it.startsWith("--use-angle=") }) {
-                commandLineArgs.add("--use-angle=warp")
+            // If the host application uses Direct3D (e.g. Compose Desktop with Skiko on Windows),
+            // in-process Chromium Direct3D device initialization inevitably triggers DXGI_ERROR_DEVICE_REMOVED (0x887a0005)
+            // and freezes the host UI render loop. Disabling Chromium's GPU hardware context isolates the host Direct3D device
+            // while Chromium safely renders via its built-in SwiftShader engine.
+            val skikoApi = System.getProperty("skiko.renderApi")
+            val isSkikoOnDirect3D = skikoApi == null || skikoApi.equals("DIRECT3D", ignoreCase = true)
+            if (isSkikoOnDirect3D && gpuMode != KromiumGpuMode.HARDWARE) {
+                if (commandLineArgs.none { it.equals("--disable-gpu", ignoreCase = true) }) {
+                    commandLineArgs.add("--disable-gpu")
+                }
             }
         }
     }
