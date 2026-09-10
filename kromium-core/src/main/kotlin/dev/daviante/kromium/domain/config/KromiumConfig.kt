@@ -273,9 +273,14 @@ class KromiumConfig {
             if (commandLineArgs.none { it.equals("--disable-gpu-watchdog", ignoreCase = true) }) {
                 commandLineArgs.add("--disable-gpu-watchdog")
             }
-            // Instruct ANGLE to avoid exclusive D3D11 device locking that causes DXGI_ERROR_DEVICE_REMOVED (0x887a0005)
+            // Use Microsoft WARP (d3d10warp.dll) for Chromium's ANGLE rasterization on Windows.
+            // This prevents Chromium from acquiring exclusive locks on the physical D3D11 adapter,
+            // completely eliminating DXGI_ERROR_DEVICE_REMOVED (0x887a0005) on Skiko/Compose Desktop.
+            if (commandLineArgs.none { it.startsWith("--use-gl=") }) {
+                commandLineArgs.add("--use-gl=angle")
+            }
             if (commandLineArgs.none { it.startsWith("--use-angle=") }) {
-                commandLineArgs.add("--use-angle=d3d11on12")
+                commandLineArgs.add("--use-angle=warp")
             }
         }
     }
