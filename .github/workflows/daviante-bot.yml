@@ -89,12 +89,12 @@ jobs:
                   message: `chore: record CLA agreement for @${username} [skip ci]`,
                   content: Buffer.from(newJson).toString('base64'),
                   committer: {
-                    name: 'daviante-bot[bot]',
-                    email: 'daviante-bot[bot]@users.noreply.github.com'
+                    name: 'daviantegroup-bot',
+                    email: 'daviantegroup-bot@users.noreply.github.com'
                   },
                   author: {
-                    name: 'daviante-bot[bot]',
-                    email: 'daviante-bot[bot]@users.noreply.github.com'
+                    name: 'daviantegroup-bot',
+                    email: 'daviantegroup-bot@users.noreply.github.com'
                   }
                 });
                 core.info(`Successfully recorded @${username} in .github/cla-signers.json`);
@@ -104,18 +104,28 @@ jobs:
             }
 
             // ─────────────────────────────────────────────────────────────
-            // Helper: Set commit status check
+            // Helper: Set commit status check (supports both context names)
             // ─────────────────────────────────────────────────────────────
             async function setStatus(sha, state, description) {
-              await github.rest.repos.createCommitStatus({
-                owner,
-                repo,
-                sha,
-                state,
-                context: statusContext,
-                description,
-                target_url: claDocUrl
-              });
+              const contexts = [
+                'daviantegroup-bot / CLA Verification',
+                'daviante-bot / CLA Verification'
+              ];
+              for (const context of contexts) {
+                try {
+                  await github.rest.repos.createCommitStatus({
+                    owner,
+                    repo,
+                    sha,
+                    state,
+                    context,
+                    description,
+                    target_url: claDocUrl
+                  });
+                } catch (e) {
+                  core.info(`Could not report status for ${context}: ${e.message}`);
+                }
+              }
             }
 
             // ─────────────────────────────────────────────────────────────
@@ -179,11 +189,11 @@ jobs:
 
               const confirmationBody = [
                 botTag,
-                `### 🤖 Daviante Bot: Contributor License Agreement (CLA) Verified ✅`,
+                `### 🤖 daviantegroup-bot: Contributor License Agreement (CLA) Verified ✅`,
                 ``,
                 `Thank you @${commenter}! Your agreement to the [Kromium Contributor License Agreement](${claDocUrl}) has been verified and recorded.`,
                 ``,
-                `The **${statusContext}** check has passed and maintainers have been notified that this PR is ready for review.`,
+                `The CLA verification check has passed and maintainers have been notified that this PR is ready for review.`,
               ].join('\n');
 
               if (existingBotComment) {
@@ -273,7 +283,7 @@ jobs:
                     owner,
                     repo,
                     comment_id: existingBotComment.id,
-                    body: `${botTag}\n### 🤖 Daviante Bot: Contributor License Agreement (CLA) Verified ✅\n\nThank you @${author}! Your agreement to the [Kromium Contributor License Agreement](${claDocUrl}) has been verified and recorded.`
+                    body: `${botTag}\n### 🤖 daviantegroup-bot: Contributor License Agreement (CLA) Verified ✅\n\nThank you @${author}! Your agreement to the [Kromium Contributor License Agreement](${claDocUrl}) has been verified and recorded.`
                   });
                 }
               } else {
@@ -282,7 +292,7 @@ jobs:
 
                 const instructions = [
                   botTag,
-                  `### 🤖 Daviante Bot: Contributor License Agreement (CLA) Required`,
+                  `### 🤖 daviantegroup-bot: Contributor License Agreement (CLA) Required`,
                   ``,
                   `Welcome to **Kromium**, @${author}! Thank you for your contribution.`,
                   ``,
@@ -295,7 +305,7 @@ jobs:
                   `   - [x] **Contributor License Agreement (CLA)**: By submitting this pull request...`,
                   `   \`\`\``,
                   ``,
-                  `Once signed, **Daviante Bot** will automatically verify your agreement and unblock this PR for review.`,
+                  `Once signed, **daviantegroup-bot** will automatically verify your agreement and unblock this PR for review.`,
                 ].join('\n');
 
                 if (!existingBotComment) {
