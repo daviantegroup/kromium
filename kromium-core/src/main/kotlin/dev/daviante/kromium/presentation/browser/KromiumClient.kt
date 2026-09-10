@@ -25,6 +25,7 @@ import dev.daviante.kromium.presentation.menu.KromiumContextMenuContext
 import dev.daviante.kromium.presentation.menu.KromiumContextMenuHandler
 import dev.daviante.kromium.presentation.menu.KromiumContextMenuParams
 import dev.daviante.kromium.presentation.menu.KromiumMenuBuilder
+import dev.daviante.kromium.presentation.js.JsEvaluator
 import dev.daviante.kromium.presentation.js.KromiumJsHandler
 import dev.daviante.kromium.presentation.network.KromiumAssetFilter
 import dev.daviante.kromium.presentation.network.KromiumHtmlResourceHandler
@@ -135,6 +136,18 @@ class KromiumClient(
 
     internal val jsHandler = KromiumJsHandler()
 
+    /**
+     * Timeout in milliseconds to poll for the router query function binding in injected JS.
+     * Defaults to [JsEvaluator.defaultRouterBindingTimeoutMs] (3,000ms).
+     */
+    @Volatile var routerBindingTimeoutMs: Long = JsEvaluator.defaultRouterBindingTimeoutMs
+
+    /**
+     * Polling interval in milliseconds between router query function binding checks.
+     * Defaults to [JsEvaluator.defaultRouterBindingIntervalMs] (50ms).
+     */
+    @Volatile var routerBindingIntervalMs: Long = JsEvaluator.defaultRouterBindingIntervalMs
+
     @Volatile var requestInterceptor: KromiumRequestInterceptor? = null
     @Volatile var downloadListener: KromiumDownloadListener? = null
     @Volatile var downloadDirectory: java.io.File = resolveDefaultDownloadDirectory()
@@ -228,6 +241,88 @@ class KromiumClient(
     @Volatile var assetFilter: KromiumAssetFilter? = null
 
     /**
+     * Configures asset blocking on this client session to omit loading images, media, fonts, or stylesheets.
+     * Dramatically reduces bandwidth and CPU overhead for headless tasks and web automation.
+     */
+    @JvmOverloads
+    fun blockMediaAssets(
+        images: Boolean = true,
+        media: Boolean = true,
+        fonts: Boolean = true,
+        stylesheets: Boolean = false
+    ) {
+        this.assetFilter = KromiumAssetFilter(
+            blockImages = images,
+            blockMedia = media,
+            blockFonts = fonts,
+            blockStylesheets = stylesheets
+        )
+    }
+
+    /**
+     * Configures fine-grained asset blocking with optional bypass exceptions.
+     */
+    @JvmOverloads
+    fun blockAssets(
+        images: Boolean = false,
+        media: Boolean = false,
+        fonts: Boolean = false,
+        stylesheets: Boolean = false,
+        customExtensions: Set<String> = emptySet(),
+        customUrlPatterns: Set<String> = emptySet(),
+        customResourceTypes: Set<CefRequest.ResourceType> = emptySet(),
+        allowedExtensions: Set<String> = emptySet(),
+        allowedUrlPatterns: Set<String> = emptySet(),
+        allowedResourceTypes: Set<CefRequest.ResourceType> = emptySet(),
+        customAllowFilter: ((request: CefRequest) -> Boolean)? = null,
+        customFilter: ((request: CefRequest) -> Boolean)? = null
+    ) {
+        this.assetFilter = KromiumAssetFilter(
+            blockImages = images,
+            blockMedia = media,
+            blockFonts = fonts,
+            blockStylesheets = stylesheets,
+            customBlockedExtensions = customExtensions,
+            customBlockedUrlPatterns = customUrlPatterns,
+            customBlockedResourceTypes = customResourceTypes,
+            customFilter = customFilter,
+            allowedExtensions = allowedExtensions,
+            allowedUrlPatterns = allowedUrlPatterns,
+            allowedResourceTypes = allowedResourceTypes,
+            customAllowFilter = customAllowFilter,
+            mode = dev.daviante.kromium.presentation.network.AssetFilterMode.BLOCKLIST
+        )
+    }
+
+    /**
+     * Configures strict allowlist asset filtering so that only network requests matching the specified
+     * extensions, URL patterns, resource types, or filter predicate are permitted.
+     * All other network assets are blocked.
+     *
+     * @param extensions File extensions permitted to load (e.g. `setOf("js", "css")` or `setOf(".png")`).
+     * @param urlPatterns URL patterns or domain substrings permitted to load.
+     * @param resourceTypes CEF resource types permitted to load.
+     * @param allowMainFrame Whether to permit top-level document navigation (defaults to true).
+     * @param filter Programmatic predicate returning true to allow a request.
+     */
+    @JvmOverloads
+    fun allowOnlyAssets(
+        extensions: Set<String> = emptySet(),
+        urlPatterns: Set<String> = emptySet(),
+        resourceTypes: Set<CefRequest.ResourceType> = emptySet(),
+        allowMainFrame: Boolean = true,
+        filter: ((request: CefRequest) -> Boolean)? = null
+    ) {
+        this.assetFilter = KromiumAssetFilter.allowOnly(
+            extensions = extensions,
+            urlPatterns = urlPatterns,
+            resourceTypes = resourceTypes,
+            allowMainFrame = allowMainFrame,
+            filter = filter
+        )
+    }
+
+    /**
      * Whitelist of allowed hostnames/domains. Navigations outside these domains will be rejected.
      */
     @Volatile var hostLock: Set<String>? = null
@@ -236,6 +331,13 @@ class KromiumClient(
      * When true, host lock also restricts subresource network requests (scripts, xhr, fetch).
      */
     @Volatile var hostLockSubresources: Boolean = false
+
+    /**
+     * When true, host lock also restricts navigations in subframes (iframes).
+     * Defaults to false, allowing embedded verification widgets (Cloudflare Turnstile, reCAPTCHA, OAuth)
+     * to navigate within iframes without violating host locking.
+     */
+    @Volatile var hostLockSubframes: Boolean = false
 
     /**
      * When true, automatically normalizes the headless environment to emulate a standard desktop browser.
@@ -452,9 +554,10 @@ class KromiumClient(
 
                 // Enforce host lock on navigation
                 val allowed = hostLock
-                if (!allowed.isNullOrEmpty()) {
+                val isMainFrame = frame?.isMain == true
+                if (!allowed.isNullOrEmpty() && (isMainFrame || hostLockSubframes)) {
                     if (!KromiumAssetFilter.isHostAllowed(targetUrl, allowed)) {
-                        KromiumLogger.w(TAG, "Navigation blocked by host lock: $targetUrl (allowed: $allowed)")
+                        KromiumLogger.w(TAG, "Navigation blocked by host lock: $targetUrl (allowed: $allowed, mainFrame: $isMainFrame)")
                         return true // Block navigation
                     }
                 }
@@ -793,6 +896,35 @@ class KromiumClient(
         }
 
         return KromiumBrowser(this, browser, hostPeer = hostWindow)
+    }
+
+    /**
+     * Creates a headless browser instance and suspends until navigation reaches the requested [waitUntil] stage.
+     *
+     * @param url The initial URL to navigate to.
+     * @param waitUntil The navigation stage to await ([NavigationStage.LOADED] by default).
+     * @param width Viewport width in pixels (default: 1280).
+     * @param height Viewport height in pixels (default: 800).
+     * @param timeoutMs Maximum navigation wait timeout in milliseconds (default: 10,000ms).
+     * @param requestContext Optional CEF request context.
+     * @return The ready [KromiumBrowser] instance.
+     */
+    @JvmOverloads
+    suspend fun createHeadlessBrowser(
+        url: String?,
+        waitUntil: NavigationStage,
+        width: Int = 1280,
+        height: Int = 800,
+        timeoutMs: Long = 10_000L,
+        requestContext: CefRequestContext? = null
+    ): KromiumBrowser {
+        val targetUrl = url?.takeIf { it.isNotBlank() } ?: "about:blank"
+        if (targetUrl == "about:blank") {
+            return createHeadlessBrowser("about:blank", width, height, requestContext)
+        }
+        val browser = createHeadlessBrowser("about:blank", width, height, requestContext)
+        browser.loadUrl(targetUrl, waitUntil = waitUntil, timeoutMs = timeoutMs)
+        return browser
     }
 
     fun createBrowser(): KromiumBrowser = createBrowser("about:blank")

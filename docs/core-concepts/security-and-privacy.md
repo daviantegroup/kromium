@@ -192,13 +192,22 @@ browser.setSslErrorPolicy(SslErrorPolicy.strict());
 
 Enterprise kiosk, healthcare, and POS applications often need to strictly restrict the browser to authorized corporate domains.
 
-Kromium provides turnkey host locking that enforces origin boundaries on both top-level navigations (`onBeforeBrowse`) and asynchronous background network requests (`onBeforeResourceLoad` for scripts, xhr, and fetch):
+Kromium provides turnkey host locking that enforces origin boundaries on both top-level navigations (`onBeforeBrowse`) and asynchronous background network requests (`onBeforeResourceLoad` for scripts, xhr, and fetch).
+
+### Frame Awareness & Third-Party Verification Widgets
+By default, `setHostLock` only restricts main-frame navigations (`frame.isMain == true`). Embedded verification challenges (such as **Cloudflare Turnstile**, **Google reCAPTCHA**, or OAuth provider widgets) running in subframes/iframes continue to function seamlessly without violating your domain whitelist. If you need strict iframe restriction as well, set `lockSubframes = true`.
 
 ### Kotlin DSL (Compose Desktop & Core)
 
 ```kotlin
-// Restrict top-level navigations AND background subresources to authorized domains:
+// Restrict top-level navigations (embedded iframes allowed by default):
+browser.setHostLock("app.internal.corp", "auth.internal.corp")
+
+// Restrict top-level navigations AND background subresources (scripts, fetch):
 browser.setHostLock("app.internal.corp", "auth.internal.corp", lockSubresources = true)
+
+// Fully lock top-level navigations, subresources, AND subframes/iframes:
+browser.setHostLock("app.internal.corp", lockSubresources = true, lockSubframes = true)
 
 // Or remove restrictions when exiting kiosk mode:
 browser.clearHostLock()
@@ -207,8 +216,8 @@ browser.clearHostLock()
 ### Pure Java / Swing Host-Locking
 
 ```java
-// Turnkey host locking with subresource enforcement:
-browser.setHostLock(java.util.Set.of("app.internal.corp", "auth.internal.corp"), true);
+// Turnkey host locking with subresource and subframe enforcement options:
+browser.setHostLock(java.util.Set.of("app.internal.corp", "auth.internal.corp"), true, false);
 
 // Or clear lock:
 browser.clearHostLock();

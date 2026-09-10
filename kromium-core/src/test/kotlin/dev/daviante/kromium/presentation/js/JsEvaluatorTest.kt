@@ -24,7 +24,24 @@ class JsEvaluatorTest {
         assertTrue(wrapped.contains(queryId), "Wrapped expression must contain the query ID")
         assertTrue(wrapped.contains(expression), "Wrapped expression must contain the original expression")
         assertTrue(wrapped.contains("window.kromiumQuery"), "Wrapped expression must use kromiumQuery to report back")
+        assertTrue(wrapped.contains("__attempts"), "Wrapped expression must include retry attempt counter")
+        assertTrue(wrapped.contains("setTimeout"), "Wrapped expression must poll using setTimeout for delayed router binding")
+        assertTrue(wrapped.contains("__maxAttempts = 60;"), "Wrapped expression must default to 60 attempts (3000ms window)")
+        assertTrue(wrapped.contains("__interval = 50;"), "Wrapped expression must default to 50ms interval")
         assertTrue(wrapped.contains("catch"), "Wrapped expression must catch exceptions")
+    }
+
+    @Test
+    fun testConfigurableRouterBindingTimeout() {
+        val wrapped = JsEvaluator.wrapExpression(
+            expression = "1 + 1",
+            queryId = "query_custom_timeout",
+            bindingTimeoutMs = 5000L,
+            bindingIntervalMs = 100L
+        )
+
+        assertTrue(wrapped.contains("__maxAttempts = 50;"), "5000ms / 100ms should result in 50 max attempts")
+        assertTrue(wrapped.contains("__interval = 100;"), "Interval should be 100ms")
     }
 
     @Test

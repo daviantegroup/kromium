@@ -9,9 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [3.0.150-b11] - 2026-09-10 [Major Release]
 
-Major release establishing first-class **100% Pure Java & Swing enterprise dual ergonomics**, delivering all 5 strategic roadmap milestones (virtual custom schemes, asynchronous vector PDF export, declarative context menu DSL, native window chrome insets, WebRTC device permissions), and rebuilding the technical documentation suite from scratch under the Diátaxis framework.
+Major release establishing first-class **100% Pure Java & Swing enterprise dual ergonomics**, delivering all 5 strategic roadmap milestones (virtual custom schemes, asynchronous vector PDF export, declarative context menu DSL, native window chrome insets, WebRTC device permissions), self-healing JavaScript execution, navigation lifecycle awaiters, frame-aware host locking, and fine-grained asset filtering & allowlisting.
 
 ### Added
+- **Self-Healing JavaScript Evaluation (`JsEvaluator`)**:
+  - Implemented an in-engine polling retry loop inside `JsEvaluator.wrapExpression` that automatically waits for CEF's `CefMessageRouter` to bind `window.kromiumQuery` to the V8 context. Eliminates silent evaluation drops and timeout warnings during early page initialization.
+  - Added configurable polling thresholds: global defaults (`JsEvaluator.defaultRouterBindingTimeoutMs = 3000L`, `defaultRouterBindingIntervalMs = 50L`), client-level properties (`client.routerBindingTimeoutMs`, `client.routerBindingIntervalMs`), and per-call overrides in `evaluateJavaScript(...)`.
+- **Navigation Lifecycle Awaiters (`NavigationStage`)**:
+  - Added `NavigationStage` enum (`STARTED`, `LOADED`, `NETWORK_IDLE`) and `browser.isLoading` property.
+  - Added suspending `browser.loadUrl(url, waitUntil, timeoutMs)` and `browser.waitForNavigation(stage, timeoutMs)` with Java `CompletableFuture` variants (`loadUrlAsync`, `waitForNavigationAsync`).
+  - Added suspending `client.createHeadlessBrowser(url, waitUntil, ...)` and `Kromium.awaitHeadlessBrowser(url, waitUntil, ...)` / `awaitHeadlessBrowserAsync(...)`.
+  - Added `state.waitForNavigation(...)` and suspending `state.loadUrl(url, waitUntil, ...)` in `KromiumViewState`.
+- **Frame-Aware Host Locking (`hostLock`)**:
+  - Enhanced `onBeforeBrowse` to enforce host lock strictly on main frames (`frame.isMain == true`) by default.
+  - Allows embedded third-party verification challenges (Cloudflare Turnstile, Google reCAPTCHA, OAuth) running inside `<iframe>` subframes to navigate freely without breaking domain locks.
+  - Added `lockSubframes: Boolean = false` parameter to `setHostLock(...)` and `@Volatile var hostLockSubframes: Boolean` on `KromiumClient` and `KromiumViewState`.
+- **Asset Filtering & Strict Allowlist Mode (`KromiumAssetFilter`)**:
+  - Added `AssetFilterMode` (`BLOCKLIST` vs `ALLOWLIST`) for a clean, zero-duplicate-options architecture.
+  - Added standard presets: `MEDIA_ONLY` (blocks images/media/fonts, retains CSS for SPAs and Turnstile) and `AGGRESSIVE_HEADLESS` (blocks CSS too, aliasing `ALL_BLOCKED`).
+  - Added custom blocking and allowlisting criteria: custom file extensions, URL patterns/keywords, CEF resource types, and dynamic lambda predicates.
+  - Added `allowMainFrame: Boolean = true` to preserve top-level document navigations in allowlist mode.
+  - Added public reusable extension sets: `IMAGE_EXTENSIONS`, `MEDIA_EXTENSIONS`, `FONT_EXTENSIONS`, `STYLESHEET_EXTENSIONS`, `SCRIPT_EXTENSIONS`.
+  - Added `allowOnlyAssets(...)` and updated `blockAssets(...)` across `KromiumBrowser`, `KromiumClient`, and `KromiumViewState`.
 - **Virtual Asset Streaming & Custom Schemes (`app://`)**:
   - Added `KromiumSchemeHandler` and `KromiumEngine.registerSchemeHandler` to stream Single Page Applications (React, Vue, Vite) and bundled JAR assets with full Web API support (`localStorage`, `IndexedDB`, Web Workers) without localhost servers or CORS restrictions.
   - Added configurable scheme registration options (`isStandard`, `isSecure`, `isCorsEnabled`, `isLocal`).

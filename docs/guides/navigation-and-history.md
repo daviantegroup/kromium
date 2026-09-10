@@ -11,11 +11,56 @@ Both `KromiumViewState` (Compose) and `KromiumBrowser` (Core JVM) expose unified
 | Action | Compose (`KromiumViewState`) | JVM / Swing (`KromiumBrowser`) |
 |:---|:---|:---|
 | **Load URL** | `state.loadUrl("https://...")` | `browser.loadUrl("https://...")` |
+| **Load URL & Await** | `state.loadUrl(url, waitUntil)` | `browser.loadUrl(url, waitUntil)` |
+| **Wait for Navigation** | `state.waitForNavigation(stage)` | `browser.waitForNavigation(stage)` |
+| **Inspect Loading State** | `state.isLoading` | `browser.isLoading` |
 | **Reload** | `state.reload()` | `browser.reload()` |
 | **Force Reload** | `state.reload(ignoreCache = true)` | `browser.reloadIgnoreCache()` |
 | **Go Back** | `state.goBack()` | `browser.goBack()` |
 | **Go Forward** | `state.goForward()` | `browser.goForward()` |
 | **Stop Loading** | `state.stopLoading()` | `browser.stopLoad()` |
+
+---
+
+## ⏳ Navigation Lifecycle Awaiters (`NavigationStage`)
+
+When automating page flows or running headless browser tasks, execution often needs to suspend until the page has finished loading or dynamic network traffic has settled. Kromium provides coroutine-based suspending functions and Java `CompletableFuture` lifecycle awaiters.
+
+### `NavigationStage` Enum
+
+| Stage | Trigger Condition | Recommended Use Case |
+|:---|:---|:---|
+| `NavigationStage.STARTED` | Main frame `onLoadStart` event fires. | Fast redirect detection, early cancellation, or measuring Time to First Byte. |
+| `NavigationStage.LOADED` | Main frame `onLoadEnd` event fires. | **Default**: DOM and static assets are fully loaded; safe for DOM queries. |
+| `NavigationStage.NETWORK_IDLE` | Main frame loaded + zero in-flight network requests for 500ms. | Single Page Applications (SPAs) with asynchronous `fetch`/XHR hydration. |
+
+### Loading and Awaiting in Kotlin Coroutines
+
+```kotlin
+// Suspend until the page finishes loading
+val success = browser.loadUrl("https://example.com/login", waitUntil = NavigationStage.LOADED, timeoutMs = 10_000L)
+
+// Trigger a form submit or link click and wait for navigation to complete
+browser.click("#submit-btn")
+val navigated = browser.waitForNavigation(NavigationStage.LOADED, timeoutMs = 5_000L)
+
+// For SPAs: await main frame load + network silence
+browser.loadUrl("https://example.com/dashboard", waitUntil = NavigationStage.NETWORK_IDLE)
+```
+
+### In Pure Java (`CompletableFuture`)
+
+```java
+browser.loadUrlAsync("https://example.com/login", NavigationStage.LOADED, 10_000L)
+    .thenAccept(success -> {
+        if (success) {
+            System.out.println("Page navigation complete!");
+        }
+    });
+
+browser.waitForNavigationAsync(NavigationStage.NETWORK_IDLE, 15_000L)
+    .thenAccept(idle -> System.out.println("Network is idle: " + idle));
+```
 
 ---
 

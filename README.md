@@ -42,10 +42,10 @@ Backed by **CEF 150** and the battle-tested JetBrains JCEF runtime, Kromium deli
 * 📄 **Async Vector PDF Export & Native Print Dialog**: Non-blocking document printing via Kotlin Coroutines (`printToPdf`) or Java `CompletableFuture` (`printToPdfAsync`), plus native OS print dialogs (`print()`).
 * 🖱️ **Declarative Context Menu DSL**: Full control over right-click menus with turnkey shortcuts (`inspectElement()`, `copyLink()`, `searchWeb()`) and direct lambda callbacks without JCEF integer command bookkeeping.
 * 🎙️ **WebRTC Media & Device Permissions**: Granular, origin-aware permission interception for Microphone, Camera, Screen Sharing, and Desktop Audio with in-memory session caching and strict security defaults.
-* ⚡ **Two-Way JavaScript Bridge**: Coroutine and `CompletableFuture` JS evaluation, DOM extraction, and secure type-safe bidirectional IPC routing using `@JavascriptInterface`.
-* 🏢 **Enterprise Proxy & Network Management**: Dynamic runtime proxy switching (PAC, WPAD, HTTPS TLS tunnels, SOCKS5 remote DNS), NTLM/Kerberos SSO, SSL error policies, and host locking.
+* ⚡ **Self-Healing JavaScript Bridge**: Coroutine and `CompletableFuture` JS evaluation with automatic polling retry loop for delayed router function binding (`window.kromiumQuery`), DOM extraction, and secure type-safe bidirectional IPC routing.
+* 🏢 **Enterprise Proxy & Frame-Aware Host Locking**: Dynamic runtime proxy switching (PAC, WPAD, HTTPS TLS tunnels, SOCKS5 remote DNS), NTLM/Kerberos SSO, SSL error policies, and frame-aware domain locking that seamlessly allows embedded third-party verification challenges (Cloudflare Turnstile, Google reCAPTCHA, OAuth) without breaking domain boundaries.
 * ☕ **Zero JVM Module Configuration**: Automatic runtime module opening eliminates manual `--add-opens` flags on Java 17, 21, and 23+.
-* 🤖 **Enterprise Web Automation & Headless Normalization**: Rich, auto-waiting DOM automation DSL (`click`, `fill`, `waitForSelector`, `selectOption`), in-flight network synchronization (`waitForNetworkIdle`), and headless desktop environment normalization for reliable E2E testing and server-side data extraction without external drivers or fragile Selenium/Playwright processes.
+* 🤖 **Enterprise Web Automation & Headless Normalization**: Rich, auto-waiting DOM automation DSL (`click`, `fill`, `waitForSelector`, `selectOption`), navigation lifecycle awaiters (`NavigationStage.STARTED`, `LOADED`, `NETWORK_IDLE`, suspending `loadUrl(url, waitUntil)`), high-performance preset/custom asset filtering and strict allowlisting (`MEDIA_ONLY`, `AGGRESSIVE_HEADLESS`, `allowOnlyAssets`), in-flight network synchronization (`waitForNetworkIdle`), and headless desktop environment normalization.
 
 ---
 

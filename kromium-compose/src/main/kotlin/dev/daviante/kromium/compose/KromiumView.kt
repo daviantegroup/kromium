@@ -73,6 +73,7 @@ fun KromiumView(
         effectiveClient.assetFilter = state.assetFilter
         effectiveClient.hostLock = state.hostLock
         effectiveClient.hostLockSubresources = state.hostLockSubresources
+        effectiveClient.hostLockSubframes = state.hostLockSubframes
         effectiveClient.doNotTrack = state.doNotTrack
     }
 

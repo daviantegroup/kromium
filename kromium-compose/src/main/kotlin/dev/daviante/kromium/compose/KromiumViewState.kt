@@ -12,6 +12,7 @@ import dev.daviante.kromium.domain.exception.SslErrorPolicy
 import dev.daviante.kromium.domain.model.KromiumPdfSettings
 import dev.daviante.kromium.presentation.browser.KromiumBrowser
 import dev.daviante.kromium.presentation.browser.KromiumClient
+import dev.daviante.kromium.presentation.browser.NavigationStage
 import dev.daviante.kromium.presentation.handler.KromiumAuthRequest
 import dev.daviante.kromium.presentation.handler.KromiumAuthResponse
 import dev.daviante.kromium.presentation.handler.KromiumConsoleMessage
@@ -24,6 +25,7 @@ import dev.daviante.kromium.presentation.menu.KromiumMenuBuilder
 import dev.daviante.kromium.presentation.network.KromiumAssetFilter
 import dev.daviante.kromium.presentation.network.KromiumCookieManager
 import dev.daviante.kromium.presentation.network.KromiumRequestInterceptor
+import org.cef.network.CefRequest
 
 /**
  * High-level state holder representing an active browser session with full Compose reactivity.
@@ -101,6 +103,8 @@ class KromiumViewState(initialUrl: String) {
     var hostLock: Set<String>? by mutableStateOf(null)
 
     var hostLockSubresources: Boolean by mutableStateOf(false)
+
+    var hostLockSubframes: Boolean by mutableStateOf(false)
 
     /**
      * Whether to assert Do Not Track (DNT) and Global Privacy Control (Sec-GPC) headers on outbound requests.
@@ -291,13 +295,80 @@ class KromiumViewState(initialUrl: String) {
     }
 
     /**
+     * Configures fine-grained asset filtering, including custom file extensions,
+     * URL patterns, resource types, programmatic filter predicates, and optional allow bypass rules.
+     */
+    fun blockAssets(
+        images: Boolean = false,
+        media: Boolean = false,
+        fonts: Boolean = false,
+        stylesheets: Boolean = false,
+        customExtensions: Set<String> = emptySet(),
+        customUrlPatterns: Set<String> = emptySet(),
+        customResourceTypes: Set<CefRequest.ResourceType> = emptySet(),
+        allowedExtensions: Set<String> = emptySet(),
+        allowedUrlPatterns: Set<String> = emptySet(),
+        allowedResourceTypes: Set<CefRequest.ResourceType> = emptySet(),
+        customAllowFilter: ((request: CefRequest) -> Boolean)? = null,
+        customFilter: ((request: CefRequest) -> Boolean)? = null
+    ) {
+        val filter = KromiumAssetFilter(
+            blockImages = images,
+            blockMedia = media,
+            blockFonts = fonts,
+            blockStylesheets = stylesheets,
+            customBlockedExtensions = customExtensions,
+            customBlockedUrlPatterns = customUrlPatterns,
+            customBlockedResourceTypes = customResourceTypes,
+            customFilter = customFilter,
+            allowedExtensions = allowedExtensions,
+            allowedUrlPatterns = allowedUrlPatterns,
+            allowedResourceTypes = allowedResourceTypes,
+            customAllowFilter = customAllowFilter,
+            mode = dev.daviante.kromium.presentation.network.AssetFilterMode.BLOCKLIST
+        )
+        assetFilter = filter
+        browser?.client?.assetFilter = filter
+    }
+
+    /**
+     * Configures strict allowlist asset filtering so that only network requests matching the specified
+     * extensions, URL patterns, resource types, or filter predicate are permitted.
+     * All other network assets are blocked.
+     *
+     * @param extensions File extensions permitted to load (e.g. `setOf("js", "css")` or `setOf(".png")`).
+     * @param urlPatterns URL patterns or domain substrings permitted to load.
+     * @param resourceTypes CEF resource types permitted to load.
+     * @param allowMainFrame Whether to permit top-level document navigation (defaults to true).
+     * @param filter Programmatic predicate returning true to allow a request.
+     */
+    fun allowOnlyAssets(
+        extensions: Set<String> = emptySet(),
+        urlPatterns: Set<String> = emptySet(),
+        resourceTypes: Set<CefRequest.ResourceType> = emptySet(),
+        allowMainFrame: Boolean = true,
+        filter: ((request: CefRequest) -> Boolean)? = null
+    ) {
+        val filterObj = KromiumAssetFilter.allowOnly(
+            extensions = extensions,
+            urlPatterns = urlPatterns,
+            resourceTypes = resourceTypes,
+            allowMainFrame = allowMainFrame,
+            filter = filter
+        )
+        assetFilter = filterObj
+        browser?.client?.assetFilter = filterObj
+    }
+
+    /**
      * Restricts navigation to the specified allowed hostnames.
      */
-    fun setHostLock(vararg allowedHosts: String, lockSubresources: Boolean = false) {
+    fun setHostLock(vararg allowedHosts: String, lockSubresources: Boolean = false, lockSubframes: Boolean = false) {
         val set = allowedHosts.toSet()
         hostLock = set
         this.hostLockSubresources = lockSubresources
-        browser?.setHostLock(set, lockSubresources)
+        this.hostLockSubframes = lockSubframes
+        browser?.setHostLock(set, lockSubresources, lockSubframes)
     }
 
     /**
@@ -306,6 +377,7 @@ class KromiumViewState(initialUrl: String) {
     fun clearHostLock() {
         hostLock = null
         hostLockSubresources = false
+        hostLockSubframes = false
         browser?.clearHostLock()
     }
 
@@ -437,6 +509,20 @@ class KromiumViewState(initialUrl: String) {
      */
     suspend fun waitForUrl(urlPattern: String, isRegex: Boolean = false, timeoutMs: Long = 15_000L): Boolean =
         browser?.waitForUrl(urlPattern, isRegex, timeoutMs) ?: false
+
+    /**
+     * Waits for the page navigation lifecycle to reach the specified [stage].
+     */
+    suspend fun waitForNavigation(stage: NavigationStage = NavigationStage.LOADED, timeoutMs: Long = 10_000L): Boolean =
+        browser?.waitForNavigation(stage, timeoutMs) ?: false
+
+    /**
+     * Navigates to [url] and suspends until navigation reaches the requested [waitUntil] stage.
+     */
+    suspend fun loadUrl(url: String, waitUntil: NavigationStage, timeoutMs: Long = 10_000L): Boolean {
+        this.url = url
+        return browser?.loadUrl(url, waitUntil, timeoutMs) ?: false
+    }
 }
 
 @Composable

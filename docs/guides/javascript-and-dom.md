@@ -134,9 +134,41 @@ Long-running or infinite loops in untrusted JavaScript can be bounded by setting
 try {
     val result = browser.evaluateJavaScript(
         expression = "while(true){}",
-        // timeoutMs parameter:
+        timeoutMs = 2_000L
     )
 } catch (e: KromiumException.JsEvaluationTimeout) {
     System.err.println("JavaScript execution timed out after ${e.timeoutMs}ms")
 }
+```
+
+---
+
+## 🔄 Self-Healing Query Router Binding
+
+When JavaScript is evaluated immediately after page creation or frame navigation, CEF's `CefMessageRouter` may bind `window.kromiumQuery` into the V8 JavaScript context with a slight, transient delay.
+
+Kromium's `JsEvaluator` features an **automatic self-healing polling loop**:
+- Instead of silently failing or dropping callbacks, the wrapper polls for `window.kromiumQuery` at regular intervals before dispatching results.
+- **Default settings**: Polling timeout of **3,000ms** in **50ms** intervals (`60` maximum attempts).
+
+### Customizing Router Binding Settings
+
+You can customize router binding thresholds globally, per-client, or on individual evaluation calls:
+
+```kotlin
+// 1. Globally for the entire application:
+JsEvaluator.defaultRouterBindingTimeoutMs = 4_000L
+JsEvaluator.defaultRouterBindingIntervalMs = 50L
+
+// 2. Per-client session:
+client.routerBindingTimeoutMs = 3_500L
+client.routerBindingIntervalMs = 100L
+
+// 3. Per individual evaluation call:
+val result = browser.evaluateJavaScript(
+    expression = "document.title",
+    timeoutMs = 5_000L,
+    bindingTimeoutMs = 3_000L,
+    bindingIntervalMs = 50L
+)
 ```

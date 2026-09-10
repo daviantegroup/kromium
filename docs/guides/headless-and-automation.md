@@ -143,6 +143,7 @@ Kromium provides a native, high-level interaction DSL designed for automated End
 | `isVisible(selector)`<br/>`isVisibleAsync(...)` | `selector: String` | `Boolean` | Checks if element exists and is rendered (bounding rect dimensions > 0 and `visibility != hidden`). |
 | `isChecked(selector)`<br/>`isCheckedAsync(...)` | `selector: String` | `Boolean` | Checks the `.checked` property of a checkbox or radio input. |
 | `count(selector)`<br/>`countAsync(...)` | `selector: String` | `Int` | Returns the total count of matching DOM nodes currently attached. |
+| `waitForNavigation(stage, timeoutMs)`<br/>`waitForNavigationAsync(...)` | `stage: NavigationStage = NavigationStage.LOADED`, `timeoutMs: Long = 10_000` | `Boolean` | Suspends until main frame navigation reaches `STARTED`, `LOADED`, or `NETWORK_IDLE`. |
 | `waitForUrl(urlOrPattern, timeoutMs)`<br/>`waitForUrlAsync(...)` | `urlOrPattern: String`, `timeoutMs: Long = 10_000` | `Boolean` | Suspends until current URL matches an exact string, substring, or regex pattern. |
 | `waitForNetworkIdle(idleTimeMs, maxWaitMs)`<br/>`waitForNetworkIdleAsync(...)` | `idleTimeMs: Long = 500`, `maxWaitMs: Long = 10_000` | `Boolean` | Waits until in-flight HTTP(S) network requests settle and stay at zero for `idleTimeMs`. |
 
@@ -162,6 +163,42 @@ val isNetworkIdle = browser.waitForNetworkIdle(idleTimeMs = 500, maxWaitMs = 15_
 // Extract fully populated dashboard metric:
 val revenue = browser.getTextContent(".stat-revenue-value")
 println("Quarterly Revenue: $revenue")
+```
+
+---
+
+## ⚡ Direct Headless Browser Creation & Navigation Awaiters
+
+Instead of managing manual delays or complex event listeners, you can create a headless browser and suspend directly until the target URL reaches the desired lifecycle stage:
+
+```kotlin
+// Create a headless browser and suspend until the page finishes loading:
+val browser = Kromium.awaitHeadlessBrowser(
+    url = "https://example.com/login",
+    waitUntil = NavigationStage.LOADED,
+    timeoutMs = 10_000L
+)
+
+// In Java:
+Kromium.awaitHeadlessBrowserAsync("https://example.com/login", NavigationStage.LOADED, 10_000L)
+    .thenAccept(browser -> {
+        System.out.println("Headless browser loaded: " + browser.getUrl());
+    });
+```
+
+### High-Throughput Automation with Asset Filtering
+
+To maximize headless automation throughput, reduce CPU load, and minimize bandwidth:
+
+```kotlin
+// Block heavy media and fonts while preserving stylesheets (crucial for SPAs and Turnstile challenges)
+browser.assetFilter = KromiumAssetFilter.MEDIA_ONLY
+
+// Or use strict allowlist mode to permit only scripts, styles, and API calls:
+browser.allowOnlyAssets(
+    extensions = KromiumAssetFilter.SCRIPT_EXTENSIONS + KromiumAssetFilter.STYLESHEET_EXTENSIONS,
+    urlPatterns = setOf("api.example.com")
+)
 ```
 
 ---

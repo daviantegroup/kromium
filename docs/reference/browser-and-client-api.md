@@ -22,10 +22,16 @@ Package: `dev.daviante.kromium.presentation.browser.KromiumBrowser`
 ### Navigation & Content Loading
 
 ```kotlin
-// Kotlin
+val url: String?
+val isLoading: Boolean
+
 fun loadUrl(url: String)
-fun loadHtml(html: String, baseUrl: String = "http://kromium.local/")
-fun reload()
+suspend fun loadUrl(url: String, waitUntil: NavigationStage, timeoutMs: Long = 10000): Boolean
+fun loadUrlAsync(url: String, waitUntil: NavigationStage = NavigationStage.LOADED, timeoutMs: Long = 10000): CompletableFuture<Boolean>
+suspend fun waitForNavigation(stage: NavigationStage = NavigationStage.LOADED, timeoutMs: Long = 10000): Boolean
+fun waitForNavigationAsync(stage: NavigationStage = NavigationStage.LOADED, timeoutMs: Long = 10000): CompletableFuture<Boolean>
+fun loadHtml(html: String, url: String = "about:blank")
+fun reload(ignoreCache: Boolean = false)
 fun reloadIgnoreCache()
 fun goBack()
 fun goForward()
@@ -37,6 +43,8 @@ fun stopLoad()
 ```java
 // Java
 browser.loadUrl("https://example.com");
+browser.loadUrlAsync("https://example.com", NavigationStage.LOADED, 10000);
+browser.waitForNavigationAsync(NavigationStage.NETWORK_IDLE, 15000);
 browser.loadHtml("<h1>Hello Kromium</h1>", "http://kromium.local/");
 browser.reload();
 browser.reloadIgnoreCache();
@@ -49,8 +57,8 @@ browser.stopLoad();
 
 | Method | Signature | Description |
 |:---|:---|:---|
-| `evaluateJavaScript` | `suspend (expression: String, timeoutMs: Long? = null): String?` | Coroutine-based evaluation. Returns stringified result. |
-| `evaluateJavaScriptAsync` | `(expression: String, timeoutMs: Long? = null): CompletableFuture<String?>` | Java-idiomatic non-blocking future. |
+| `evaluateJavaScript` | `suspend (expression: String, timeoutMs: Long? = null, bindingTimeoutMs: Long? = null, bindingIntervalMs: Long? = null): String?` | Coroutine-based evaluation with self-healing router polling. Returns stringified result. |
+| `evaluateJavaScriptAsync` | `(expression: String, timeoutMs: Long? = null, bindingTimeoutMs: Long? = null, bindingIntervalMs: Long? = null): CompletableFuture<String?>` | Java-idiomatic non-blocking future with self-healing router polling. |
 | `getHtml` / `getHtmlAsync` | `suspend (): String` / `(): CompletableFuture<String>` | Convenience method fetching `document.documentElement.outerHTML`. |
 | `getText` / `getTextAsync` | `suspend (): String` / `(): CompletableFuture<String>` | Convenience method fetching `document.body.innerText`. |
 | `getFaviconUrl` / `getFaviconUrlAsync` | `suspend (): String?` / `(): CompletableFuture<String?>` | Resolves page favicon URL via DOM `<link rel="icon">` inspection. |
@@ -141,10 +149,38 @@ The following APIs are active when the browser is running in OSR mode (Java Swin
 ```kotlin
 val activeProxy: KromiumProxy // Active proxy strategy on this browser's client
 var sslErrorPolicy: SslErrorPolicy // SSL certificate validation error policy
+var assetFilter: KromiumAssetFilter? // Asset filtering policy (blocking or allowlist)
+
 fun setProxy(proxy: KromiumProxy): Result<Unit>
 fun updateProxy(proxy: KromiumProxy): Boolean // Pure Java friendly boolean return
-fun setHostLock(vararg allowedHosts: String, lockSubresources: Boolean = false)
+
+fun setHostLock(vararg allowedHosts: String, lockSubresources: Boolean = false, lockSubframes: Boolean = false)
+fun clearHostLock()
+
 fun blockMediaAssets(images: Boolean = true, media: Boolean = true, fonts: Boolean = true, stylesheets: Boolean = false)
+
+fun blockAssets(
+    images: Boolean = false,
+    media: Boolean = false,
+    fonts: Boolean = false,
+    stylesheets: Boolean = false,
+    customExtensions: Set<String> = emptySet(),
+    customUrlPatterns: Set<String> = emptySet(),
+    customResourceTypes: Set<CefRequest.ResourceType> = emptySet(),
+    allowedExtensions: Set<String> = emptySet(),
+    allowedUrlPatterns: Set<String> = emptySet(),
+    allowedResourceTypes: Set<CefRequest.ResourceType> = emptySet(),
+    customAllowFilter: ((CefRequest) -> Boolean)? = null,
+    customFilter: ((CefRequest) -> Boolean)? = null
+)
+
+fun allowOnlyAssets(
+    extensions: Set<String> = emptySet(),
+    urlPatterns: Set<String> = emptySet(),
+    resourceTypes: Set<CefRequest.ResourceType> = emptySet(),
+    allowMainFrame: Boolean = true,
+    filter: ((CefRequest) -> Boolean)? = null
+)
 ```
 
 ### Lifecycle & Disposal
@@ -171,43 +207,50 @@ fun createBrowser(
     isTransparent: Boolean = false,
     requestContext: CefRequestContext? = null
 ): KromiumBrowser
+
+fun createHeadlessBrowser(
+    url: String? = "about:blank",
+    width: Int = 1280,
+    height: Int = 800,
+    requestContext: CefRequestContext? = null
+): KromiumBrowser
+
+suspend fun createHeadlessBrowser(
+    url: String?,
+    waitUntil: NavigationStage,
+    width: Int = 1280,
+    height: Int = 800,
+    timeoutMs: Long = 10000,
+    requestContext: CefRequestContext? = null
+): KromiumBrowser
 ```
 
-### Dynamic Proxy Management
+### JavaScript Router Configuration & IPC
+
+```kotlin
+var routerBindingTimeoutMs: Long // Default: 3,000ms
+var routerBindingIntervalMs: Long // Default: 50ms
+
+fun registerFunction(name: String, handler: (String) -> String)
+```
+
+### Dynamic Proxy & Asset Filtering
 
 ```kotlin
 var activeProxy: KromiumProxy
 fun setProxy(proxy: KromiumProxy): Result<Unit>
-fun updateProxy(proxy: KromiumProxy): Boolean // Pure Java friendly boolean return
-```
+fun updateProxy(proxy: KromiumProxy): Boolean
 
-### JavaScript Bi-Directional IPC (`registerFunction`)
+var assetFilter: KromiumAssetFilter?
+fun blockMediaAssets(images: Boolean = true, media: Boolean = true, fonts: Boolean = true, stylesheets: Boolean = false)
+fun blockAssets(...)
+fun allowOnlyAssets(...)
 
-Exposes a JVM callback callable directly from JavaScript via `window.kromiumQuery`:
-
-```kotlin
-// Kotlin
-client.registerFunction("onNativeAction") { payload ->
-    println("Received from web: $payload")
-    "OK: $payload"
-}
-```
-
-```java
-// Java
-client.registerFunction("onNativeAction", payload -> {
-    System.out.println("Received from web: " + payload);
-    return "OK: " + payload;
-});
-```
-
-Web page JavaScript invokes it via:
-```javascript
-window.kromiumQuery({
-    request: JSON.stringify({ action: "save", id: 42 }),
-    onSuccess: function(response) { console.log("Response:", response); },
-    onFailure: function(errCode, errMsg) { console.error("Error:", errMsg); }
-});
+var hostLock: Set<String>?
+var hostLockSubresources: Boolean
+var hostLockSubframes: Boolean // Default: false (allows Turnstile, reCAPTCHA, OAuth in iframes)
+fun setHostLock(vararg allowedHosts: String, lockSubresources: Boolean = false, lockSubframes: Boolean = false)
+fun clearHostLock()
 ```
 
 ### Handlers & Listeners
@@ -225,10 +268,6 @@ var downloadDirectory: File
 var onBeforeDownloadListener: ((item: KromiumDownloadItem, suggestedFileName: String) -> String?)?
 
 var requestInterceptor: KromiumRequestInterceptor?
-var assetFilter: KromiumAssetFilter?
-
-fun setHostLock(vararg allowedHosts: String, lockSubresources: Boolean = false)
-fun clearHostLock()
 
 fun addLoadListener(listener: KromiumLoadListener)
 fun removeLoadListener(listener: KromiumLoadListener)
@@ -259,4 +298,52 @@ Singleton lifecycle and factory manager for the global Chromium runtime.
 | `createBrowser(url, isOffScreenRendered, isTransparent, isolated)` | `KromiumBrowser` | Creates a new browser instance with optional session isolation. |
 | `createIsolatedBrowser(url, isOffScreenRendered, isTransparent)` | `KromiumBrowser` | Convenience helper for spawning an isolated browser instance with independent cookie jar. |
 | `createHeadlessBrowser(url, width, height, isolated)` | `KromiumBrowser` | Creates an off-screen headless browser backed by Swing peer. |
+| `awaitHeadlessBrowser(url, waitUntil, width, height, timeoutMs)` | `suspend: KromiumBrowser` | Creates a headless browser and suspends until navigation reaches `waitUntil`. |
+| `awaitHeadlessBrowserAsync(url, waitUntil, width, height, timeoutMs)` | `CompletableFuture<KromiumBrowser>` | Java-friendly asynchronous headless browser creation awaiting `waitUntil`. |
 | `dispose()` | `Unit` | Completely shuts down Chromium processes and releases native DLLs/dylibs. |
+
+---
+
+## 📐 Reference Models
+
+### `NavigationStage` Enum
+
+Package: `dev.daviante.kromium.presentation.browser.NavigationStage`
+
+| Value | Description |
+|:---|:---|
+| `STARTED` | Main frame navigation has started (`onLoadStart` fired for main frame). |
+| `LOADED` | Main frame document and static assets finished loading (`onLoadEnd` fired for main frame). |
+| `NETWORK_IDLE` | Main frame loaded + zero in-flight network requests for 500ms. |
+
+### `KromiumAssetFilter` & `AssetFilterMode`
+
+Package: `dev.daviante.kromium.presentation.network`
+
+```kotlin
+enum class AssetFilterMode { BLOCKLIST, ALLOWLIST }
+
+data class KromiumAssetFilter(
+    val blockImages: Boolean = false,
+    val blockMedia: Boolean = false,
+    val blockFonts: Boolean = false,
+    val blockStylesheets: Boolean = false,
+    val customBlockedExtensions: Set<String> = emptySet(),
+    val customBlockedUrlPatterns: Set<String> = emptySet(),
+    val customBlockedResourceTypes: Set<CefRequest.ResourceType> = emptySet(),
+    val customFilter: ((request: CefRequest) -> Boolean)? = null,
+    val allowedExtensions: Set<String> = emptySet(),
+    val allowedUrlPatterns: Set<String> = emptySet(),
+    val allowedResourceTypes: Set<CefRequest.ResourceType> = emptySet(),
+    val customAllowFilter: ((request: CefRequest) -> Boolean)? = null,
+    val allowMainFrame: Boolean = true,
+    val mode: AssetFilterMode = AssetFilterMode.BLOCKLIST
+)
+```
+
+#### Presets & Helpers
+- `KromiumAssetFilter.MEDIA_ONLY` (blocks media/fonts, keeps CSS)
+- `KromiumAssetFilter.AGGRESSIVE_HEADLESS` (blocks media/fonts/CSS)
+- `KromiumAssetFilter.ALL_BLOCKED` (alias to `AGGRESSIVE_HEADLESS`)
+- `KromiumAssetFilter.allowOnly(extensions, urlPatterns, resourceTypes, allowMainFrame, filter)`
+- `KromiumAssetFilter.IMAGE_EXTENSIONS`, `MEDIA_EXTENSIONS`, `FONT_EXTENSIONS`, `STYLESHEET_EXTENSIONS`, `SCRIPT_EXTENSIONS`

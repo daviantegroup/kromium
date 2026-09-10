@@ -10,6 +10,10 @@ import dev.daviante.kromium.presentation.js.JsEvaluator
 import dev.daviante.kromium.presentation.network.KromiumAssetFilter
 import dev.daviante.kromium.presentation.network.KromiumCookieManager
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
+import org.cef.handler.CefLoadHandler
+import org.cef.handler.CefLoadHandlerAdapter
+import org.cef.network.CefRequest
 import dev.daviante.kromium.osr.awt.KromiumOSRPanel
 import org.cef.browser.CefBrowser
 import org.cef.browser.CefBrowserOsr
@@ -137,9 +141,192 @@ class KromiumBrowser(
 
     val url: String? get() = browser.url
 
+    /**
+     * True if the browser is actively transferring or loading content.
+     */
+    val isLoading: Boolean get() = browser.isLoading
+
     fun loadUrl(url: String) {
         browser.loadURL(url)
     }
+
+    /**
+     * Loads the specified [url] and suspends until navigation reaches the requested [waitUntil] stage.
+     *
+     * @param url The target URL to navigate to.
+     * @param waitUntil The lifecycle stage to await ([NavigationStage.LOADED] by default).
+     * @param timeoutMs Maximum time to wait in milliseconds (default: 10,000ms).
+     * @return `true` if navigation succeeded and reached [waitUntil], `false` on timeout or load failure.
+     */
+    @JvmOverloads
+    suspend fun loadUrl(
+        url: String,
+        waitUntil: NavigationStage,
+        timeoutMs: Long = 10_000L
+    ): Boolean {
+        val startNs = System.nanoTime()
+        val completed = withTimeoutOrNull(timeoutMs) {
+            suspendCancellableCoroutine { continuation ->
+                val handler = object : CefLoadHandlerAdapter() {
+                    override fun onLoadStart(
+                        cefBrowser: CefBrowser?,
+                        frame: CefFrame?,
+                        transitionType: CefRequest.TransitionType?
+                    ) {
+                        if (frame?.isMain == true && (cefBrowser == null || cefBrowser.identifier == browser.identifier)) {
+                            if (waitUntil == NavigationStage.STARTED && continuation.isActive) {
+                                client.removeLoadHandler(this)
+                                continuation.resume(true)
+                            }
+                        }
+                    }
+
+                    override fun onLoadEnd(cefBrowser: CefBrowser?, frame: CefFrame?, httpStatusCode: Int) {
+                        if (frame?.isMain == true && (cefBrowser == null || cefBrowser.identifier == browser.identifier)) {
+                            if ((waitUntil == NavigationStage.LOADED || waitUntil == NavigationStage.NETWORK_IDLE) && continuation.isActive) {
+                                client.removeLoadHandler(this)
+                                continuation.resume(true)
+                            }
+                        }
+                    }
+
+                    override fun onLoadError(
+                        cefBrowser: CefBrowser?,
+                        frame: CefFrame?,
+                        errorCode: CefLoadHandler.ErrorCode?,
+                        errorText: String?,
+                        failedUrl: String?
+                    ) {
+                        if (frame?.isMain == true && (cefBrowser == null || cefBrowser.identifier == browser.identifier)) {
+                            if (errorCode != CefLoadHandler.ErrorCode.ERR_ABORTED && continuation.isActive) {
+                                client.removeLoadHandler(this)
+                                continuation.resume(false)
+                            }
+                        }
+                    }
+                }
+
+                continuation.invokeOnCancellation {
+                    client.removeLoadHandler(handler)
+                }
+
+                client.addLoadHandler(handler)
+                browser.loadURL(url)
+            }
+        } ?: false
+
+        if (!completed) {
+            KromiumLogger.w(TAG, "loadUrl($url, waitUntil = $waitUntil) timed out after ${timeoutMs}ms")
+            return false
+        }
+
+        if (waitUntil == NavigationStage.NETWORK_IDLE) {
+            val elapsedMs = (System.nanoTime() - startNs) / 1_000_000L
+            val remainingMs = (timeoutMs - elapsedMs).coerceAtLeast(100L)
+            return waitForNetworkIdle(idleTimeMs = 500L, maxTimeoutMs = remainingMs)
+        }
+
+        return true
+    }
+
+    /**
+     * Loads the specified [url] and asynchronously waits for navigation to reach [waitUntil],
+     * returning a Java [CompletableFuture].
+     */
+    @JvmOverloads
+    fun loadUrlAsync(
+        url: String,
+        waitUntil: NavigationStage = NavigationStage.LOADED,
+        timeoutMs: Long = 10_000L
+    ): CompletableFuture<Boolean> =
+        FutureBridge.toCompletableFuture { loadUrl(url, waitUntil, timeoutMs) }
+
+    /**
+     * Waits for the page navigation lifecycle to reach the specified [stage].
+     *
+     * @param stage The lifecycle stage to await ([NavigationStage.LOADED] by default).
+     * @param timeoutMs Maximum time to wait in milliseconds (default: 10,000ms).
+     * @return `true` if the navigation reached the desired stage within [timeoutMs], `false` on timeout or failure.
+     */
+    @JvmOverloads
+    suspend fun waitForNavigation(
+        stage: NavigationStage = NavigationStage.LOADED,
+        timeoutMs: Long = 10_000L
+    ): Boolean {
+        val startNs = System.nanoTime()
+        val completed = withTimeoutOrNull(timeoutMs) {
+            suspendCancellableCoroutine { continuation ->
+                val handler = object : CefLoadHandlerAdapter() {
+                    override fun onLoadStart(
+                        cefBrowser: CefBrowser?,
+                        frame: CefFrame?,
+                        transitionType: CefRequest.TransitionType?
+                    ) {
+                        if (frame?.isMain == true && (cefBrowser == null || cefBrowser.identifier == browser.identifier)) {
+                            if (stage == NavigationStage.STARTED && continuation.isActive) {
+                                client.removeLoadHandler(this)
+                                continuation.resume(true)
+                            }
+                        }
+                    }
+
+                    override fun onLoadEnd(cefBrowser: CefBrowser?, frame: CefFrame?, httpStatusCode: Int) {
+                        if (frame?.isMain == true && (cefBrowser == null || cefBrowser.identifier == browser.identifier)) {
+                            if ((stage == NavigationStage.LOADED || stage == NavigationStage.NETWORK_IDLE) && continuation.isActive) {
+                                client.removeLoadHandler(this)
+                                continuation.resume(true)
+                            }
+                        }
+                    }
+
+                    override fun onLoadError(
+                        cefBrowser: CefBrowser?,
+                        frame: CefFrame?,
+                        errorCode: CefLoadHandler.ErrorCode?,
+                        errorText: String?,
+                        failedUrl: String?
+                    ) {
+                        if (frame?.isMain == true && (cefBrowser == null || cefBrowser.identifier == browser.identifier)) {
+                            if (errorCode != CefLoadHandler.ErrorCode.ERR_ABORTED && continuation.isActive) {
+                                client.removeLoadHandler(this)
+                                continuation.resume(false)
+                            }
+                        }
+                    }
+                }
+
+                continuation.invokeOnCancellation {
+                    client.removeLoadHandler(handler)
+                }
+
+                client.addLoadHandler(handler)
+            }
+        } ?: false
+
+        if (!completed) {
+            KromiumLogger.w(TAG, "waitForNavigation($stage) timed out after ${timeoutMs}ms")
+            return false
+        }
+
+        if (stage == NavigationStage.NETWORK_IDLE) {
+            val elapsedMs = (System.nanoTime() - startNs) / 1_000_000L
+            val remainingMs = (timeoutMs - elapsedMs).coerceAtLeast(100L)
+            return waitForNetworkIdle(idleTimeMs = 500L, maxTimeoutMs = remainingMs)
+        }
+
+        return true
+    }
+
+    /**
+     * Asynchronously waits for the page navigation lifecycle to reach the specified [stage],
+     * returning a Java [CompletableFuture].
+     */
+    @JvmOverloads
+    fun waitForNavigationAsync(
+        stage: NavigationStage = NavigationStage.LOADED,
+        timeoutMs: Long = 10_000L
+    ): CompletableFuture<Boolean> =
+        FutureBridge.toCompletableFuture { waitForNavigation(stage, timeoutMs) }
 
     fun reload() = browser.reload()
     
@@ -208,15 +395,27 @@ class KromiumBrowser(
 
     /**
      * Executes arbitrary JavaScript asynchronously and returns the stringified response.
+     *
+     * @param expression JavaScript expression to execute.
+     * @param timeoutMs Maximum evaluation timeout in ms (default: [JsEvaluator.defaultTimeoutMs]).
+     * @param bindingTimeoutMs Maximum time in ms to poll for the query router function (default: [KromiumClient.routerBindingTimeoutMs]).
+     * @param bindingIntervalMs Polling interval in ms between router binding checks (default: [KromiumClient.routerBindingIntervalMs]).
      */
     @JvmOverloads
-    suspend fun evaluateJavaScript(expression: String, timeoutMs: Long? = null): String? {
+    suspend fun evaluateJavaScript(
+        expression: String,
+        timeoutMs: Long? = null,
+        bindingTimeoutMs: Long? = null,
+        bindingIntervalMs: Long? = null
+    ): String? {
         return JsEvaluator.evaluate(
             browser = browser,
             handler = client.jsHandler,
             expression = expression,
             routerQueryName = client.routerQueryName,
-            timeoutMs = timeoutMs
+            timeoutMs = timeoutMs,
+            bindingTimeoutMs = bindingTimeoutMs ?: client.routerBindingTimeoutMs,
+            bindingIntervalMs = bindingIntervalMs ?: client.routerBindingIntervalMs
         )
     }
 
@@ -227,16 +426,12 @@ class KromiumBrowser(
     @JvmOverloads
     fun evaluateJavaScriptAsync(
         expression: String,
-        timeoutMs: Long? = null
+        timeoutMs: Long? = null,
+        bindingTimeoutMs: Long? = null,
+        bindingIntervalMs: Long? = null
     ): CompletableFuture<String?> =
         FutureBridge.toCompletableFuture {
-            JsEvaluator.evaluate(
-                browser = browser,
-                handler = client.jsHandler,
-                expression = expression,
-                routerQueryName = client.routerQueryName,
-                timeoutMs = timeoutMs
-            )
+            evaluateJavaScript(expression, timeoutMs, bindingTimeoutMs, bindingIntervalMs)
         }
 
     /**
@@ -620,6 +815,15 @@ class KromiumBrowser(
     }
 
     /**
+     * Sets or clears the asset filter on this browser's client session.
+     */
+    var assetFilter: KromiumAssetFilter?
+        get() = client.assetFilter
+        set(value) {
+            client.assetFilter = value
+        }
+
+    /**
      * Configures asset blocking on this browser's client to omit loading images, media, fonts, or stylesheets.
      * Dramatically reduces bandwidth and CPU overhead for headless tasks and web automation.
      */
@@ -639,24 +843,112 @@ class KromiumBrowser(
     }
 
     /**
+     * Configures fine-grained asset filtering, including custom file extensions,
+     * URL patterns, resource types, programmatic filter predicates, and optional allow bypass rules.
+     *
+     * @param images Block image assets (PNG, JPG, SVG, WebP, etc.).
+     * @param media Block video and audio assets (MP4, WebM, MP3, etc.).
+     * @param fonts Block web font assets (WOFF, WOFF2, TTF, etc.).
+     * @param stylesheets Block CSS stylesheet assets.
+     * @param customExtensions Custom file extensions to block (e.g., `setOf(".wasm", ".pdf")`).
+     * @param customUrlPatterns Custom URL patterns/keywords to block (e.g., `setOf("doubleclick.net", "analytics")`).
+     * @param customResourceTypes Custom CEF resource types to block.
+     * @param allowedExtensions File extensions permitted to bypass blocking.
+     * @param allowedUrlPatterns URL patterns permitted to bypass blocking.
+     * @param allowedResourceTypes CEF resource types permitted to bypass blocking.
+     * @param customAllowFilter Programmatic predicate returning true to bypass blocking.
+     * @param customFilter Programmatic predicate returning true to block a request.
+     */
+    @JvmOverloads
+    fun blockAssets(
+        images: Boolean = false,
+        media: Boolean = false,
+        fonts: Boolean = false,
+        stylesheets: Boolean = false,
+        customExtensions: Set<String> = emptySet(),
+        customUrlPatterns: Set<String> = emptySet(),
+        customResourceTypes: Set<CefRequest.ResourceType> = emptySet(),
+        allowedExtensions: Set<String> = emptySet(),
+        allowedUrlPatterns: Set<String> = emptySet(),
+        allowedResourceTypes: Set<CefRequest.ResourceType> = emptySet(),
+        customAllowFilter: ((request: CefRequest) -> Boolean)? = null,
+        customFilter: ((request: CefRequest) -> Boolean)? = null
+    ) {
+        client.blockAssets(
+            images = images,
+            media = media,
+            fonts = fonts,
+            stylesheets = stylesheets,
+            customExtensions = customExtensions,
+            customUrlPatterns = customUrlPatterns,
+            customResourceTypes = customResourceTypes,
+            allowedExtensions = allowedExtensions,
+            allowedUrlPatterns = allowedUrlPatterns,
+            allowedResourceTypes = allowedResourceTypes,
+            customAllowFilter = customAllowFilter,
+            customFilter = customFilter
+        )
+    }
+
+    /**
+     * Configures strict allowlist asset filtering so that only network requests matching the specified
+     * extensions, URL patterns, resource types, or filter predicate are permitted.
+     * All other network assets are blocked.
+     *
+     * @param extensions File extensions permitted to load (e.g. `setOf("js", "css")` or `setOf(".png")`).
+     * @param urlPatterns URL patterns or domain substrings permitted to load.
+     * @param resourceTypes CEF resource types permitted to load.
+     * @param allowMainFrame Whether to permit top-level document navigation (defaults to true).
+     * @param filter Programmatic predicate returning true to allow a request.
+     */
+    @JvmOverloads
+    fun allowOnlyAssets(
+        extensions: Set<String> = emptySet(),
+        urlPatterns: Set<String> = emptySet(),
+        resourceTypes: Set<CefRequest.ResourceType> = emptySet(),
+        allowMainFrame: Boolean = true,
+        filter: ((request: CefRequest) -> Boolean)? = null
+    ) {
+        client.allowOnlyAssets(
+            extensions = extensions,
+            urlPatterns = urlPatterns,
+            resourceTypes = resourceTypes,
+            allowMainFrame = allowMainFrame,
+            filter = filter
+        )
+    }
+
+    /**
      * Restricts navigation exclusively to the specified allowed hostnames/domains.
      * Attempts to navigate to non-whitelisted domains will be automatically blocked.
      *
      * @param allowedHosts Whitelist of permitted domains (e.g., "example.com", "api.example.com")
      * @param lockSubresources If true, also prevents loading subresources (scripts, fetch) from outside allowed hosts.
+     * @param lockSubframes If true, also restricts navigations in subframes (iframes). Defaults to false so embedded
+     *                      verification widgets (Cloudflare Turnstile, reCAPTCHA, OAuth) can load freely.
      */
-    fun setHostLock(vararg allowedHosts: String, lockSubresources: Boolean = false) {
+    fun setHostLock(
+        vararg allowedHosts: String,
+        lockSubresources: Boolean = false,
+        lockSubframes: Boolean = false
+    ) {
         client.hostLock = allowedHosts.toSet()
         client.hostLockSubresources = lockSubresources
+        client.hostLockSubframes = lockSubframes
     }
 
     /**
      * Restricts navigation exclusively to the specified allowed hostnames/domains.
      */
     @JvmOverloads
-    fun setHostLock(allowedHosts: Set<String>?, lockSubresources: Boolean = false) {
+    fun setHostLock(
+        allowedHosts: Set<String>?,
+        lockSubresources: Boolean = false,
+        lockSubframes: Boolean = false
+    ) {
         client.hostLock = allowedHosts
         client.hostLockSubresources = lockSubresources
+        client.hostLockSubframes = lockSubframes
     }
 
     /**
@@ -665,6 +957,7 @@ class KromiumBrowser(
     fun clearHostLock() {
         client.hostLock = null
         client.hostLockSubresources = false
+        client.hostLockSubframes = false
     }
 
     /**

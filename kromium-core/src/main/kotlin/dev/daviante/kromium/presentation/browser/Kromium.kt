@@ -446,6 +446,19 @@ object Kromium {
     ): KromiumBrowser = awaitClient().createHeadlessBrowser(url, width, height)
 
     /**
+     * Suspends until Kromium is ready, creates a headless browser, and awaits navigation to [waitUntil].
+     */
+    @JvmStatic
+    @JvmOverloads
+    suspend fun awaitHeadlessBrowser(
+        url: String?,
+        waitUntil: NavigationStage,
+        width: Int = 1280,
+        height: Int = 800,
+        timeoutMs: Long = 10_000L
+    ): KromiumBrowser = awaitClient().createHeadlessBrowser(url, waitUntil, width, height, timeoutMs)
+
+    /**
      * Asynchronously waits until Kromium is ready, then creates a new headless [KromiumBrowser] instance.
      */
     @JvmStatic
@@ -456,6 +469,20 @@ object Kromium {
         height: Int = 800
     ): CompletableFuture<KromiumBrowser> =
         FutureBridge.toCompletableFuture { awaitHeadlessBrowser(url, width, height) }
+
+    /**
+     * Asynchronously waits until Kromium is ready, creates a headless browser, and awaits navigation to [waitUntil].
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun awaitHeadlessBrowserAsync(
+        url: String?,
+        waitUntil: NavigationStage,
+        width: Int = 1280,
+        height: Int = 800,
+        timeoutMs: Long = 10_000L
+    ): CompletableFuture<KromiumBrowser> =
+        FutureBridge.toCompletableFuture { awaitHeadlessBrowser(url, waitUntil, width, height, timeoutMs) }
 
     /**
      * Dynamically updates the proxy strategy across all active browser windows

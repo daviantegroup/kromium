@@ -26,6 +26,19 @@ object JsEvaluator {
     var defaultTimeoutMs: Long = 10_000L
 
     /**
+     * Default timeout in milliseconds to wait for CEF's CefMessageRouter query function
+     * (e.g. window.kromiumQuery) to bind to the V8 context before failing.
+     * Defaults to 3,000ms.
+     */
+    var defaultRouterBindingTimeoutMs: Long = 3_000L
+
+    /**
+     * Polling interval in milliseconds between router query binding checks.
+     * Defaults to 50ms.
+     */
+    var defaultRouterBindingIntervalMs: Long = 50L
+
+    /**
      * Converts a Kotlin string into a valid, safe JavaScript string literal (including quotes).
      */
     private fun toJsStringLiteral(value: String): String {
@@ -70,11 +83,20 @@ object JsEvaluator {
      */
     @JvmStatic
     @JvmOverloads
-    fun wrapExpression(expression: String, queryId: String, routerQueryName: String = "kromiumQuery"): String {
+    fun wrapExpression(
+        expression: String,
+        queryId: String,
+        routerQueryName: String = "kromiumQuery",
+        bindingTimeoutMs: Long = defaultRouterBindingTimeoutMs,
+        bindingIntervalMs: Long = defaultRouterBindingIntervalMs
+    ): String {
         // Validate queryId contains only safe characters (alphanumeric + underscore)
         require(queryId.matches(Regex("^[a-zA-Z0-9_]+$"))) {
             "queryId must contain only alphanumeric characters and underscores, got: $queryId"
         }
+
+        val safeInterval = bindingIntervalMs.coerceAtLeast(10L)
+        val maxAttempts = (bindingTimeoutMs / safeInterval).coerceAtLeast(1L)
 
         // Escape backslashes first, then single quotes for safe embedding in JS string literal
         val safeQueryId = queryId.replace("\\", "\\\\").replace("'", "\\'")
@@ -82,48 +104,59 @@ object JsEvaluator {
 
         return """
             (function() {
-                var fn = (typeof window.$routerQueryName === 'function') ? window.$routerQueryName : null;
-                if (!fn) return;
-                function __send(payload) {
-                    try {
-                        fn({
-                            request: '$safeQueryId:::' + payload,
-                            onSuccess: function() {},
-                            onFailure: function() {}
-                        });
-                    } catch(_) {}
-                }
-                function __format(res) {
-                    if (res === undefined || res === null) return '';
-                    if (typeof res === 'object') {
-                        try { return JSON.stringify(res); } catch(_) { return String(res); }
-                    }
-                    return String(res);
-                }
-                try {
-                    var __code = $jsCodeLiteral;
-                    var __result;
-                    try {
-                        __result = (0, eval)(__code);
-                    } catch(__evalErr) {
-                        if (__evalErr instanceof SyntaxError && String(__evalErr).indexOf('return') !== -1) {
-                            __result = (new Function(__code))();
-                        } else {
-                            throw __evalErr;
+                var __attempts = 0;
+                var __maxAttempts = $maxAttempts;
+                var __interval = $safeInterval;
+                function __exec() {
+                    var fn = (typeof window.$routerQueryName === 'function') ? window.$routerQueryName : null;
+                    if (!fn) {
+                        if (__attempts++ < __maxAttempts) {
+                            setTimeout(__exec, __interval);
                         }
+                        return;
                     }
-                    if (__result && typeof __result.then === 'function') {
-                        Promise.resolve(__result).then(function(__val) {
-                            __send(__format(__val));
-                        }).catch(function(__err) {
-                            __send('ERROR: ' + (__err ? (__err.message || String(__err)) : 'Unknown error'));
-                        });
-                    } else {
-                        __send(__format(__result));
+                    function __send(payload) {
+                        try {
+                            fn({
+                                request: '$safeQueryId:::' + payload,
+                                onSuccess: function() {},
+                                onFailure: function() {}
+                            });
+                        } catch(_) {}
                     }
-                } catch(e) {
-                    __send('ERROR: ' + (e ? (e.message || String(e)) : 'Unknown error'));
+                    function __format(res) {
+                        if (res === undefined || res === null) return '';
+                        if (typeof res === 'object') {
+                            try { return JSON.stringify(res); } catch(_) { return String(res); }
+                        }
+                        return String(res);
+                    }
+                    try {
+                        var __code = $jsCodeLiteral;
+                        var __result;
+                        try {
+                            __result = (0, eval)(__code);
+                        } catch(__evalErr) {
+                            if (__evalErr instanceof SyntaxError && String(__evalErr).indexOf('return') !== -1) {
+                                __result = (new Function(__code))();
+                            } else {
+                                throw __evalErr;
+                            }
+                        }
+                        if (__result && typeof __result.then === 'function') {
+                            Promise.resolve(__result).then(function(__val) {
+                                __send(__format(__val));
+                            }).catch(function(__err) {
+                                __send('ERROR: ' + (__err ? (__err.message || String(__err)) : 'Unknown error'));
+                            });
+                        } else {
+                            __send(__format(__result));
+                        }
+                    } catch(e) {
+                        __send('ERROR: ' + (e ? (e.message || String(e)) : 'Unknown error'));
+                    }
                 }
+                __exec();
             })();
         """.trimIndent()
     }
@@ -154,9 +187,13 @@ object JsEvaluator {
         expression: String,
         routerQueryName: String = "kromiumQuery",
         timeoutMs: Long? = null,
-        throwOnTimeout: Boolean = false
+        throwOnTimeout: Boolean = false,
+        bindingTimeoutMs: Long? = null,
+        bindingIntervalMs: Long? = null
     ): String? {
         val effectiveTimeout = timeoutMs ?: defaultTimeoutMs
+        val effectiveBindingTimeout = bindingTimeoutMs ?: defaultRouterBindingTimeoutMs
+        val effectiveBindingInterval = bindingIntervalMs ?: defaultRouterBindingIntervalMs
 
         val result = withTimeoutOrNull(effectiveTimeout) {
             suspendCancellableCoroutine { continuation ->
@@ -174,7 +211,13 @@ object JsEvaluator {
                     }
                 }
 
-                val wrappedScript = wrapExpression(expression, queryId, routerQueryName)
+                val wrappedScript = wrapExpression(
+                    expression,
+                    queryId,
+                    routerQueryName,
+                    effectiveBindingTimeout,
+                    effectiveBindingInterval
+                )
                 browser.executeJavaScript(wrappedScript, browser.url ?: "", 0)
             }
         }
@@ -202,9 +245,20 @@ object JsEvaluator {
         expression: String,
         routerQueryName: String = "kromiumQuery",
         timeoutMs: Long? = null,
-        throwOnTimeout: Boolean = false
+        throwOnTimeout: Boolean = false,
+        bindingTimeoutMs: Long? = null,
+        bindingIntervalMs: Long? = null
     ): CompletableFuture<String?> =
         FutureBridge.toCompletableFuture {
-            evaluate(browser, handler, expression, routerQueryName, timeoutMs, throwOnTimeout)
+            evaluate(
+                browser,
+                handler,
+                expression,
+                routerQueryName,
+                timeoutMs,
+                throwOnTimeout,
+                bindingTimeoutMs,
+                bindingIntervalMs
+            )
         }
 }
