@@ -96,6 +96,12 @@ object CefBootstrapper {
         val serverPath = os.getServerPath(safeInstallDir)
         val isServerAvailable = serverPath != null && File(serverPath).exists()
 
+        // Set ALT_CEF_SERVER_PATH before any CefApp or NativeServerManager methods are called,
+        // as NativeServerManager.ALT_CEF_SERVER_PATH is a static final field loaded during <clinit>.
+        if (serverPath != null) {
+            System.setProperty("ALT_CEF_SERVER_PATH", serverPath)
+        }
+
         val effectiveRemote = when (processModel) {
             KromiumProcessModel.OUT_OF_PROCESS -> {
                 if (!isServerAvailable) {
@@ -106,18 +112,14 @@ object CefBootstrapper {
                 }
             }
             KromiumProcessModel.AUTO -> {
-                if (isServerAvailable && CefApp.isRemoteSupported()) {
-                    KromiumLogger.i(TAG, "Discovered cef_server executable at $serverPath; enabling out-of-process CEF isolation.")
-                    true
-                } else {
-                    false
-                }
+                // In desktop UI toolkits (Compose Desktop, Swing, JavaFX, SWT), CEF multi-process architecture
+                // isolates GPU rasterization and web renderers in dedicated `jcef_helper` subprocesses via
+                // `--browser-subprocess-path`, while the browser host embeds natively in the host JVM.
+                // JetBrains `cef_server` RPC mode requires a proprietary shared-memory CefNativeRenderHandler
+                // and rejects Windowed and standard OSR rendering. Therefore AUTO uses in-process browser host.
+                false
             }
             KromiumProcessModel.IN_PROCESS -> false
-        }
-
-        if (serverPath != null) {
-            System.setProperty("ALT_CEF_SERVER_PATH", serverPath)
         }
 
         // Configure process isolation in JetBrains JCEF

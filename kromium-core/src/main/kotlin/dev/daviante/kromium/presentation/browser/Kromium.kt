@@ -92,6 +92,7 @@ object Kromium {
     private val mutex = Mutex()
     private var cefApp: CefApp? = null
     private var _activeConfig: KromiumConfig? = null
+    @JvmStatic val activeConfig: KromiumConfig? get() = _activeConfig
 
     @Volatile
     private var _activeProxy: KromiumProxy = KromiumProxy.System

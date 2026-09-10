@@ -836,6 +836,9 @@ class KromiumClient(
         isTransparent: Boolean = false,
         requestContext: CefRequestContext? = null
     ): KromiumBrowser {
+        if (isOffScreenRendered && Kromium.activeConfig?.windowlessRendering != true) {
+            KromiumLogger.d(TAG, "Creating an off-screen browser (isOffScreenRendered = true) while KromiumConfig.windowlessRendering is false. If OSR frames fail to render, enable `windowlessRendering = true` during Kromium.initialize.")
+        }
         val rendering = if (isOffScreenRendered) CefRendering.OFFSCREEN else CefRendering.DEFAULT
         val effectiveContext = requestContext ?: this.requestContext
         val browser = if (effectiveContext != null) {

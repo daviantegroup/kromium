@@ -112,6 +112,19 @@ class KromiumViewState(initialUrl: String) {
      */
     var doNotTrack: Boolean by mutableStateOf(true)
 
+    /**
+     * Whether this Compose browser view renders in Off-Screen Rendering (OSR) mode.
+     * Defaults to false (native windowed mode via SwingPanel), which provides maximum hardware vsync performance.
+     * Set to true if overlapping Compose elements or transparency effects are required.
+     */
+    var isOffScreenRendered: Boolean by mutableStateOf(false)
+
+    /**
+     * Whether the background of the browser should be transparent when [isOffScreenRendered] is true.
+     * Defaults to false.
+     */
+    var isTransparent: Boolean by mutableStateOf(false)
+
     var browser: KromiumBrowser? by mutableStateOf(null)
         internal set
 

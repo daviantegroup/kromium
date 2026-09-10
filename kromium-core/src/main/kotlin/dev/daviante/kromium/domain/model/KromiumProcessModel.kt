@@ -6,20 +6,22 @@ package dev.daviante.kromium.domain.model
 enum class KromiumProcessModel {
     /**
      * Automatically chooses the best process model for the platform.
-     * Prefers [OUT_OF_PROCESS] if the `cef_server` executable is available in the engine bundle,
-     * otherwise falls back to [IN_PROCESS] with defensive GPU and subprocess configuration.
+     *
+     * Uses multi-process Chromium architecture where the browser host runs embedded in the host JVM
+     * while GPU acceleration, WebGL rasterization, and web renderers run in dedicated `jcef_helper`
+     * subprocesses with their own OS Process IDs (PIDs) via `--browser-subprocess-path`.
+     *
+     * Provides 100% compatibility with Compose Desktop (`SwingPanel`), Swing, JavaFX, and SWT in both
+     * Windowed and Off-Screen Rendering (OSR) modes.
      */
     AUTO,
 
     /**
-     * Executes the Chromium browser engine and GPU pipeline in a dedicated out-of-process server (`cef_server`).
+     * Executes the Chromium browser engine in an external RPC server daemon (`cef_server`).
      *
-     * In this mode, Chromium runs under a completely separate OS Process ID (PID) from the host JVM.
-     * Direct3D/DirectX adapters and swapchains are physically isolated to the `cef_server` process,
-     * preventing any GPU device collisions (`DXGI_ERROR_DEVICE_REMOVED`, `0x887a0005`) with the host
-     * application (e.g., Jetpack Compose Desktop Skiko or Java2D Direct3D).
-     *
-     * Native crashes in Chromium or the GPU process cannot crash the host JVM process.
+     * Note: In JetBrains JCEF, `cef_server` RPC mode requires a custom `CefNativeRenderHandler` (shared
+     * memory rasterization) and does not support standard Windowed (`CefRendering.DEFAULT`) or standard
+     * OSR rendering. Use [AUTO] or [IN_PROCESS] for desktop UI applications.
      */
     OUT_OF_PROCESS,
 

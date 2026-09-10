@@ -138,7 +138,8 @@ fun KromiumView(
                         isFocusable = true
                         val browser = effectiveClient.createBrowser(
                             url = state.url,
-                            isOffScreenRendered = false
+                            isOffScreenRendered = state.isOffScreenRendered,
+                            isTransparent = state.isTransparent
                         )
                         state.browser = browser
 
