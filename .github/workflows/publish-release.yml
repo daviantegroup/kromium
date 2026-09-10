@@ -10,6 +10,15 @@ on:
       - 'v*'
   workflow_dispatch:
     inputs:
+      target:
+        description: 'Publishing target (ALL: Sonatype + GitHub, GITHUB_ONLY: GitHub Packages & Release, MAVEN_CENTRAL_ONLY: Sonatype Central only)'
+        required: true
+        type: choice
+        options:
+          - ALL
+          - GITHUB_ONLY
+          - MAVEN_CENTRAL_ONLY
+        default: ALL
       custom_notes:
         description: 'Custom release notes in Markdown (optional: leave empty to extract automatically from CHANGELOG.md)'
         required: false
@@ -395,7 +404,7 @@ jobs:
           retention-days: 14
 
       - name: Upload to Sonatype Central Portal
-        if: steps.check_trigger.outputs.proceed == 'true' && steps.preflight.outputs.proceed == 'true' && inputs.dry_run != true
+        if: steps.check_trigger.outputs.proceed == 'true' && steps.preflight.outputs.proceed == 'true' && inputs.target != 'GITHUB_ONLY' && inputs.dry_run != true
         env:
           SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
           SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
@@ -434,11 +443,11 @@ jobs:
           echo "=========================================================="
 
       - name: Publish to GitHub Packages (maven.pkg.github.com)
-        if: steps.check_trigger.outputs.proceed == 'true' && steps.preflight.outputs.proceed == 'true' && inputs.dry_run != true
+        if: steps.check_trigger.outputs.proceed == 'true' && steps.preflight.outputs.proceed == 'true' && inputs.target != 'MAVEN_CENTRAL_ONLY' && inputs.dry_run != true
         continue-on-error: true
         env:
-          GITHUB_ACTOR: ${{ github.actor }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_ACTOR: ${{ secrets.GPR_USER || github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GPR_TOKEN || secrets.GITHUB_TOKEN }}
           GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
           GPG_SIGNING_PASSWORD: ${{ secrets.GPG_SIGNING_PASSWORD }}
         run: |
@@ -451,7 +460,7 @@ jobs:
           echo "🚀 Successfully published to GitHub Packages!"
 
       - name: Attach Bundle Asset to GitHub Release
-        if: steps.check_trigger.outputs.proceed == 'true' && steps.preflight.outputs.proceed == 'true' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.event_name == 'push') && inputs.dry_run != true
+        if: steps.check_trigger.outputs.proceed == 'true' && steps.preflight.outputs.proceed == 'true' && inputs.target != 'MAVEN_CENTRAL_ONLY' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.event_name == 'push') && inputs.dry_run != true
         env:
           GH_TOKEN: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
         run: |
