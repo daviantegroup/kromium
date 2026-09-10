@@ -102,8 +102,8 @@ subprojects {
                         name = "GitHubPackages"
                         url = uri("https://maven.pkg.github.com/daviantegroup/kromium")
                         credentials {
-                            username = findProperty("gpr.user")?.toString() ?: System.getenv("GITHUB_ACTOR") ?: "daviante-releaser"
-                            password = findProperty("gpr.key")?.toString() ?: System.getenv("GITHUB_TOKEN")
+                            username = findProperty("gpr.user")?.toString() ?: System.getenv("GPR_USER") ?: System.getenv("GITHUB_ACTOR") ?: "daviante-releaser"
+                            password = findProperty("gpr.key")?.toString() ?: System.getenv("GPR_TOKEN") ?: System.getenv("GITHUB_TOKEN")
                         }
                     }
                 }

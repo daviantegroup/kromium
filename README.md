@@ -9,7 +9,7 @@
   <p><strong>Modern Chromium Embedded Framework for Compose Multiplatform Desktop &amp; Universal Java (Swing, AWT, SWT, JavaFX) Applications</strong></p>
 
   <p>
-    <a href="https://central.sonatype.com/artifact/dev.daviante/kromium-compose"><img src="https://img.shields.io/badge/Maven_Central-v2.1.150--b11-107c41?style=flat-square&logo=apachemaven" alt="Maven Central" /></a>
+    <a href="https://central.sonatype.com/artifact/dev.daviante/kromium-compose"><img src="https://img.shields.io/badge/Maven_Central-v3.0.150--b11-107c41?style=flat-square&logo=apachemaven" alt="Maven Central" /></a>
     <a href="https://kromium.daviante.dev"><img src="https://img.shields.io/badge/Docs_Portal-kromium.daviante.dev-0078d4?style=flat-square" alt="Documentation Portal" /></a>
     <a href="https://kotlinlang.org"><img src="https://img.shields.io/badge/Kotlin-2.1+-7F52FF?style=flat-square&logo=kotlin" alt="Kotlin" /></a>
     <a href="https://adoptium.net"><img src="https://img.shields.io/badge/Java-17%20%7C%2021%20LTS-ED8B00?style=flat-square&logo=openjdk" alt="Java" /></a>
