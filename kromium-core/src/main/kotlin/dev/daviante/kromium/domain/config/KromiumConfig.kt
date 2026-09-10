@@ -260,14 +260,22 @@ class KromiumConfig {
     private fun applyWindowsGpuShieldsIfNeeded() {
         val platform = try { PlatformDetector.current() } catch (_: Throwable) { null }
         if (platform?.os?.isWindows == true) {
+            // Prevent DirectComposition visual tree and hardware overlay conflicts with Skiko / host DirectX swapchains
             if (commandLineArgs.none { it.equals("--disable-direct-composition", ignoreCase = true) }) {
                 commandLineArgs.add("--disable-direct-composition")
+            }
+            if (commandLineArgs.none { it.equals("--disable-direct-composition-video-overlays", ignoreCase = true) }) {
+                commandLineArgs.add("--disable-direct-composition-video-overlays")
             }
             if (commandLineArgs.none { it.equals("--disable-gpu-compositing", ignoreCase = true) }) {
                 commandLineArgs.add("--disable-gpu-compositing")
             }
             if (commandLineArgs.none { it.equals("--disable-gpu-watchdog", ignoreCase = true) }) {
                 commandLineArgs.add("--disable-gpu-watchdog")
+            }
+            // Instruct ANGLE to avoid exclusive D3D11 device locking that causes DXGI_ERROR_DEVICE_REMOVED (0x887a0005)
+            if (commandLineArgs.none { it.startsWith("--use-angle=") }) {
+                commandLineArgs.add("--use-angle=d3d11on12")
             }
         }
     }
