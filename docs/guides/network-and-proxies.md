@@ -123,7 +123,7 @@ Intercept, inspect, or modify outbound HTTP requests using `KromiumRequestInterc
 ```kotlin
 client.requestInterceptor = KromiumRequestInterceptor { request ->
     // Inject corporate authorization or tracking headers:
-    request.setHeader("X-Client-Version", "2.1.150")
+    request.setHeader("X-Client-Version", "3.0.150")
     request.setHeader("X-Custom-Tenant-ID", "tenant-alpha-9")
 
     // Or block requests to tracking domains:
