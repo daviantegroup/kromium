@@ -243,7 +243,9 @@ object Kromium {
                     installDir = installDir,
                     cefArgs = config.commandLineArgs,
                     cefSettings = config.toCefSettings(),
-                    customSchemes = config.customSchemes
+                    customSchemes = config.customSchemes,
+                    processModel = config.processModel,
+                    gpuMode = config.gpuMode
                 )
                 cefApp = app
 

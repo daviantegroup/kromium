@@ -6,6 +6,8 @@ import dev.daviante.kromium.core.util.JvmModuleOpener
 import dev.daviante.kromium.core.util.PlatformDetector
 import dev.daviante.kromium.domain.exception.KromiumException
 import dev.daviante.kromium.domain.model.KromiumCustomScheme
+import dev.daviante.kromium.domain.model.KromiumGpuMode
+import dev.daviante.kromium.domain.model.KromiumProcessModel
 import dev.daviante.kromium.domain.model.OperatingSystem
 import dev.daviante.kromium.domain.model.PlatformInfo
 import org.cef.CefApp
@@ -27,7 +29,9 @@ object CefBootstrapper {
         installDir: File,
         cefArgs: List<String>,
         cefSettings: CefSettings,
-        customSchemes: List<KromiumCustomScheme> = emptyList()
+        customSchemes: List<KromiumCustomScheme> = emptyList(),
+        processModel: KromiumProcessModel = KromiumProcessModel.AUTO,
+        gpuMode: KromiumGpuMode = KromiumGpuMode.COMPOSITING_DISABLED
     ): CefApp {
         // Ensure required JDK module packages are dynamically open to ALL-UNNAMED
         JvmModuleOpener.ensureModulesOpened()
@@ -88,14 +92,46 @@ object CefBootstrapper {
         // Enable preinit on any thread to avoid EDT deadlock during headless/background bootstrap
         System.setProperty("jcef_app_preinit_any", "true")
 
-        // Force local in-process mode (JetBrains JCEF defaults to remote cef_server.exe)
-        CefApp.setIsRemoteEnabled(false)
+        // Resolve Out-of-Process Server (`cef_server`) and Process Isolation Model
+        val serverPath = os.getServerPath(safeInstallDir)
+        val isServerAvailable = serverPath != null && File(serverPath).exists()
+
+        val effectiveRemote = when (processModel) {
+            KromiumProcessModel.OUT_OF_PROCESS -> {
+                if (!isServerAvailable) {
+                    KromiumLogger.w(TAG, "Out-of-process CEF requested, but cef_server executable not found at $serverPath. Falling back to in-process mode.")
+                    false
+                } else {
+                    true
+                }
+            }
+            KromiumProcessModel.AUTO -> {
+                if (isServerAvailable && CefApp.isRemoteSupported()) {
+                    KromiumLogger.i(TAG, "Discovered cef_server executable at $serverPath; enabling out-of-process CEF isolation.")
+                    true
+                } else {
+                    false
+                }
+            }
+            KromiumProcessModel.IN_PROCESS -> false
+        }
+
+        if (serverPath != null) {
+            System.setProperty("ALT_CEF_SERVER_PATH", serverPath)
+        }
+
+        // Configure process isolation in JetBrains JCEF
+        CefApp.setIsRemoteEnabled(effectiveRemote)
+        KromiumLogger.i(
+            TAG,
+            "CEF process model initialized: ${if (effectiveRemote) "OUT_OF_PROCESS (remote cef_server)" else "IN_PROCESS (local)"}"
+        )
 
         // Preload JAWT (Java AWT Native Library)
         loadNativeLibrary(installDir, "jawt", platform)
 
-        // Preload GPU libraries if not explicitly disabled
-        if (cefArgs.none { it.trim().equals("--disable-gpu", ignoreCase = true) }) {
+        // Preload GPU libraries into JVM only when running in-process and GPU is not disabled
+        if (!effectiveRemote && gpuMode != KromiumGpuMode.SOFTWARE && cefArgs.none { it.trim().equals("--disable-gpu", ignoreCase = true) }) {
             val gpuLibPath = if (os.isMacOS) {
                 val macOs = os as OperatingSystem.MacOS
                 File(macOs.getFrameworkPath(installDir, inFrameworks = true), "Libraries")
@@ -150,12 +186,8 @@ object CefBootstrapper {
             }
         }
 
-        // Prepare startup arguments
-        val launchArgs = if (os.isMacOS) {
-            (os as OperatingSystem.MacOS).getFixedArgs(installDir, cefArgs)
-        } else {
-            cefArgs
-        }
+        // Prepare startup arguments with platform-specific fixed arguments
+        val launchArgs = os.getFixedArgs(installDir, cefArgs)
 
         // Register custom schemes with Chromium's security manager before CefApp initialization
         if (customSchemes.isNotEmpty()) {
@@ -196,12 +228,14 @@ object CefBootstrapper {
             )
         }
 
-        // Load core Chromium binaries
-        if (os.isWindows) {
-            loadNativeLibrary(installDir, "chrome_elf", platform)
-        }
-        if (!os.isMacOS) {
-            loadNativeLibrary(installDir, "libcef", platform)
+        // Load core Chromium binaries into JVM only when running in-process
+        if (!effectiveRemote) {
+            if (os.isWindows) {
+                loadNativeLibrary(installDir, "chrome_elf", platform)
+            }
+            if (!os.isMacOS) {
+                loadNativeLibrary(installDir, "libcef", platform)
+            }
         }
 
         val app = try {
@@ -209,7 +243,16 @@ object CefBootstrapper {
         } catch (e: NoSuchMethodError) {
             CefApp.getInstance()
         } catch (t: Throwable) {
-            KromiumLogger.e(TAG, "Failed to instantiate CefApp", t)
+            val message = t.message ?: ""
+            if (message.contains("0x887a0005", ignoreCase = true) || message.contains("Direct3D", ignoreCase = true)) {
+                KromiumLogger.e(
+                    TAG,
+                    "Detected Direct3D device removal/failure during CEF initialization. Consider configuring `processModel = KromiumProcessModel.OUT_OF_PROCESS` or `gpuMode = KromiumGpuMode.SOFTWARE`.",
+                    t
+                )
+            } else {
+                KromiumLogger.e(TAG, "Failed to instantiate CefApp", t)
+            }
             throw KromiumException.BootstrapFailed(t)
         }
 

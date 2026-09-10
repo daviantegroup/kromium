@@ -191,4 +191,65 @@ class KromiumConfigTest {
         assertTrue(config.doNotTrack)
         assertTrue(config.commandLineArgs.contains("--enable-do-not-track"))
     }
+
+    @Test
+    fun testProcessModelDefaultsAndConfiguration() {
+        val config = KromiumConfig()
+        assertEquals(dev.daviante.kromium.domain.model.KromiumProcessModel.AUTO, config.processModel)
+
+        config.processModel = dev.daviante.kromium.domain.model.KromiumProcessModel.OUT_OF_PROCESS
+        assertEquals(dev.daviante.kromium.domain.model.KromiumProcessModel.OUT_OF_PROCESS, config.processModel)
+        assertTrue(config.processModel.isOutOfProcess)
+        assertFalse(config.processModel.isInProcess)
+
+        config.processModel = dev.daviante.kromium.domain.model.KromiumProcessModel.IN_PROCESS
+        assertEquals(dev.daviante.kromium.domain.model.KromiumProcessModel.IN_PROCESS, config.processModel)
+        assertTrue(config.processModel.isInProcess)
+        assertFalse(config.processModel.isOutOfProcess)
+    }
+
+    @Test
+    fun testGpuModeSwitchingAndFlagSynchronization() {
+        val config = KromiumConfig()
+        assertEquals(dev.daviante.kromium.domain.model.KromiumGpuMode.COMPOSITING_DISABLED, config.gpuMode)
+        assertTrue(config.commandLineArgs.contains("--disable-gpu-compositing"))
+        assertFalse(config.commandLineArgs.contains("--disable-gpu"))
+
+        // Switch to full HARDWARE
+        config.gpuMode = dev.daviante.kromium.domain.model.KromiumGpuMode.HARDWARE
+        assertFalse(config.commandLineArgs.contains("--disable-gpu-compositing"))
+        assertFalse(config.commandLineArgs.contains("--disable-gpu"))
+
+        // Switch to pure SOFTWARE
+        config.gpuMode = dev.daviante.kromium.domain.model.KromiumGpuMode.SOFTWARE
+        assertTrue(config.commandLineArgs.contains("--disable-gpu"))
+        assertTrue(config.commandLineArgs.contains("--use-gl=angle"))
+        assertTrue(config.commandLineArgs.contains("--use-angle=swiftshader"))
+        assertFalse(config.commandLineArgs.contains("--disable-gpu-compositing"))
+
+        // Switch to ANGLE_WARP
+        config.gpuMode = dev.daviante.kromium.domain.model.KromiumGpuMode.ANGLE_WARP
+        assertFalse(config.commandLineArgs.contains("--disable-gpu"))
+        assertTrue(config.commandLineArgs.contains("--use-gl=angle"))
+        assertTrue(config.commandLineArgs.contains("--use-angle=warp"))
+
+        // Switch back to COMPOSITING_DISABLED
+        config.gpuMode = dev.daviante.kromium.domain.model.KromiumGpuMode.COMPOSITING_DISABLED
+        assertTrue(config.commandLineArgs.contains("--disable-gpu-compositing"))
+        assertFalse(config.commandLineArgs.contains("--disable-gpu"))
+        assertFalse(config.commandLineArgs.contains("--use-angle=warp"))
+    }
+
+    @Test
+    fun testBuilderProcessModelAndGpuMode() {
+        val config = KromiumConfig.builder()
+            .processModel(dev.daviante.kromium.domain.model.KromiumProcessModel.OUT_OF_PROCESS)
+            .gpuMode(dev.daviante.kromium.domain.model.KromiumGpuMode.SOFTWARE)
+            .build()
+
+        assertEquals(dev.daviante.kromium.domain.model.KromiumProcessModel.OUT_OF_PROCESS, config.processModel)
+        assertEquals(dev.daviante.kromium.domain.model.KromiumGpuMode.SOFTWARE, config.gpuMode)
+        assertTrue(config.commandLineArgs.contains("--disable-gpu"))
+        assertTrue(config.commandLineArgs.contains("--use-angle=swiftshader"))
+    }
 }

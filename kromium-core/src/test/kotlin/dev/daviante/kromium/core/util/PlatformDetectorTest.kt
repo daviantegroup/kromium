@@ -119,4 +119,56 @@ class PlatformDetectorTest {
             tempDir.deleteRecursively()
         }
     }
+
+    @Test
+    fun testServerPathResolution() {
+        val tempDir = java.nio.file.Files.createTempDirectory("server_path_test").toFile()
+        try {
+            // Windows: bin/cef_server.exe
+            val winServer = java.io.File(tempDir, "bin/cef_server.exe").apply {
+                parentFile?.mkdirs()
+                createNewFile()
+            }
+            assertEquals(winServer.canonicalPath, OperatingSystem.Windows.getServerPath(tempDir))
+
+            // Linux: bin/cef_server
+            val linuxServer = java.io.File(tempDir, "bin/cef_server").apply {
+                parentFile?.mkdirs()
+                createNewFile()
+            }
+            assertEquals(linuxServer.canonicalPath, OperatingSystem.Linux.getServerPath(tempDir))
+
+            // MacOS: Frameworks/cef_server.app/Contents/MacOS/cef_server
+            val macServer = java.io.File(tempDir, "Frameworks/cef_server.app/Contents/MacOS/cef_server").apply {
+                parentFile?.mkdirs()
+                createNewFile()
+            }
+            assertEquals(macServer.canonicalPath, OperatingSystem.MacOS.getServerPath(tempDir))
+        } finally {
+            tempDir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun testFixedArgsInclusionOnWindowsAndLinux() {
+        val tempDir = java.nio.file.Files.createTempDirectory("args_test").toFile()
+        try {
+            val initialArgs = listOf("--enable-logging", "--v=1")
+
+            val winArgs = OperatingSystem.Windows.getFixedArgs(tempDir, initialArgs)
+            assertTrue(winArgs.any { it.startsWith("--browser-subprocess-path=") })
+            assertTrue(winArgs.contains("--enable-logging"))
+
+            val linuxArgs = OperatingSystem.Linux.getFixedArgs(tempDir, initialArgs)
+            assertTrue(linuxArgs.any { it.startsWith("--browser-subprocess-path=") })
+            assertTrue(linuxArgs.contains("--enable-logging"))
+
+            // Ensure idempotency (doesn't duplicate if already present)
+            val alreadyPresent = listOf("--browser-subprocess-path=/custom/path", "--v=1")
+            val winArgsIdempotent = OperatingSystem.Windows.getFixedArgs(tempDir, alreadyPresent)
+            assertEquals(1, winArgsIdempotent.count { it.startsWith("--browser-subprocess-path=") })
+        } finally {
+            tempDir.deleteRecursively()
+        }
+    }
 }

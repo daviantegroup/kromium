@@ -74,11 +74,40 @@ The browser component mounts but remains blank or black.
 Outdated GPU drivers or hardware acceleration conflicts with virtual machine display adapters.
 
 **Solution:**
-Disable GPU hardware acceleration using CEF command-line switches in `KromiumConfig`:
+Configure software rendering via `KromiumGpuMode`:
 ```kotlin
 val config = KromiumConfig().apply {
-    commandLineArgs.add("--disable-gpu")
-    commandLineArgs.add("--disable-gpu-compositing")
+    gpuMode = KromiumGpuMode.SOFTWARE
+}
+```
+
+---
+
+### 5. Windows GPU Collision: Failed Direct3D call (0x887a0005 / DXGI_ERROR_DEVICE_REMOVED)
+
+**Symptom:**
+Application terminates with a native DirectX crash:
+```
+Failed Direct3D call. error: 0x887a0005 (DXGI_ERROR_DEVICE_REMOVED)
+```
+
+**Cause:**
+When running in-process, both the host UI toolkit (Jetpack Compose Desktop with Skiko, Java2D D3D, or JavaFX) and Chromium share the **same OS Process ID (PID)**. Both engines independently attempt to acquire DirectX 11/12 devices, DirectComposition swapchains, and adapter contexts on the same HWND window. When DirectX detects contention or driver latency, it issues a device removal (`0x887a0005`), which collapses the host JVM graphics context.
+
+**Solution 1 (Recommended — Out-of-Process Isolation):**
+Isolate Chromium into a dedicated server process (`cef_server.exe`) with its own independent Process ID:
+```kotlin
+val config = KromiumConfig().apply {
+    processModel = KromiumProcessModel.OUT_OF_PROCESS // Disconnects GPU device context from host PID
+}
+```
+
+**Solution 2 (Software / WARP Rendering):**
+Bypass physical GPU hardware drivers and Direct3D contention entirely using software rasterization:
+```kotlin
+val config = KromiumConfig().apply {
+    gpuMode = KromiumGpuMode.SOFTWARE // Pure CPU SwiftShader pipeline
+    // or: gpuMode = KromiumGpuMode.ANGLE_WARP // Microsoft WARP Direct3D 11 software adapter
 }
 ```
 

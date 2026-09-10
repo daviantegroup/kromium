@@ -9,6 +9,8 @@ import dev.daviante.kromium.domain.config.KromiumConfig;
 import dev.daviante.kromium.domain.config.KromiumProxy;
 import dev.daviante.kromium.domain.exception.KromiumException;
 import dev.daviante.kromium.domain.exception.SslErrorPolicy;
+import dev.daviante.kromium.domain.model.KromiumGpuMode;
+import dev.daviante.kromium.domain.model.KromiumProcessModel;
 import dev.daviante.kromium.domain.model.KromiumState;
 import dev.daviante.kromium.domain.model.PlatformInfo;
 import dev.daviante.kromium.presentation.browser.Kromium;
@@ -69,6 +71,8 @@ public class KromiumJavaInteropTest {
                 .autoDownload(false)
                 .webrtcIpHandlingPolicy(KromiumConfig.WEBRTC_POLICY_DISABLE_NON_PROXIED_UDP)
                 .doNotTrack(true)
+                .processModel(KromiumProcessModel.OUT_OF_PROCESS)
+                .gpuMode(KromiumGpuMode.SOFTWARE)
                 .build();
 
         assertNotNull(config);
@@ -79,9 +83,12 @@ public class KromiumJavaInteropTest {
         assertTrue(config.getSandboxEnabled());
         assertTrue(config.getBlockRegistryAndTelemetry());
         assertTrue(config.getDoNotTrack());
+        assertEquals(KromiumProcessModel.OUT_OF_PROCESS, config.getProcessModel());
+        assertEquals(KromiumGpuMode.SOFTWARE, config.getGpuMode());
         assertEquals(KromiumConfig.WEBRTC_POLICY_DISABLE_NON_PROXIED_UDP, config.getWebrtcIpHandlingPolicy());
         assertTrue(config.getCommandLineArgs().contains("--test-arg-1"));
         assertTrue(config.getCommandLineArgs().contains("--test-arg-2"));
+        assertTrue(config.getCommandLineArgs().contains("--disable-gpu"));
         assertEquals(List.of("*.corp.internal"), config.getAuthServerAllowlist());
         config.toCefSettings();
         assertTrue(config.getCommandLineArgs().stream().anyMatch(a -> a.startsWith("--auth-server-allowlist=")));

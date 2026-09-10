@@ -18,6 +18,8 @@ The master configuration object passed to `KromiumEngine.getInstance().initializ
 | `cachePath` | `String?` | `null` (in-memory) | Directory for persistent HTTP cache, cookies, and `localStorage`. |
 | `userAgent` | `String?` | Standard Chromium | Custom global HTTP `User-Agent` header. |
 | `windowlessRendering` | `boolean` | `false` | `false` enables high-performance Windowed GPU rendering; `true` enables Off-Screen Rendering (OSR). |
+| `processModel` | `KromiumProcessModel` | `AUTO` | CEF process isolation model (`AUTO`, `OUT_OF_PROCESS`, `IN_PROCESS`). `OUT_OF_PROCESS` uses `cef_server` (independent PID, eliminating GPU collisions). |
+| `gpuMode` | `KromiumGpuMode` | `COMPOSITING_DISABLED` | GPU hardware acceleration strategy (`HARDWARE`, `SOFTWARE`, `COMPOSITING_DISABLED`, `ANGLE_WARP`). |
 | `remoteDebuggingPort` | `int` | `0` (disabled) | TCP port for Chrome DevTools protocol (`chrome://inspect`). |
 | `autoDownload` | `boolean` | `true` | When `false`, prohibits downloading native binaries if missing. Can also be set via `-Dkromium.auto.download=false`. |
 | `sandboxEnabled` | `boolean` | `true` | Enforces OS sandboxing on renderer and utility processes. |
@@ -32,6 +34,8 @@ The master configuration object passed to `KromiumEngine.getInstance().initializ
 
 ```kotlin
 val config = KromiumConfig().apply {
+    processModel = KromiumProcessModel.OUT_OF_PROCESS // Separate PID, isolated GPU context
+    gpuMode = KromiumGpuMode.HARDWARE
     cachePath = File(System.getProperty("user.home"), ".myapp/browser-cache").absolutePath
     userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/128.0.0.0 Safari/537.36 MyApp/2.1"
     remoteDebuggingPort = 0 // Keep closed in production

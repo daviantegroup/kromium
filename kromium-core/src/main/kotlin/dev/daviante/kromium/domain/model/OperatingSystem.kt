@@ -118,6 +118,16 @@ sealed class OperatingSystem(val name: String, private vararg val aliases: Strin
             return helperFile.canonicalPath
         }
 
+        override fun getServerPath(installDir: File): String? {
+            val safeBase = FileUtils.sanitizeDirectory(installDir) ?: installDir.canonicalFile
+            val candidates = listOf(
+                FileUtils.resolveChild(safeBase, "Frameworks/cef_server.app/Contents/MacOS/cef_server"),
+                FileUtils.resolveChild(safeBase, "cef_server.app/Contents/MacOS/cef_server"),
+                FileUtils.resolveChild(safeBase, "bin/cef_server")
+            ).filterNotNull()
+            return candidates.firstOrNull { it.exists() }?.canonicalPath
+        }
+
         override fun getFixedArgs(installDir: File, args: Collection<String>): Collection<String> {
             return (listOf(
                 "--framework-dir-path=${getFrameworkPath(installDir, true)}",
@@ -136,6 +146,25 @@ sealed class OperatingSystem(val name: String, private vararg val aliases: Strin
                 FileUtils.resolveChild(safeBase, "jcef_helper")
             ).filterNotNull()
             return (candidates.firstOrNull { it.exists() } ?: File(safeBase, "lib/jcef_helper")).canonicalPath
+        }
+
+        override fun getServerPath(installDir: File): String? {
+            val safeBase = FileUtils.sanitizeDirectory(installDir) ?: installDir.canonicalFile
+            val candidates = listOf(
+                FileUtils.resolveChild(safeBase, "bin/cef_server"),
+                FileUtils.resolveChild(safeBase, "lib/cef_server"),
+                FileUtils.resolveChild(safeBase, "cef_server")
+            ).filterNotNull()
+            return candidates.firstOrNull { it.exists() }?.canonicalPath
+        }
+
+        override fun getFixedArgs(installDir: File, args: Collection<String>): Collection<String> {
+            val subProcessArg = "--browser-subprocess-path=${getBrowserPath(installDir)}"
+            return if (args.any { it.startsWith("--browser-subprocess-path=") }) {
+                args
+            } else {
+                listOf(subProcessArg) + args
+            }
         }
 
         override fun getResourcesPath(installDir: File): String {
@@ -161,6 +190,26 @@ sealed class OperatingSystem(val name: String, private vararg val aliases: Strin
             return (candidates.firstOrNull { it.exists() } ?: File(safeBase, "bin/jcef_helper.exe")).canonicalPath
         }
 
+        override fun getServerPath(installDir: File): String? {
+            val safeBase = FileUtils.sanitizeDirectory(installDir) ?: installDir.canonicalFile
+            val candidates = listOf(
+                FileUtils.resolveChild(safeBase, "bin/cef_server.exe"),
+                FileUtils.resolveChild(safeBase, "cef_server.exe"),
+                FileUtils.resolveChild(safeBase, "bin/cef_server"),
+                FileUtils.resolveChild(safeBase, "cef_server")
+            ).filterNotNull()
+            return candidates.firstOrNull { it.exists() }?.canonicalPath
+        }
+
+        override fun getFixedArgs(installDir: File, args: Collection<String>): Collection<String> {
+            val subProcessArg = "--browser-subprocess-path=${getBrowserPath(installDir)}"
+            return if (args.any { it.startsWith("--browser-subprocess-path=") }) {
+                args
+            } else {
+                listOf(subProcessArg) + args
+            }
+        }
+
         override fun getResourcesPath(installDir: File): String {
             val safeBase = FileUtils.sanitizeDirectory(installDir) ?: installDir.canonicalFile
             val candidates = listOf(
@@ -182,6 +231,8 @@ sealed class OperatingSystem(val name: String, private vararg val aliases: Strin
     val isWindows: Boolean get() = this is Windows
 
     open fun getFixedArgs(installDir: File, args: Collection<String>): Collection<String> = args
+
+    open fun getServerPath(installDir: File): String? = null
 
     open fun getResourcesPath(installDir: File): String = installDir.canonicalPath
 

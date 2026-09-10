@@ -2,9 +2,12 @@ package dev.daviante.kromium.domain.config
 
 import dev.daviante.kromium.core.logging.KromiumLogger
 import dev.daviante.kromium.core.util.FileUtils
+import dev.daviante.kromium.core.util.PlatformDetector
 import dev.daviante.kromium.data.engine.EngineRegistry
 import dev.daviante.kromium.domain.exception.KromiumException
 import dev.daviante.kromium.domain.model.KromiumCustomScheme
+import dev.daviante.kromium.domain.model.KromiumGpuMode
+import dev.daviante.kromium.domain.model.KromiumProcessModel
 import dev.daviante.kromium.domain.model.KromiumSchemeRegistration
 import dev.daviante.kromium.presentation.scheme.KromiumAssetHandler
 import org.cef.CefSettings
@@ -156,6 +159,39 @@ class KromiumConfig {
         }
 
     /**
+     * Process isolation model used by Chromium Embedded Framework.
+     *
+     * - [KromiumProcessModel.AUTO]: Automatically selects [KromiumProcessModel.OUT_OF_PROCESS]
+     *   if the `cef_server` executable is present in the engine bundle, otherwise falls back to
+     *   [KromiumProcessModel.IN_PROCESS] with defensive GPU flags.
+     * - [KromiumProcessModel.OUT_OF_PROCESS]: Spawns Chromium in a dedicated `cef_server` process with
+     *   its own OS Process ID (PID). Physically isolates GPU/Direct3D contexts from the host application
+     *   and prevents Chromium or GPU crashes from taking down the host JVM.
+     * - [KromiumProcessModel.IN_PROCESS]: Runs Chromium inside the host JVM process with protective GPU shields.
+     *
+     * Defaults to [KromiumProcessModel.AUTO].
+     */
+    var processModel: KromiumProcessModel = KromiumProcessModel.AUTO
+
+    /**
+     * GPU hardware acceleration strategy.
+     *
+     * Controls how graphics, WebGL, and compositing are handled:
+     * - [KromiumGpuMode.HARDWARE]: Full hardware acceleration using native OS graphics APIs.
+     * - [KromiumGpuMode.SOFTWARE]: Pure CPU software rendering (SwiftShader / `--disable-gpu`), completely
+     *   eliminating graphics card and driver interactions.
+     * - [KromiumGpuMode.COMPOSITING_DISABLED]: GPU rasterization enabled with CPU compositing (`--disable-gpu-compositing`).
+     * - [KromiumGpuMode.ANGLE_WARP]: Microsoft WARP software Direct3D 11 rasterizer on Windows.
+     *
+     * Defaults to [KromiumGpuMode.COMPOSITING_DISABLED].
+     */
+    var gpuMode: KromiumGpuMode = KromiumGpuMode.COMPOSITING_DISABLED
+        set(value) {
+            field = value
+            applyGpuFlags()
+        }
+
+    /**
      * Command-line arguments passed to the CEF process.
      *
      * Default includes rendering optimization flags, security hardening, and
@@ -171,11 +207,65 @@ class KromiumConfig {
         "--disable-plugins", "--disable-site-isolation-trials")
 
     init {
+        applyGpuFlags()
         if (blockRegistryAndTelemetry) {
             applyRegistrySuppressionFlags()
         }
         if (doNotTrack && commandLineArgs.none { it.equals("--enable-do-not-track", ignoreCase = true) }) {
             commandLineArgs.add("--enable-do-not-track")
+        }
+    }
+
+    private fun applyGpuFlags() {
+        commandLineArgs.removeAll { arg ->
+            arg == "--disable-gpu" ||
+                arg == "--disable-gpu-compositing" ||
+                arg.startsWith("--use-gl=") ||
+                arg.startsWith("--use-angle=")
+        }
+
+        when (gpuMode) {
+            KromiumGpuMode.HARDWARE -> {
+                applyWindowsGpuShieldsIfNeeded()
+            }
+            KromiumGpuMode.COMPOSITING_DISABLED -> {
+                if (commandLineArgs.none { it.equals("--disable-gpu-compositing", ignoreCase = true) }) {
+                    commandLineArgs.add("--disable-gpu-compositing")
+                }
+                applyWindowsGpuShieldsIfNeeded()
+            }
+            KromiumGpuMode.SOFTWARE -> {
+                if (commandLineArgs.none { it.equals("--disable-gpu", ignoreCase = true) }) {
+                    commandLineArgs.add("--disable-gpu")
+                }
+                if (commandLineArgs.none { it.startsWith("--use-gl=") }) {
+                    commandLineArgs.add("--use-gl=angle")
+                }
+                if (commandLineArgs.none { it.startsWith("--use-angle=") }) {
+                    commandLineArgs.add("--use-angle=swiftshader")
+                }
+            }
+            KromiumGpuMode.ANGLE_WARP -> {
+                if (commandLineArgs.none { it.startsWith("--use-gl=") }) {
+                    commandLineArgs.add("--use-gl=angle")
+                }
+                if (commandLineArgs.none { it.startsWith("--use-angle=") }) {
+                    commandLineArgs.add("--use-angle=warp")
+                }
+                applyWindowsGpuShieldsIfNeeded()
+            }
+        }
+    }
+
+    private fun applyWindowsGpuShieldsIfNeeded() {
+        val platform = try { PlatformDetector.current() } catch (_: Throwable) { null }
+        if (platform?.os?.isWindows == true) {
+            if (commandLineArgs.none { it.equals("--disable-direct-composition", ignoreCase = true) }) {
+                commandLineArgs.add("--disable-direct-composition")
+            }
+            if (commandLineArgs.none { it.equals("--disable-gpu-watchdog", ignoreCase = true) }) {
+                commandLineArgs.add("--disable-gpu-watchdog")
+            }
         }
     }
 
@@ -497,6 +587,8 @@ class KromiumConfig {
         fun sslErrorPolicy(policy: dev.daviante.kromium.domain.exception.SslErrorPolicy) = apply { config.sslErrorPolicy = policy }
         fun webrtcIpHandlingPolicy(policy: String?) = apply { config.webrtcIpHandlingPolicy = policy }
         fun doNotTrack(enabled: Boolean) = apply { config.doNotTrack = enabled }
+        fun processModel(model: KromiumProcessModel) = apply { config.processModel = model }
+        fun gpuMode(mode: KromiumGpuMode) = apply { config.gpuMode = mode }
 
         fun build(): KromiumConfig {
             config.validate()
