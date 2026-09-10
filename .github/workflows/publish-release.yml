@@ -256,13 +256,13 @@ jobs:
               if header_match:
                   header_text = header_match.group(1).lower()
                   if "major" in header_text:
-                      release_type = "Major-Release"
+                      release_type = "Major_Release"
                       badge_color = "blueviolet"
                   elif "security" in header_text:
-                      release_type = "Security-Patch"
+                      release_type = "Security_Patch"
                       badge_color = "d13438"
                   elif "minor" in header_text or "feature" in header_text:
-                      release_type = "Feature-Release"
+                      release_type = "Feature_Release"
                       badge_color = "0078d4"
 
               pattern = rf"## \[{re.escape(version)}\][^\n]*\n(.*?)(?=\n---\n|\n## \[|\Z)"
@@ -281,7 +281,7 @@ jobs:
             <h2>Kromium {tag_name}</h2>
             <p>
               <img src=\"https://img.shields.io/badge/Channel-Stable-107c41?style=flat-square&logo=shield\" alt=\"Stable\" />
-              <img src=\"{type_badge}\" alt=\"{release_type}\" />
+              <img src=\"{type_badge}\" alt=\"{release_type.replace('_', ' ')}\" />
               <img src=\"https://img.shields.io/badge/Engine-JetBrains_Certified_JCEF-5c2d91?style=flat-square\" alt=\"JetBrains Certified\" />
               <img src=\"https://img.shields.io/badge/Chromium-CEF_150-e36209?style=flat-square&logo=googlechrome\" alt=\"Chromium 150\" />
             </p>
