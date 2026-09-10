@@ -4,14 +4,15 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/brand-dark.svg">
     <source media="(prefers-color-scheme: light)" srcset="assets/brand.svg">
-    <img alt="Kromium" src="assets/brand.svg" width="300">
+    <img alt="Kromium" src="assets/brand.svg" width="320">
   </picture>
-  <p><strong>Modern Chromium Embedded Framework for Compose Multiplatform Desktop &amp; Kotlin JVM</strong></p>
+  <p><strong>Modern Chromium Embedded Framework for Compose Multiplatform Desktop &amp; Universal Java (Swing, AWT, SWT, JavaFX) Applications</strong></p>
 
   <p>
     <a href="https://central.sonatype.com/artifact/dev.daviante/kromium-compose"><img src="https://img.shields.io/badge/Maven_Central-v2.1.150--b11-107c41?style=flat-square&logo=apachemaven" alt="Maven Central" /></a>
     <a href="https://kromium.daviante.dev"><img src="https://img.shields.io/badge/Docs_Portal-kromium.daviante.dev-0078d4?style=flat-square" alt="Documentation Portal" /></a>
-    <a href="https://kotlinlang.org"><img src="https://img.shields.io/badge/Kotlin-2.1.10-7F52FF?style=flat-square&logo=kotlin" alt="Kotlin" /></a>
+    <a href="https://kotlinlang.org"><img src="https://img.shields.io/badge/Kotlin-2.1+-7F52FF?style=flat-square&logo=kotlin" alt="Kotlin" /></a>
+    <a href="https://adoptium.net"><img src="https://img.shields.io/badge/Java-17%20%7C%2021%20LTS-ED8B00?style=flat-square&logo=openjdk" alt="Java" /></a>
     <a href="https://www.jetbrains.com/lp/compose-multiplatform/"><img src="https://img.shields.io/badge/Compose_Desktop-1.7.3-4285F4?style=flat-square&logo=jetpackcompose" alt="Compose Multiplatform" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-5c2d91?style=flat-square" alt="License" /></a>
     <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-24292e?style=flat-square" alt="Platforms" />
@@ -20,102 +21,39 @@
 
 ---
 
-**Kromium** is an open-source, production-grade Chromium Embedded Framework (CEF) library built specifically for **Compose Multiplatform Desktop** and **Kotlin JVM** applications across Windows, macOS, and Linux.
+**Kromium** is an open-source, production-grade Chromium Embedded Framework (CEF) library built with **first-class multi-toolkit ergonomics** for **Compose Multiplatform Desktop** and the entire **Universal Java Desktop ecosystem (Swing, AWT, Eclipse SWT, JavaFX)** across Windows, macOS, and Linux.
 
-Backed by standard **Chromium Embedded Framework (CEF 150)** and the battle-tested JetBrains JCEF runtime, Kromium delivers zero-bloat automated engine installation, hardware-accelerated rendering, coroutine-based JavaScript bridges, asynchronous cookie management, enterprise network proxying, and a declarative `@Composable KromiumView`.
+Backed by **CEF 150** and the battle-tested JetBrains JCEF runtime, Kromium delivers on-demand bootstrapping, hardware-accelerated rendering, pure Java2D lightweight off-screen rendering (OSR), dynamic HiDPI scaling, virtual asset streaming via custom protocols (`app://`), asynchronous PDF export, declarative context menus, WebRTC permission interception, two-way JavaScript IPC bridges, and enterprise proxying.
 
 > [!TIP]
-> **Explore the Interactive Documentation Portal**: Visit **[kromium.daviante.dev](https://kromium.daviante.dev)** for interactive guides, API search, and live demos.
+> **Explore the Interactive Documentation Portal**: Visit **[kromium.daviante.dev](https://kromium.daviante.dev)** for interactive guides, API search, and live demos. Full technical documentation is also maintained in the **[`docs/`](docs/)** directory.
 
 ---
 
-## 🌟 Why Kromium?
+## 🌟 Highlights & Killer Features
 
-* 🚀 **Zero-Bloat On-Demand Bootstrapping**: Ship lightweight 15–30MB desktop installers. Kromium downloads, verifies (SHA-256), and caches the native platform JCEF runtime upon first launch.
-* 🎨 **First-Class Compose Multiplatform UI**: Declarative `@Composable KromiumView` integrated with Compose Desktop's layout, lifecycle, and state system.
-* 🛡️ **Zero Telemetry & Registry Protection**: Automated suppression of Windows Registry modifications, Crashpad crash reporters, Omaha updates, toast notifications, and telemetry.
-* 🏢 **Enterprise & SMB Proxy Architecture**: Full support for PAC scripts, WPAD auto-discovery, HTTPS TLS tunnels, SOCKS5 remote DNS leak protection, Multi-Protocol split routing, NTLM/Kerberos SSO, and **dynamic runtime proxy switching**.
-* ☕ **Zero JVM Module Configuration**: Dynamic module opening at engine boot eliminates manual `--add-opens` flags on Java 17, 21, and 23+.
-* 🤖 **Zero-Dependency Headless Automation**: Run full-featured background web scraping and automation without fragile OpenGL/JOGL dependencies.
-* ⚖️ **100% Royalty-Free & Apache 2.0 Licensed**: Open-source, compliant with patent guidelines, and free from commercial MPEG LA licensing encumbrances.
-
----
-
-## 📚 Documentation Hub
-
-Complete, in-depth documentation organized according to the **Diátaxis framework** is available in the **[`docs/`](docs/)** directory:
-
-| Section | Guides & References | Key Topics |
-|:---|:---|:---|
-| **🚀 Getting Started** | [Installation](docs/getting-started/installation.md)<br/>[Compose Quickstart](docs/getting-started/quickstart-compose.md)<br/>[Swing JVM Quickstart](docs/getting-started/quickstart-jvm.md) | Gradle dependencies, repository setup, first browser window, and dynamic JVM module opening. |
-| **🏛️ Core Concepts** | [Architecture](docs/core-concepts/architecture.md)<br/>[State & Lifecycle](docs/core-concepts/state-and-lifecycle.md)<br/>[Security & Privacy](docs/core-concepts/security-and-privacy.md) | Bootstrap pipeline, multi-process Chromium architecture, `KromiumState` flow, and registry suppression. |
-| **📖 Guides** | [Compose UI Integration](docs/guides/compose-ui.md)<br/>[Navigation & History](docs/guides/navigation-and-history.md)<br/>[JavaScript & DOM](docs/guides/javascript-and-dom.md)<br/>[Network & Proxies](docs/guides/network-and-proxies.md) | Multi-tab UI, navigation controls, coroutine JS execution, IPC routers, and enterprise proxy configuration. |
-| **📖 Guides (Cont.)** | [Asset Filtering](docs/guides/asset-filtering-and-security.md)<br/>[Cookie Management](docs/guides/cookie-management.md)<br/>[Downloads & Dialogs](docs/guides/downloads-and-dialogs.md)<br/>[Headless & Automation](docs/guides/headless-and-automation.md) | Ad blocking, host locking, async cookie store, downloads, modal dialogs, and off-screen headless scraping. |
-| **📋 API Reference** | [Configuration (`KromiumConfig`)](docs/reference/configuration.md)<br/>[Browser & Client API](docs/reference/browser-and-client-api.md)<br/>[Handlers & Events](docs/reference/handlers-and-events.md)<br/>[Exceptions & Logging](docs/reference/exceptions-and-logging.md) | Complete property catalogs, method signatures, composite multiplexers, and pluggable logging. |
-| **📦 Deployment** | [Packaging & Distribution](docs/deployment/packaging-and-distribution.md)<br/>[Platform Considerations](docs/deployment/platform-specifics.md)<br/>[Troubleshooting & FAQ](docs/deployment/troubleshooting-and-faq.md) | Desktop installers (MSI, DMG, DEB), ProGuard/R8 rules, macOS framework symlinks, and Linux dependencies. |
-
-Visit the master sitemap at **[`docs/README.md`](docs/README.md)**.
+* 🚀 **Universal Java Desktop Ecosystem**: Native declarative `@Composable KromiumView` for Compose Desktop, alongside first-class support for **Java Swing**, **Standard AWT**, **Eclipse SWT**, and **JavaFX** with zero Kotlin runtime dependencies required for JVM callers.
+* 🎨 **Pure Java2D Lightweight OSR (Zero JOGL/OpenGL)**: Built-in `KromiumOSRPanel` draws Chromium byte buffers directly into Java2D double-buffered images, completely resolving Swing/JavaFX airspace and Z-ordering conflicts without external OpenGL native libraries. True-color little-endian memory mapping eliminates the classic inverted red/blue "Smurf" bug with zero CPU overhead.
+* 🖱️ **Continuous Sub-Pixel Trackpad & Wheel Scrolling**: Full `getPreciseWheelRotation()` sub-pixel event translation and floating-point accumulation eliminate dead-zones, lag, and sudden jumps on macOS Trackpads and Windows Precision Touchpads.
+* ⌨️ **Native macOS Command (⌘) Shortcuts in OSR**: Seamless execution of **Cmd+C**, **Cmd+V**, **Cmd+X**, **Cmd+A**, **Cmd+Z**, redo, reload, zoom, and history navigation even without a native Cocoa window or menu bar.
+* 🖥️ **Automatic HiDPI / Retina Scaling**: Dynamic scale factor detection (`AffineTransform.getScaleX()`) and real-time screen info synchronization guarantee razor-sharp web rendering across mixed 125%, 150%, and 200% displays on Windows, macOS, and Linux. Fully configurable via developer APIs (`scaleFactor`, `scrollMultiplier`, `RenderingHints`).
+* 📦 **Zero-Bloat On-Demand Bootstrapping**: Ship ultra-compact 15–30 MB desktop installers. Kromium downloads, verifies with SHA-256, extracts, and caches the native platform JCEF runtime on first launch.
+* 🌐 **Virtual Asset Streaming (`app://`)**: Stream local bundled HTML, CSS, JS, and WebAssembly directly from classpath resources or local directories via custom protocols without running a local HTTP server.
+* 📄 **Async Vector PDF Export & Native Print Dialog**: Non-blocking document printing via Kotlin Coroutines (`printToPdf`) or Java `CompletableFuture` (`printToPdfAsync`), plus native OS print dialogs (`print()`).
+* 🖱️ **Declarative Context Menu DSL**: Full control over right-click menus with turnkey shortcuts (`inspectElement()`, `copyLink()`, `searchWeb()`) and direct lambda callbacks without JCEF integer command bookkeeping.
+* 🎙️ **WebRTC Media & Device Permissions**: Granular, origin-aware permission interception for Microphone, Camera, Screen Sharing, and Desktop Audio with in-memory session caching and strict security defaults.
+* ⚡ **Two-Way JavaScript Bridge**: Coroutine and `CompletableFuture` JS evaluation, DOM extraction, and secure type-safe bidirectional IPC routing using `@JavascriptInterface`.
+* 🏢 **Enterprise Proxy & Network Management**: Dynamic runtime proxy switching (PAC, WPAD, HTTPS TLS tunnels, SOCKS5 remote DNS), NTLM/Kerberos SSO, SSL error policies, and host locking.
+* ☕ **Zero JVM Module Configuration**: Automatic runtime module opening eliminates manual `--add-opens` flags on Java 17, 21, and 23+.
+* 🤖 **Enterprise Web Automation & Headless Normalization**: Rich, auto-waiting DOM automation DSL (`click`, `fill`, `waitForSelector`, `selectOption`), in-flight network synchronization (`waitForNetworkIdle`), and headless desktop environment normalization for reliable E2E testing and server-side data extraction without external drivers or fragile Selenium/Playwright processes.
 
 ---
 
-## 🏗️ Architecture
+## 📦 Installation
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                       Your Application                          │
-│        (Compose Multiplatform Desktop / Kotlin JVM)             │
-└────────────────────────────────┬────────────────────────────────┘
-                                 │
-                 ┌───────────────┴───────────────┐
-                 ▼                               ▼
-       ┌──────────────────┐            ┌──────────────────┐
-       │  kromium-compose │            │   kromium-core   │
-       │  (KromiumView)   │            │ (KromiumClient,  │
-       │(KromiumViewState)│            │  KromiumBrowser) │
-       └─────────┬────────┘            └─────────┬────────┘
-                 │                               │
-                 └───────────────┬───────────────┘
-                                 ▼
-                     ┌───────────────────────┐
-                     │   Kromium Singleton   │
-                     │ (StateFlow lifecycle, │
-                     │  Mutex-safe startup)  │
-                     └───────────┬───────────┘
-                                 ▼
-                     ┌───────────────────────┐
-                     │    CefBootstrapper    │
-                     │  (Native lib loading, │
-                     │   JAWT, SwiftShader)  │
-                     └───────────┬───────────┘
-                                 ▼
-                     ┌───────────────────────┐
-                     │   Pure JCEF Runtime   │
-                     │      (jcef.jar)       │
-                     └───────────┬───────────┘
-                                 ▼
-         ┌───────────────────────────────────────────────┐
-         │          Platform Native Binaries             │
-         │  Windows (jcef.dll, libcef.dll)               │
-         │  macOS (Chromium Embedded Framework.framework)│
-         │  Linux (libcef.so, libjcef.so)                │
-         └───────────────────────────────────────────────┘
-```
+Add Kromium to your project dependencies:
 
----
-
-## 📦 Modules
-
-* **`dev.daviante:kromium-compose`**: Declarative `@Composable KromiumView`, `KromiumViewState`, and Compose multi-tab helpers. (Includes `kromium-core` transitively).
-* **`dev.daviante:kromium-core`**: Core engine coordination, dynamic JCEF downloader, `KromiumBrowser`, `KromiumClient`, cookie management, network interception, and headless automation.
-* **`kromium-demo`**: Complete showcase desktop browser with multi-tab browsing, DevTools, REPL, and settings.
-
----
-
-## 📥 Installation
-
-Add the dependency to your `build.gradle.kts`:
-
-### Compose Multiplatform Desktop
+### Gradle (Kotlin DSL)
 
 ```kotlin
 repositories {
@@ -124,189 +62,506 @@ repositories {
     maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
 }
 
-kotlin {
-    jvm("desktop")
-    sourceSets {
-        val desktopMain by getting {
-            dependencies {
-                implementation(compose.desktop.currentOs)
-                // Kromium Compose Multiplatform bindings
-                implementation("dev.daviante:kromium-compose:2.1.150-b11")
+dependencies {
+    // For Compose Multiplatform Desktop:
+    implementation("dev.daviante:kromium-compose:3.0.150-b11")
 
-                // Coroutines
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.9.0")
-            }
-        }
-    }
+    // Or for Pure Java / Swing / Headless JVM:
+    implementation("dev.daviante:kromium-core:3.0.150-b11")
 }
 ```
 
-### Pure Kotlin JVM / Java Swing (Without Compose)
+### Gradle (Groovy DSL)
 
-```kotlin
+```groovy
 repositories {
     mavenCentral()
+    google()
+    maven { url 'https://maven.pkg.jetbrains.space/public/p/compose/dev' }
 }
 
 dependencies {
-    implementation("dev.daviante:kromium-core:2.1.150-b11")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+    implementation 'dev.daviante:kromium-compose:3.0.150-b11'
+    // or: implementation 'dev.daviante:kromium-core:3.0.150-b11'
 }
+```
+
+### Apache Maven (`pom.xml` for Pure Java)
+
+```xml
+<dependency>
+    <groupId>dev.daviante</groupId>
+    <artifactId>kromium-core</artifactId>
+    <version>3.0.150-b11</version>
+</dependency>
 ```
 
 ---
 
-## ⚡ Quick Start
+## ⚡ 5-Minute Quickstart
 
-### 1. Initialize the Engine
-Call `Kromium.initialize()` once during application startup before rendering UI:
+### Kotlin (Compose Multiplatform Desktop)
 
 ```kotlin
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.application
+import dev.daviante.kromium.compose.KromiumView
+import dev.daviante.kromium.compose.rememberKromiumViewState
 import dev.daviante.kromium.presentation.browser.Kromium
 
-suspend fun main() {
-    Kromium.initialize {
-        // Suppresses Windows Registry modifications and telemetry (default: true)
-        blockRegistryAndTelemetry = true
-        
-        // Optional: Remote Chrome DevTools port (0 = disabled)
-        remoteDebuggingPort = 9222
+fun main() = application {
+    LaunchedEffect(Unit) {
+        if (!Kromium.isReady) Kromium.initialize()
+    }
+
+    Window(onCloseRequest = ::exitApplication, title = "Kromium Compose Browser") {
+        MaterialTheme {
+            val state = rememberKromiumViewState(initialUrl = "https://github.com/daviante/kromium")
+            KromiumView(state = state, modifier = Modifier.fillMaxSize())
+        }
     }
 }
 ```
 
-Monitor engine download and bootstrap progress reactively:
+### Pure Java (Swing / Enterprise)
 
-```kotlin
-val state by Kromium.state.collectAsState()
+```java
+import dev.daviante.kromium.domain.config.KromiumConfig;
+import dev.daviante.kromium.presentation.browser.Kromium;
+import dev.daviante.kromium.presentation.browser.KromiumBrowser;
+import dev.daviante.kromium.presentation.browser.KromiumClient;
+import javax.swing.JFrame;
+import javax.swing.SwingUtilities;
 
-when (val s = state) {
-    is KromiumState.Downloading -> Text("Downloading Chromium: ${s.progress.percentage}%")
-    is KromiumState.Extracting -> Text("Extracting runtime binaries...")
-    is KromiumState.Initializing -> Text("Bootstrapping Chromium engine...")
-    is KromiumState.Ready -> Text("Engine ready!")
-    is KromiumState.Error -> Text("Initialization error: ${s.cause.message}")
-    else -> {}
-}
-```
+public class QuickstartJava {
+    public static void main(String[] args) {
+        // 1. Initialize engine
+        Kromium.initialize(KromiumConfig.builder().build());
 
-### 2. Embed Web Content in Compose Desktop
+        // 2. Create client and browser
+        KromiumClient client = Kromium.newClient();
+        KromiumBrowser browser = client.createBrowser("https://github.com/daviante/kromium");
 
-```kotlin
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
-import dev.daviante.kromium.compose.KromiumView
-import dev.daviante.kromium.compose.rememberKromiumState
-
-@Composable
-fun BrowserScreen() {
-    val state = rememberKromiumState(initialUrl = "https://github.com/daviantegroup/kromium")
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        // Navigation Bar
-        Row {
-            Button(onClick = { state.goBack() }, enabled = state.canGoBack) { Text("Back") }
-            Button(onClick = { state.goForward() }, enabled = state.canGoForward) { Text("Forward") }
-            Button(onClick = { state.reload() }) { Text("Reload") }
-            Button(onClick = { state.openDevTools() }) { Text("DevTools") }
-        }
-
-        // Native Browser Rendering Surface
-        KromiumView(
-            state = state,
-            modifier = Modifier.fillMaxSize()
-        )
+        // 3. Mount UI component into standard JFrame
+        SwingUtilities.invokeLater(() -> {
+            JFrame frame = new JFrame("Kromium Java Browser");
+            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            frame.setSize(1280, 800);
+            frame.add(browser.getUiComponent());
+            frame.setLocationRelativeTo(null);
+            frame.setVisible(true);
+        });
     }
 }
 ```
 
 ---
 
-## 💡 Feature Highlights
+## 🖥️ Universal Java Desktop Compatibility Matrix
 
-### 🍪 Coroutine Cookie Management
+Kromium is engineered to run seamlessly across every major JVM graphical toolkit. Choose the optimal rendering mode and container for your architecture:
+
+| Framework / Toolkit | Recommended Mode | Underlying Technology | Primary Container | Sample Project |
+|:---|:---|:---|:---|:---|
+| **Compose Multiplatform** | **Windowed (GPU)** *(or OSR)* | Skia Hole-Punching via `SwingPanel` | `@Composable KromiumView` | [`:kromium-sample-compose`](kromium-sample-compose/) |
+| **Java Swing** | **Lightweight OSR** *(Default)* | Pure Java2D `KromiumOSRPanel` | `JFrame` / `JPanel` | [`:kromium-sample-swing`](kromium-sample-swing/) |
+| **Standard AWT** | **Heavyweight Windowed** | Native OS Window embedding | `java.awt.Frame` / `Panel` | [`:kromium-sample-awt`](kromium-sample-awt/) |
+| **Eclipse SWT** | **Heavyweight Windowed** | Bridged AWT Composite (`SWT_AWT`) | `org.eclipse.swt.widgets.Shell` | [`:kromium-sample-swt`](kromium-sample-swt/) |
+| **JavaFX** | **Lightweight OSR** | Embedded Swing wrapper (`SwingNode`) | `javafx.scene.Scene` / `SwingNode` | [`:kromium-sample-javafx`](kromium-sample-javafx/) |
+
+> [!TIP]
+> For complete setup instructions and code examples for each framework, see the [Universal Java Desktop Quickstart](docs/getting-started/quickstart-jvm.md).
+
+---
+
+### 1. 🌐 Virtual Local Asset Streaming (`app://`)
+
+Serve local bundled web applications (HTML, CSS, JavaScript, React/Vue bundles, WebAssembly) securely via custom protocols without opening local HTTP ports or battling port-clash and CORS issues.
+
+#### Kotlin (Compose)
 ```kotlin
-import dev.daviante.kromium.presentation.network.KromiumCookieManager
+import dev.daviante.kromium.presentation.browser.Kromium
+import dev.daviante.kromium.presentation.scheme.KromiumCustomScheme
+import dev.daviante.kromium.presentation.scheme.KromiumSchemeHandler
 
-// Retrieve all cookies for a domain
-val cookies: Map<String, String> = KromiumCookieManager.getCookies("https://example.com")
-
-// Set a session or persistent cookie
-KromiumCookieManager.setCookie(
-    url = "https://example.com",
-    name = "session_token",
-    value = "xyz123",
-    isHttpOnly = true,
-    isSecure = true
-)
-
-// Clear all cookies
-KromiumCookieManager.clearCookies()
-```
-
-### 🌐 Network Request Interception & Security
-```kotlin
-import dev.daviante.kromium.presentation.network.KromiumRequestInterceptor
-
-state.requestInterceptor = KromiumRequestInterceptor { request ->
-    // 1. Block tracking scripts & ads
-    if (request.url.contains("doubleclick.net")) {
-        return@KromiumRequestInterceptor true // Cancel request
-    }
-    // 2. Inject custom authentication headers
-    request.headers["Authorization"] = "Bearer my-secret-token"
-    false // Allow request to proceed
-}
-```
-
-### 🏢 Enterprise Proxies & Dynamic Runtime Switching
-```kotlin
-import dev.daviante.kromium.domain.config.KromiumProxy
-
-// Switch proxy at runtime across all active browsers without restarting:
-Kromium.setProxy(
-    KromiumProxy.Http(
-        host = "proxy.corp.internal",
-        port = 8080,
-        username = "domain\\user",
-        password = "SecurePassword",
-        bypassList = listOf("<local>", "127.0.0.1", "*.internal.corp")
+// Register 'app://' before initialize:
+Kromium.registerCustomScheme(
+    KromiumCustomScheme.create(
+        schemeName = "app",
+        domain = "myapp",
+        handler = KromiumSchemeHandler.fromClasspath(
+            resourcePathPrefix = "/web-app",
+            spaFallback = "index.html"
+        )
     )
 )
+Kromium.initialize()
+
+// In Compose UI:
+state.loadUrl("app://myapp/index.html")
 ```
 
-### 📄 Suspending JavaScript & DOM Extraction
+#### Pure Java (Swing)
+```java
+import dev.daviante.kromium.presentation.browser.Kromium;
+import dev.daviante.kromium.presentation.scheme.KromiumCustomScheme;
+import dev.daviante.kromium.presentation.scheme.KromiumSchemeHandler;
+
+// Register 'app://' protocol backed by classpath bundle:
+Kromium.registerCustomScheme(
+    KromiumCustomScheme.builder("app")
+        .domain("myapp")
+        .handler(KromiumSchemeHandler.fromClasspath("/web-app", "index.html"))
+        .build()
+);
+Kromium.initialize();
+
+browser.loadUrl("app://myapp/index.html");
+```
+
+📖 *Deep dive: [`docs/guides/asset-filtering-and-security.md`](docs/guides/asset-filtering-and-security.md)*
+
+---
+
+### 2. 📄 Async Vector PDF Export & Native Print Dialog
+
+Export web pages into high-resolution, vector-crisp PDF documents asynchronously with precise layout control, or trigger the operating system's native print preview dialog.
+
+#### Kotlin (Coroutines & Compose)
 ```kotlin
-coroutineScope.launch {
-    // Evaluate arbitrary JavaScript asynchronously
-    val pageTitle: String? = state.evaluateJavaScript("document.title")
+import dev.daviante.kromium.domain.model.KromiumPaperSize
+import dev.daviante.kromium.domain.model.KromiumPdfMargins
+import dev.daviante.kromium.domain.model.KromiumPdfSettings
+import java.io.File
 
-    // Extract outer HTML of current frame
-    val html: String = state.getHtml()
+// Non-blocking suspending export:
+val pdf: File = browser.printToPdf(
+    targetFile = File("exports/invoice.pdf"),
+    settings = KromiumPdfSettings(
+        paperSize = KromiumPaperSize.A4,
+        landscape = false,
+        printBackground = true,
+        margins = KromiumPdfMargins.fromMillimeters(10.0, 10.0, 10.0, 10.0),
+        displayHeaderFooter = true,
+        headerTemplate = "<span class=\"title\"></span>",
+        footerTemplate = "<span class=\"pageNumber\"></span> of <span class=\"totalPages\"></span>"
+    )
+)
 
-    // Extract visible plain text
-    val plainText: String = state.getText()
+// Or open the native OS print dialog:
+state.print() // in Compose
+// or: browser.print()
+```
+
+#### Pure Java (CompletableFuture)
+```java
+import dev.daviante.kromium.domain.model.KromiumPaperSize;
+import dev.daviante.kromium.domain.model.KromiumPdfMargins;
+import dev.daviante.kromium.domain.model.KromiumPdfSettings;
+import java.io.File;
+
+KromiumPdfSettings settings = KromiumPdfSettings.builder()
+    .paperSize(KromiumPaperSize.Letter)
+    .printBackground(true)
+    .margins(KromiumPdfMargins.None.INSTANCE)
+    .build();
+
+// Non-blocking async generation returning CompletableFuture<File>:
+browser.printToPdfAsync(new File("exports/report.pdf"), settings)
+    .thenAccept(file -> System.out.println("Generated PDF: " + file.getAbsolutePath()))
+    .exceptionally(ex -> {
+        System.err.println("PDF generation failed: " + ex.getMessage());
+        return null;
+    });
+
+// Interactive native print dialog:
+browser.print();
+```
+
+📖 *Deep dive: [`docs/reference/browser-and-client-api.md`](docs/reference/browser-and-client-api.md)*
+
+---
+
+### 3. 🖱️ Declarative Context Menu DSL & Turnkey Actions
+
+Customize, add, or replace right-click context menus with high-level actions, custom callbacks, and built-in shortcuts without manual integer command ID plumbing.
+
+#### Kotlin (Compose)
+```kotlin
+import dev.daviante.kromium.presentation.menu.KromiumContextMenuHandler
+
+state.setContextMenu { ctx ->
+    clear() // Remove default browser items (View Source, etc.)
+
+    if (ctx.params.isLink()) {
+        copyLink("Copy Target Link")
+        separator()
+    }
+
+    if (ctx.params.hasSelection()) {
+        copy("Copy")
+        searchWeb() // Turnkey: "Search Google for '%s'"
+        separator()
+    }
+
+    item("Custom App Action") { context ->
+        println("User clicked on: ${context.params.pageUrl}")
+    }
+
+    subMenu("Developer") {
+        inspectElement() // Opens DevTools inspecting clicked coordinates
+        viewSource()
+    }
+}
+
+// Or use ready-made turnkey presets:
+state.contextMenuHandler = KromiumContextMenuHandler.minimalEditing(includeInspectElement = true)
+state.contextMenuHandler = KromiumContextMenuHandler.devToolsOnly()
+state.contextMenuHandler = KromiumContextMenuHandler.disabled()
+```
+
+#### Pure Java (Swing)
+```java
+import dev.daviante.kromium.presentation.menu.KromiumContextMenuHandler;
+
+client.setContextMenuHandler((builder, ctx) -> {
+    builder.clearDefaults();
+
+    if (ctx.getParams().hasSelection()) {
+        builder.copy();
+        builder.searchWeb();
+        builder.addSeparator();
+    }
+
+    builder.inspectElement();
+    builder.addItem("Export Row", c -> exportSelection(c.getParams().getSelectionText()));
+});
+
+// Turnkey presets:
+client.setContextMenuHandler(KromiumContextMenuHandler.minimalEditing(true));
+client.setContextMenuHandler(KromiumContextMenuHandler.devToolsOnly());
+```
+
+📖 *Deep dive: [`docs/reference/handlers-and-events.md`](docs/reference/handlers-and-events.md)*
+
+---
+
+### 4. 🎙️ WebRTC Media Permissions & Session Caching
+
+Intercept and evaluate web permission requests (Microphone, Camera, Screen Sharing, Desktop Audio) requested by web apps (e.g. Google Meet, Zoom, WebRTC video calling). Unhandled requests default strictly to `Deny`.
+
+#### Kotlin (Compose)
+```kotlin
+import dev.daviante.kromium.presentation.handler.KromiumPermissionDecision
+import dev.daviante.kromium.presentation.handler.KromiumPermissionHandler
+import dev.daviante.kromium.presentation.handler.KromiumPermissionType
+
+// Fine-grained selective permission filtering:
+state.permissionHandler = KromiumPermissionHandler { request ->
+    when {
+        // Whitelist corporate domain for audio only
+        request.origin == "https://meet.corp.internal" -> {
+            KromiumPermissionDecision.grant(KromiumPermissionType.AUDIO_CAPTURE)
+        }
+        // Grant all permissions for trusted apps
+        request.origin.startsWith("app://") -> KromiumPermissionDecision.GRANT
+        // Securely deny all untrusted sites
+        else -> KromiumPermissionDecision.DENY
+    }
+}
+
+// Or use ready-made turnkey domain presets:
+state.permissionHandler = KromiumPermissionHandler.forOrigins("meet.google.com", "zoom.us")
+
+// Programmatically revoke remembered session permissions:
+state.clearPermissionCache()
+```
+
+#### Pure Java (Swing)
+```java
+import dev.daviante.kromium.presentation.handler.KromiumPermissionDecision;
+import dev.daviante.kromium.presentation.handler.KromiumPermissionHandler;
+import dev.daviante.kromium.presentation.handler.KromiumPermissionType;
+
+client.setPermissionHandler(request -> {
+    if (request.hasAudio() && "https://meet.company.com".equals(request.getOrigin())) {
+        return KromiumPermissionDecision.grant(KromiumPermissionType.AUDIO_CAPTURE);
+    }
+    return KromiumPermissionDecision.DENY;
+});
+
+// Turnkey origin allowlist:
+client.setPermissionHandler(KromiumPermissionHandler.forOrigins("meet.google.com", "zoom.us"));
+
+// Revoke session cache:
+client.clearPermissionCache();
+```
+
+📖 *Deep dive: [`docs/reference/handlers-and-events.md`](docs/reference/handlers-and-events.md)*
+
+---
+
+### 5. ⚡ Two-Way JavaScript Bridge & Typed DOM Evaluation
+
+Execute arbitrary JavaScript with coroutine and `CompletableFuture` return values, or bind native JVM objects to JavaScript's `window` object for bidirectional communication.
+
+#### Kotlin (Coroutines & Compose)
+```kotlin
+import dev.daviante.kromium.presentation.js.JavascriptInterface
+
+// 1. Evaluate JavaScript asynchronously:
+val headingText: String? = browser.evaluateJavascript("document.querySelector('h1').innerText")
+
+// 2. Register native object into JavaScript window context:
+class NativeBridge {
+    @JavascriptInterface
+    fun onUserAction(payload: String) {
+        println("Received from web page: $payload")
+    }
+}
+
+browser.registerJsInterface(NativeBridge(), "desktopApp")
+// In web page: window.desktopApp.onUserAction("Hello from JS!")
+```
+
+#### Pure Java (CompletableFuture)
+```java
+import dev.daviante.kromium.presentation.js.JavascriptInterface;
+
+// 1. Evaluate JavaScript returning CompletableFuture<String>:
+browser.evaluateJavascript("document.title")
+    .thenAccept(title -> System.out.println("Page title is: " + title));
+
+// 2. Register native Java bridge object:
+public class NativeBridge {
+    @JavascriptInterface
+    public void notify(String message) {
+        System.out.println("Message from JS: " + message);
+    }
+}
+
+browser.registerJsInterface(new NativeBridge(), "desktopApp");
+```
+
+📖 *Deep dive: [`docs/guides/javascript-and-dom.md`](docs/guides/javascript-and-dom.md)*
+
+---
+
+### 6. 🤖 Headless Automation, DOM Interaction DSL & Screenshots
+
+Perform server-side web automation, E2E workflow testing, structured DOM extraction, and automated screenshot capture in offscreen headless environments with full desktop environment normalization and network idle synchronization.
+
+#### Kotlin (Coroutines)
+```kotlin
+// 1. Initialize headless browser with desktop normalization:
+val config = KromiumConfig().apply {
+    windowlessRendering = true
+    emulateDesktopEnvironment = true
+}
+Kromium.initialize(config)
+
+val browser = Kromium.newClient().createBrowser("https://example.com/login")
+
+// 2. Automate user interaction with auto-waiting DSL:
+browser.waitForSelector("#username")
+browser.fill("#username", "service-account")
+browser.fill("#password", "SecureKey456!")
+browser.click("button[type='submit']")
+
+// 3. Synchronize with background network activity:
+browser.waitForNetworkIdle(idleTimeMs = 500)
+
+// 4. Extract data or capture raster screenshot:
+val headline = browser.getTextContent(".welcome-title")
+val screenshot: java.awt.image.BufferedImage? = browser.takeScreenshot()
+```
+
+#### Pure Java (CompletableFuture)
+```java
+KromiumBrowser browser = client.createBrowser("https://example.com/portal");
+
+// Chain interaction steps asynchronously:
+browser.waitForSelectorAsync("#search", 5_000)
+    .thenCompose(ok -> browser.fillAsync("#search", "Enterprise Chromium", 5_000))
+    .thenCompose(ok -> browser.clickAsync("#submit", 5_000))
+    .thenCompose(ok -> browser.waitForNetworkIdleAsync(500, 10_000))
+    .thenCompose(ok -> browser.getTextContentAsync(".result-text", 5_000))
+    .thenAccept(result -> System.out.println("Extracted Result: " + result));
+```
+
+📖 *Deep dive: [`docs/guides/headless-and-automation.md`](docs/guides/headless-and-automation.md)*
+
+---
+
+## 🪟 Native Window Chrome & Custom Tab Strips
+
+Optional, flag-enabled helper utilities for integrating custom tab strips with native OS titlebars and macOS traffic lights without imposing rigid defaults or altering standard window behavior.
+
+#### Kotlin Compose Multiplatform
+```kotlin
+import dev.daviante.kromium.compose.chrome.macTrafficLightsPadding
+import dev.daviante.kromium.compose.chrome.MacTrafficLightsSpacer
+
+// In your custom TabStrip / Header composable:
+Row(
+    modifier = Modifier
+        .fillMaxWidth()
+        // Automatically applies padding on macOS only when enabled; 0.dp otherwise
+        .macTrafficLightsPadding(enabled = true, width = 76.dp)
+) {
+    // Custom tab items here...
+}
+
+// Or use a platform-adaptive spacer:
+Row(modifier = Modifier.fillMaxWidth()) {
+    MacTrafficLightsSpacer(enabled = true, width = 76.dp)
+    // Custom tabs...
 }
 ```
 
-### 📸 Screenshots & PDF Printing
-```kotlin
-// Capture an in-memory BufferedImage screenshot
-val screenshot: BufferedImage? = browser.takeScreenshot()
-if (screenshot != null) {
-    ImageIO.write(screenshot, "PNG", File("page.png"))
-}
+#### Pure Java & Swing
+```java
+import dev.daviante.kromium.presentation.chrome.KromiumChromeConfig;
+import dev.daviante.kromium.presentation.chrome.KromiumWindowChrome;
 
-// Export page to a vectorized PDF
-browser.printToPdf("report.pdf")
+// 1. Configure macOS full window content (merging tab strip with titlebar)
+KromiumChromeConfig config = KromiumChromeConfig.builder()
+    .enabled(true)
+    .macTrafficLightsWidth(80)
+    .transparentTitleBar(true)
+    .hideWindowTitle(true)
+    .build();
+
+KromiumWindowChrome.apply(frame, config);
+
+// 2. Enable window dragging & double-click maximize on custom tab strip
+KromiumWindowChrome.installWindowDragger(tabStripPanel, frame);
 ```
 
 ---
 
-## 💻 Supported Platforms & Systems
+## 📚 Modular Documentation Hub
+
+Comprehensive, in-depth documentation organized according to the **Diátaxis framework** is maintained in the **[`docs/`](docs/)** directory:
+
+| Category | Guides & References | Key Topics |
+|:---|:---|:---|
+| **🚀 Getting Started** | [Installation Guide](docs/getting-started/installation.md)<br/>[Compose Quickstart](docs/getting-started/quickstart-compose.md)<br/>[Swing JVM Quickstart](docs/getting-started/quickstart-jvm.md) | Repository setup, multi-module configurations, Gradle dependencies, first browser window. |
+| **🏛️ Core Concepts** | [Architecture](docs/core-concepts/architecture.md)<br/>[State & Lifecycle](docs/core-concepts/state-and-lifecycle.md)<br/>[Security & Privacy](docs/core-concepts/security-and-privacy.md) | Bootstrap pipeline, multi-process Chromium architecture, `KromiumState` flow, and telemetry suppression. |
+| **📖 Guides** | [Compose UI Integration](docs/guides/compose-ui.md)<br/>[Navigation & History](docs/guides/navigation-and-history.md)<br/>[JavaScript & DOM](docs/guides/javascript-and-dom.md)<br/>[Network & Proxies](docs/guides/network-and-proxies.md) | Multi-tab UI, navigation controls, coroutine JS execution, IPC routers, and enterprise proxy configuration. |
+| **📖 Guides (Cont.)** | [Asset Filtering & Schemes](docs/guides/asset-filtering-and-security.md)<br/>[Cookie Management](docs/guides/cookie-management.md)<br/>[Downloads & Dialogs](docs/guides/downloads-and-dialogs.md)<br/>[Headless & Automation](docs/guides/headless-and-automation.md) | Virtual asset streaming, ad blocking, host locking, async cookie store, modal dialogs, and off-screen data extraction. |
+| **📋 API Reference** | [Configuration (`KromiumConfig`)](docs/reference/configuration.md)<br/>[Browser & Client API](docs/reference/browser-and-client-api.md)<br/>[Handlers & Events](docs/reference/handlers-and-events.md)<br/>[Exceptions & Logging](docs/reference/exceptions-and-logging.md) | Complete property catalogs, method signatures, composite multiplexers, and pluggable logging. |
+| **📦 Deployment** | [Packaging & Distribution](docs/deployment/packaging-and-distribution.md)<br/>[Platform Considerations](docs/deployment/platform-specifics.md)<br/>[Troubleshooting & FAQ](docs/deployment/troubleshooting-and-faq.md) | Desktop installers (MSI, DMG, DEB), ProGuard/R8 rules, macOS framework symlinks, and Linux dependencies. |
+
+Visit the master sitemap at **[`docs/README.md`](docs/README.md)**.
+
+---
+
+## 💻 Supported Platforms & OS Requirements
 
 | Operating System | Architectures | Minimum Version | Prerequisites |
 |:---|:---|:---|:---|
@@ -318,47 +573,46 @@ browser.printToPdf("report.pdf")
 
 ---
 
-## 🚀 Running the Showcase Demo
+## 🚀 Running the Showcase Demos
 
-The repository includes a ready-to-run desktop browser application demonstrating multi-tab navigation, custom dialogs, live canvas rendering, and developer tools:
+The repository includes ready-to-run desktop browser applications demonstrating every framework integration:
 
+### 1. Compose Multiplatform Browser Demo
 ```bash
-./gradlew :kromium-demo:run
+./gradlew :kromium-sample-compose:run
 ```
+*Features multi-tab browsing, DevTools REPL, live canvas animation, and visible text extraction.*
+
+### 2. Pure Java & Swing Showcase Demo
+```bash
+./gradlew :kromium-sample-swing:run
+```
+*Features lightweight pure Java2D OSR rendering, modern FlatLaf dark theme, download manager dialog, proxy switching, and native print preview.*
+
+### 3. Standard AWT Heavyweight Browser Demo
+```bash
+./gradlew :kromium-sample-awt:run
+```
+*Demonstrates native heavyweight `java.awt.Frame` embedding with functional navigation toolbar and clean lifecycle disposal.*
+
+### 4. Eclipse SWT Bridged Browser Demo
+```bash
+./gradlew :kromium-sample-swt:run
+```
+*Demonstrates embedding CEF inside an Eclipse SWT application via `SWT_AWT.new_Frame` with full toolbar controls and SWT event loop handling.*
+
+### 5. JavaFX Bridged OSR Browser Demo
+```bash
+./gradlew :kromium-sample-javafx:run
+```
+*Demonstrates embedding lightweight OSR Chromium inside a JavaFX `Scene` via `SwingNode` with dynamic HiDPI scaling, scene resize synchronization, and navigation controls.*
 
 ---
 
-## 🤖 AI Coding Agent Endpoints
+## ⚖️ License & Contributing
 
-For developers and teams using autonomous AI coding assistants (Cursor, Claude Code, GitHub Copilot), plain-text documentation feeds conforming to the `llmstxt.org` specification are available:
+Kromium is open-source software licensed under the **[Apache License, Version 2.0](LICENSE)**.
+Commercial friendly, royalty-free, and compliant with standard patent and distribution requirements.
 
-* **[llms.txt (Quickstart & Index)](https://kromium.daviante.dev/llms.txt)**: Fast-loading index and API definitions.
-* **[llms-full.txt (Full Concatenated Docs)](https://kromium.daviante.dev/llms-full.txt)**: Comprehensive single-file documentation reference.
+All community contributions are welcomed and governed by our [Contributor License Agreement (CLA)](CONTRIBUTING.md#contributor-license-agreement-cla).
 
----
-
-## 🛡️ Security & Responsible Disclosure
-
-Kromium strictly guarantees **Zero Built-In Telemetry**. All Google metrics reporting, crash dumps (`crashpad`), and diagnostic ping services are suppressed at engine boot.
-
-Please report security vulnerabilities in accordance with our [Security Policy](SECURITY.md).
-
----
-
-## 📄 License
-
-```
-Copyright 2026 Daviante Group
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-```

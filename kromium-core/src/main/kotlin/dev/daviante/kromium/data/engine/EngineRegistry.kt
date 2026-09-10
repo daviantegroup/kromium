@@ -1,34 +1,37 @@
 package dev.daviante.kromium.data.engine
 
-import dev.daviante.kromium.domain.model.*
-import dev.daviante.kromium.domain.config.*
-import dev.daviante.kromium.domain.exception.*
-import dev.daviante.kromium.data.engine.*
-import dev.daviante.kromium.data.model.*
-import dev.daviante.kromium.presentation.browser.*
-import dev.daviante.kromium.presentation.handler.*
-import dev.daviante.kromium.presentation.js.*
-import dev.daviante.kromium.presentation.network.*
-import dev.daviante.kromium.core.logging.*
-import dev.daviante.kromium.core.util.*
+import dev.daviante.kromium.core.util.FileUtils
+import dev.daviante.kromium.core.util.PlatformDetector
+import dev.daviante.kromium.domain.model.OperatingSystem
 
 import java.io.File
 
 object EngineRegistry {
 
     private const val LOCK_FILE_NAME = "install.lock"
+    const val DEFAULT_ENGINE_FOLDER = "jcef-150-b11"
 
+    @JvmStatic
     fun defaultInstallDir(): File {
+        val customProp = System.getProperty("kromium.install.dir")
+        if (!customProp.isNullOrBlank() && !customProp.contains("..")) {
+            val f = File(customProp).canonicalFile
+            if (!f.path.contains("..")) {
+                return f
+            }
+        }
+
         val platform = PlatformDetector.current()
         val rawHome = System.getProperty("user.home") ?: "."
         if (rawHome.contains("..")) {
-            return File(".kromium/jcef-150-b11").canonicalFile
+            return File(".kromium/$DEFAULT_ENGINE_FOLDER").canonicalFile
         }
         val homeDir = File(rawHome).canonicalFile
         if (homeDir.path.contains("..")) {
-            return File(".kromium/jcef-150-b11").canonicalFile
+            return File(".kromium/$DEFAULT_ENGINE_FOLDER").canonicalFile
         }
 
+        val dotKromium = FileUtils.resolveChild(homeDir, ".kromium") ?: homeDir
         val baseDir = when (platform.os) {
             OperatingSystem.Windows -> {
                 val rawAppData = System.getenv("APPDATA")
@@ -38,13 +41,9 @@ object EngineRegistry {
                 } else null
                 if (appDataDir != null) {
                     val kDir = File(appDataDir, "Kromium").canonicalFile
-                    if (kDir.canonicalPath.startsWith(appDataDir.canonicalPath)) kDir else {
-                        val fallback = File(homeDir, ".kromium").canonicalFile
-                        if (fallback.canonicalPath.startsWith(homeDir.canonicalPath)) fallback else homeDir
-                    }
+                    if (kDir.canonicalPath.startsWith(appDataDir.canonicalPath)) kDir else dotKromium
                 } else {
-                    val fallback = File(homeDir, ".kromium").canonicalFile
-                    if (fallback.canonicalPath.startsWith(homeDir.canonicalPath)) fallback else homeDir
+                    dotKromium
                 }
             }
             OperatingSystem.MacOS -> {
@@ -53,8 +52,7 @@ object EngineRegistry {
                     val kDir = File(appSupport, "Kromium").canonicalFile
                     if (kDir.canonicalPath.startsWith(appSupport.canonicalPath)) kDir else homeDir
                 } else {
-                    val fallback = File(homeDir, ".kromium").canonicalFile
-                    if (fallback.canonicalPath.startsWith(homeDir.canonicalPath)) fallback else homeDir
+                    dotKromium
                 }
             }
             OperatingSystem.Linux -> {
@@ -63,26 +61,24 @@ object EngineRegistry {
                     val f = File(rawXdg).canonicalFile
                     if (!f.path.contains("..")) f else null
                 } else null
+                val localShare = FileUtils.resolveChild(homeDir, ".local/share/kromium") ?: homeDir
                 if (xdgDir != null) {
                     val kDir = File(xdgDir, "kromium").canonicalFile
-                    if (kDir.canonicalPath.startsWith(xdgDir.canonicalPath)) kDir else {
-                        val fallback = File(homeDir, ".local/share/kromium").canonicalFile
-                        if (fallback.canonicalPath.startsWith(homeDir.canonicalPath)) fallback else homeDir
-                    }
+                    if (kDir.canonicalPath.startsWith(xdgDir.canonicalPath)) kDir else localShare
                 } else {
-                    val fallback = File(homeDir, ".local/share/kromium").canonicalFile
-                    if (fallback.canonicalPath.startsWith(homeDir.canonicalPath)) fallback else homeDir
+                    localShare
                 }
             }
         }
-        val target = File(baseDir, "jcef-150-b11").canonicalFile
+        val target = File(baseDir, DEFAULT_ENGINE_FOLDER).canonicalFile
         return if (target.canonicalPath.startsWith(baseDir.canonicalPath)) {
             target
         } else {
-            File(homeDir, ".kromium/jcef-150-b11").canonicalFile
+            File(homeDir, ".kromium/$DEFAULT_ENGINE_FOLDER").canonicalFile
         }
     }
 
+    @JvmStatic
     fun isInstalled(installDir: File): Boolean {
         val safeDir = FileUtils.sanitizeDirectory(installDir) ?: return false
         if (!safeDir.exists() || !safeDir.isDirectory) return false
@@ -95,10 +91,8 @@ object EngineRegistry {
 
         val hasBinaries = when (platform.os) {
             OperatingSystem.Windows -> {
-                checkFile("jcef.dll") ||
-                    checkFile("libcef.dll") ||
-                    checkFile("bin/jcef.dll") ||
-                    checkFile("bin/libcef.dll")
+                (checkFile("jcef.dll") || checkFile("bin/jcef.dll")) &&
+                    (checkFile("libcef.dll") || checkFile("bin/libcef.dll"))
             }
             OperatingSystem.MacOS -> {
                 OperatingSystem.MacOS.ensureMacFrameworkLinks(safeDir)
@@ -107,10 +101,8 @@ object EngineRegistry {
                     checkFile("Frameworks/cef_server.app/Contents/Frameworks/Chromium Embedded Framework.framework")
             }
             OperatingSystem.Linux -> {
-                checkFile("libcef.so") ||
-                    checkFile("libjcef.so") ||
-                    checkFile("lib/libcef.so") ||
-                    checkFile("lib/libjcef.so")
+                (checkFile("libcef.so") || checkFile("lib/libcef.so")) &&
+                    (checkFile("libjcef.so") || checkFile("lib/libjcef.so"))
             }
         }
         if (!hasBinaries) return false
@@ -126,6 +118,7 @@ object EngineRegistry {
         return true
     }
 
+    @JvmStatic
     fun markInstalled(installDir: File) {
         val safeDir = FileUtils.sanitizeDirectory(installDir)
             ?: throw IllegalArgumentException("Invalid or unsafe install directory: ${installDir.path}")
@@ -149,6 +142,7 @@ object EngineRegistry {
         }
     }
 
+    @JvmStatic
     fun clearInstallation(installDir: File) {
         FileUtils.deleteDirectory(installDir)
     }

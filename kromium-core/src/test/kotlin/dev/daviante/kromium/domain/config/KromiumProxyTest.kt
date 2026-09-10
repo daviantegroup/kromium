@@ -174,6 +174,55 @@ class KromiumProxyTest {
     }
 
     @Test
+    fun testHttpsCompanionFactory() {
+        val proxy = KromiumProxy.https("secure-proxy.corp.internal", 8443, "user", "pass", listOf("<local>"))
+        assertTrue(proxy is KromiumProxy.Http)
+        assertTrue(proxy.isSecure)
+        assertEquals("https://secure-proxy.corp.internal:8443", proxy.serverSpec)
+        val creds = proxy.getCredentials("secure-proxy.corp.internal", 8443)
+        assertNotNull(creds)
+        assertEquals("user", creds.first)
+        assertEquals("pass", creds.second)
+    }
+
+    @Test
+    fun testMultiProtocolWithEmbeddedCredentials() {
+        val proxy = KromiumProxy.MultiProtocol(
+            http = "http://httpuser:httppass@http-proxy.corp:8080",
+            https = "https://ssluser:sslpass@ssl-proxy.corp:8443",
+            socks = "socks5://socksuser:sockspass@socks-proxy.corp:1080"
+        )
+
+        // Ensure userinfo is stripped from serverSpec and command line args
+        val spec = proxy.serverSpec
+        assertTrue(spec.contains("http=http://http-proxy.corp:8080"))
+        assertTrue(spec.contains("https=https://ssl-proxy.corp:8443"))
+        assertTrue(spec.contains("socks=socks5://socks-proxy.corp:1080"))
+        assertTrue(!spec.contains("httpuser"))
+        assertTrue(!spec.contains("ssluser"))
+        assertTrue(!spec.contains("socksuser"))
+
+        // Ensure getCredentials retrieves credentials for corresponding hosts
+        val httpCreds = proxy.getCredentials("http-proxy.corp", 8080)
+        assertNotNull(httpCreds)
+        assertEquals("httpuser", httpCreds.first)
+        assertEquals("httppass", httpCreds.second)
+
+        val sslCreds = proxy.getCredentials("ssl-proxy.corp", 8443)
+        assertNotNull(sslCreds)
+        assertEquals("ssluser", sslCreds.first)
+        assertEquals("sslpass", sslCreds.second)
+
+        val socksCreds = proxy.getCredentials("socks-proxy.corp", 1080)
+        assertNotNull(socksCreds)
+        assertEquals("socksuser", socksCreds.first)
+        assertEquals("sockspass", socksCreds.second)
+
+        // Non-matching endpoint
+        assertNull(proxy.getCredentials("other.corp", 8080))
+    }
+
+    @Test
     fun testCachePathResolutionWithRelativeInstallDir() {
         val config = KromiumConfig()
         config.installDir = java.io.File("local_test_jcef")

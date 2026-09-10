@@ -1,73 +1,237 @@
-# Security Hardening & Privacy
+# Security & Privacy by Design
 
-[Documentation Hub](../README.md) &bull; **Core Concepts** &bull; Security & Privacy
+Modern desktop applications must meet stringent enterprise security requirements. Kromium provides a hardened runtime environment engineered for zero-telemetry, sandbox enforcement, and strict origin isolation.
 
 ---
 
-## 🛡️ Chromium Sandbox Protection
+## 🛡️ Zero-Telemetry by Default
 
-Chromium's multi-process architecture is built around the principle of least privilege. Rendering untrusted HTML, executing arbitrary JavaScript, and compiling WebAssembly takes place inside sandboxed child processes (`jcef_helper`).
+Standard Google Chrome builds contain numerous telemetry probes, Google account sync hooks, crash reporters, and usage metrics. Kromium disables these background phone-home mechanisms out of the box.
+
+### Built-in Hardening Flags
+Kromium automatically injects the following security and privacy switches into the native Chromium bootstrap arguments:
+- `--disable-metrics` / `--disable-metrics-reporter`: Disables all Google UMA metrics collection.
+- `--disable-breakpad` / `--disable-crash-reporter`: Prevents automatic crash dump transmissions to external servers.
+- `--no-default-browser-check`: Disables system default browser prompts.
+- `--disable-sync`: Disables Google Cloud account profile synchronization.
+- `--disable-background-networking`: Suppresses background speculative DNS prefetching and auto-updates.
+- `--enable-do-not-track`: Transmits Do Not Track (`DNT: 1`) signal on all outbound requests.
+- `--webrtc-ip-handling-policy=default_public_interface_only`: Prevents binding to private LAN interfaces during WebRTC ICE candidate discovery.
+
+---
+
+## 🔒 WebRTC & Hardware Device Permission Model
+
+WebRTC audio/video capture, system audio, and desktop media streams cannot be accessed by web pages without explicit application consent.
+
+Kromium features a comprehensive permission architecture via `KromiumPermissionHandler` and `KromiumPermissionRequest`:
+
+```
+Web Page (navigator.mediaDevices.getUserMedia)
+                      │
+                      ▼
+        [Native Chromium Security Manager]
+                      │
+                      ▼
+         [KromiumPermissionHandler]
+                      │
+         ┌────────────┴────────────┐
+         ▼                         ▼
+   [Allow Once / Always]       [Deny / Reject]
+```
+
+### Supported Permission Types
+
+Defined in `KromiumPermissionType`:
+- `AUDIO_CAPTURE`: Microphone / audio input device access (`DEVICE_AUDIO_CAPTURE`).
+- `VIDEO_CAPTURE`: Camera / webcam video input device access (`DEVICE_VIDEO_CAPTURE`).
+- `DESKTOP_AUDIO`: System / desktop audio capture access (`DESKTOP_AUDIO_CAPTURE`).
+- `DESKTOP_VIDEO`: Screen sharing / desktop video capture access (`DESKTOP_VIDEO_CAPTURE`).
+
+### Origin Normalization & Domain Whitelisting
+
+Kromium provides a turnkey origin-based handler `KromiumPermissionHandler.forOrigins` that automatically handles schemes, non-standard ports (e.g. `https://meet.corp.internal:8443`), and wildcards (`*.corp.internal`):
 
 ```kotlin
-Kromium.initialize {
-    // Enabled by default. Strongly recommended for untrusted web content.
-    sandboxEnabled = true
+// Automatically permit trusted origins and reject all others:
+client.permissionHandler = KromiumPermissionHandler.forOrigins(
+    "meet.google.com",
+    "*.corp.internal",
+    "localhost"
+)
+```
+
+### Session Caching & Memory Protection
+
+By default, permission decisions are remembered per origin for the duration of the active browser session (`rememberPermissions = true`). You can revoke these permissions at any time:
+
+```kotlin
+// Compose Desktop
+val state = rememberKromiumViewState("https://meet.jit.si")
+state.clearPermissionCache()
+```
+
+```java
+// Pure Java
+client.clearPermissionCache();
+```
+
+---
+
+## 🛡️ WebRTC IP Leak Defense & Handling Policies
+
+Standard Chromium gathers ICE candidates across all network interfaces (including private LAN IPs like `192.168.x.x` and VPN adapters) via STUN/TURN over UDP. Even when an application routes through an authenticated corporate proxy, standard WebRTC can bypass the proxy and expose client IP addresses.
+
+Kromium neutralizes this vulnerability by applying strict IP handling policies:
+
+| Policy Value | Behavior | Default When |
+|:---|:---|:---|
+| `default_public_interface_only` | Restricts candidate discovery to public interfaces; prevents LAN IP exposure. | Default when `blockRegistryAndTelemetry = true` |
+| `disable_non_proxied_udp` | Drops all non-proxied UDP traffic; forces WebRTC through configured proxy. | Default when custom proxy is active |
+| `default` | Standard Chromium candidate discovery across all local interfaces. | Explicit opt-in |
+
+### Configuring WebRTC IP Policy
+
+```kotlin
+// Kotlin DSL
+val config = KromiumConfig().apply {
+    webrtcIpHandlingPolicy = KromiumConfig.WEBRTC_POLICY_DISABLE_NON_PROXIED_UDP
 }
 ```
 
-### What the Sandbox Restricts
-* **Filesystem Access**: Renderers cannot read or write to arbitrary system files.
-* **Network Sockets**: Renderers cannot open raw TCP/UDP sockets (all networking is proxied through the trusted browser broker process).
-* **Process Spawning**: Renderers cannot execute system binaries or shell scripts.
-* **Token Restrictions**: Runs with a restricted Windows SID token, Linux seccomp-bpf filters, and macOS Mach sandbox profiles.
+```java
+// Pure Java Fluent Builder
+KromiumConfig config = KromiumConfig.builder()
+    .webrtcIpHandlingPolicy(KromiumConfig.WEBRTC_POLICY_DISABLE_NON_PROXIED_UDP)
+    .build();
+```
 
 ---
 
-## 🚫 Windows Registry Write Suppression
+## 📡 Tracking Protection: DNT & Global Privacy Control (GPC)
 
-By default, standard Chromium writes user metrics, installation state, crash records, and toast registrations to the Windows Registry. In an embedded desktop application, polluting the user's system registry is undesirable.
-
-Kromium features **automated Registry write suppression and anti-telemetry**, enabled by default via `blockRegistryAndTelemetry = true`.
+Kromium asserts tracking protections across both Chromium's native network stack and Kromium's request pipeline out of the box:
+- `--enable-do-not-track` Chromium engine flag.
+- Automatic injection of `DNT: 1` and `Sec-GPC: 1` headers on all outbound HTTP requests.
 
 ```kotlin
-Kromium.initialize {
-    blockRegistryAndTelemetry = true // Enabled by default
+// Enabled by default; can be adjusted in config or client:
+config.doNotTrack = true
+client.doNotTrack = true
+```
+
+---
+
+## 🧹 Purging Cookies & Web Storage (Privacy Reset)
+
+For multi-tenant environments, kiosk resets, or secure sign-out flows, Kromium allows clearing both persistent cookies and HTML5 web storage (`localStorage` and `sessionStorage`):
+
+```kotlin
+// Clear cookies and web storage simultaneously:
+browser.clearBrowsingData(clearCookies = true, clearStorage = true)
+
+// Or clear storage independently:
+browser.clearWebStorage()
+```
+
+```java
+// Pure Java asynchronous purge:
+browser.clearBrowsingDataAsync(true, true).thenAccept(success -> {
+    System.out.println("Session data purged: " + success);
+});
+```
+
+---
+
+## 🔐 SSL/TLS Certificate Verification & Policies
+
+Kromium provides fine-grained control over SSL/TLS certificate handling via the `SslErrorPolicy` sealed class hierarchy:
+
+```kotlin
+sealed class SslErrorPolicy {
+    /** Reject all certificate errors (Default, strongly recommended for production). */
+    data object Strict : SslErrorPolicy()
+
+    /** Allow certificate errors exclusively for specified domains and subdomains (e.g. "*.corp.internal", "localhost"). */
+    data class AllowDomains(val domains: Set<String>) : SslErrorPolicy()
+
+    /** ⚠️ DANGEROUS: Allow ALL certificate errors for ALL domains (Development/testing only). */
+    data object AllowAll : SslErrorPolicy()
 }
 ```
 
-### Suppressed Subsystems & Registry Keys
+### Configuring SSL Error Handling (Kotlin & Java)
 
-| Subsystem | Windows Registry Key | Suppressed By Switch |
-|---|---|---|
-| **Crashpad / Breakpad** | `HKCU\Software\Google\Chrome\UsageStats`<br/>`HKCU\Software\Chromium\UsageStats` | `--disable-breakpad`<br/>`--disable-crash-reporter` |
-| **User Metrics (UMA)** | Metrics client GUIDs and consent | `--disable-metrics`<br/>`--disable-metrics-reporting` |
-| **Component Updater** | `HKCU\Software\Google\Update\ClientState`<br/>`HKLM\Software\Google\Update\ClientState` | `--disable-component-update`<br/>`--disable-background-networking` |
-| **Shell Integration** | `HKCU\Software\Clients\StartMenuInternet`<br/>`HKCR\http\shell\open\command` | `--no-default-browser-check`<br/>`--no-first-run` |
-| **Action Center Toasts** | `HKCU\Software\Classes\AppUserModelId` | `--disable-features=WinNativeNotification` |
-| **Background Autorun** | `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` | `--no-service-autorun`<br/>`--disable-background-mode` |
+Configure globally on `KromiumConfig` or per-browser instance:
 
-### Complete Cache & Profile Quarantining
-In addition to flag injection, Kromium automatically isolates all profile state, cookies, and local storage to your application's private cache folder:
-* `--root-cache-path=<your-app-cache>`
-* `--user-data-dir=<your-app-cache>`
+```kotlin
+// 1. Globally at engine initialization:
+val config = KromiumConfig().apply {
+    sslErrorPolicy = SslErrorPolicy.AllowDomains("*.internal.corp", "localhost")
+}
+Kromium.initialize(config)
 
-Chromium is blocked from creating profile directories under `%LOCALAPPDATA%\Chromium` or roaming profile hives.
+// 2. Or dynamically per browser:
+browser.sslErrorPolicy = SslErrorPolicy.Strict
+```
+
+```java
+// Pure Java with fluent helpers:
+KromiumConfig config = KromiumConfig.builder()
+    .sslErrorPolicy(SslErrorPolicy.allowDomains("*.internal.corp", "localhost"))
+    .build();
+Kromium.initialize(config);
+
+// Dynamically per browser:
+browser.setSslErrorPolicy(SslErrorPolicy.strict());
+```
 
 ---
 
-## ⚠️ Dangerous Flag Detection
+## 🌐 Host Locking & Subresource Isolation
 
-Chromium provides several powerful command-line flags intended strictly for internal testing. Using these flags in production applications completely breaks security boundaries:
+Enterprise kiosk, healthcare, and POS applications often need to strictly restrict the browser to authorized corporate domains.
+
+Kromium provides turnkey host locking that enforces origin boundaries on both top-level navigations (`onBeforeBrowse`) and asynchronous background network requests (`onBeforeResourceLoad` for scripts, xhr, and fetch):
+
+### Kotlin DSL (Compose Desktop & Core)
 
 ```kotlin
-// DANGEROUS FLAGS — NEVER USE IN PRODUCTION WITH UNTRUSTED WEBSITES
-"--no-sandbox"                    // Strips OS-level process containment
-"--disable-web-security"          // Bypasses Same-Origin Policy (SOP) & CORS
-"--allow-running-insecure-content"// Executes HTTP scripts inside HTTPS pages
+// Restrict top-level navigations AND background subresources to authorized domains:
+browser.setHostLock("app.internal.corp", "auth.internal.corp", lockSubresources = true)
+
+// Or remove restrictions when exiting kiosk mode:
+browser.clearHostLock()
 ```
 
-Kromium automatically inspects all arguments in `KromiumConfig.validate()`. If dangerous flags are detected, an explicit warning is logged to `KromiumLogger`:
+### Pure Java / Swing Host-Locking
 
+```java
+// Turnkey host locking with subresource enforcement:
+browser.setHostLock(java.util.Set.of("app.internal.corp", "auth.internal.corp"), true);
+
+// Or clear lock:
+browser.clearHostLock();
 ```
-[WARN] KromiumConfig: ⚠️ Dangerous command-line flag detected: --disable-web-security — This significantly reduces security.
+
+---
+
+## 🐞 Remote Debugging Port Security
+
+Chromium allows attaching Chrome DevTools (`chrome://inspect`) over a TCP socket via `--remote-debugging-port`.
+
+> [!CAUTION]
+> **Never open a remote debugging port in production builds accessible on public network interfaces (`0.0.0.0`).**
+> Any local process could connect to this port and execute arbitrary JavaScript with full document access.
+
+```kotlin
+val config = KromiumConfig(
+    // Disabled (0) by default for production safety:
+    remoteDebuggingPort = if (BuildConfig.DEBUG) 9222 else 0
+)
 ```
+
+To inspect your app during development:
+1. Set `remoteDebuggingPort = 9222`.
+2. Open Google Chrome or Microsoft Edge and navigate to `http://localhost:9222`.
+3. Inspect DOM elements, network waterfalls, and console logs live.

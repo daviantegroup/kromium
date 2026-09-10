@@ -8,13 +8,12 @@ plugins {
 
 allprojects {
     group = "dev.daviante"
-    version = "2.1.150-b11"
+    version = "3.0.150-b11"
 
     repositories {
         mavenCentral()
         google()
         maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
-        maven("https://jogamp.org/deployment/maven")
     }
 }
 
@@ -49,29 +48,46 @@ subprojects {
                             name.set(if (project.name == "kromium-core") "Kromium Core" else "Kromium Compose")
                             description.set(
                                 if (project.name == "kromium-core")
-                                    "Chromium Embedded Framework (CEF) library for Kotlin"
+                                    "Chromium Embedded Framework (CEF) engine with dual Kotlin & Universal Java (Swing, JavaFX, SWT, AWT) ergonomics and pure Java2D OSR."
                                 else
-                                    "Compose Multiplatform Desktop integration for Kromium"
+                                    "Compose Multiplatform Desktop UI integration for Kromium embedded Chromium browser."
                             )
                             url.set("https://kromium.daviante.dev")
+                            inceptionYear.set("2026")
+
+                            organization {
+                                name.set("Daviante Group")
+                                url.set("https://daviante.dev")
+                            }
+
+                            issueManagement {
+                                system.set("GitHub Issues")
+                                url.set("https://github.com/daviantegroup/kromium/issues")
+                            }
+
                             licenses {
                                 license {
                                     name.set("The Apache License, Version 2.0")
                                     url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
+                                    distribution.set("repo")
                                 }
                             }
+
                             developers {
                                 developer {
                                     id.set("daviante")
                                     name.set("Daviante Group")
                                     email.set("code@daviante.dev")
                                     url.set("https://daviante.dev")
+                                    organization.set("Daviante Group")
+                                    organizationUrl.set("https://daviante.dev")
                                 }
                             }
+
                             scm {
                                 connection.set("scm:git:git://github.com/daviantegroup/kromium.git")
                                 developerConnection.set("scm:git:ssh://github.com/daviantegroup/kromium.git")
-                                url.set("https://kromium.daviante.dev")
+                                url.set("https://github.com/daviantegroup/kromium")
                             }
                         }
                     }
@@ -81,6 +97,14 @@ subprojects {
                     maven {
                         name = "staging"
                         url = uri(rootProject.layout.buildDirectory.dir("staging-deploy"))
+                    }
+                    maven {
+                        name = "GitHubPackages"
+                        url = uri("https://maven.pkg.github.com/daviantegroup/kromium")
+                        credentials {
+                            username = findProperty("gpr.user")?.toString() ?: System.getenv("GITHUB_ACTOR") ?: "daviante-releaser"
+                            password = findProperty("gpr.key")?.toString() ?: System.getenv("GITHUB_TOKEN")
+                        }
                     }
                 }
             }

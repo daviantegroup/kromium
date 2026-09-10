@@ -1,24 +1,25 @@
 package dev.daviante.kromium.compose
 
-import dev.daviante.kromium.domain.model.*
-import dev.daviante.kromium.domain.config.*
-import dev.daviante.kromium.domain.exception.*
-import dev.daviante.kromium.data.engine.*
-import dev.daviante.kromium.data.model.*
-import dev.daviante.kromium.presentation.browser.*
-import dev.daviante.kromium.presentation.handler.*
-import dev.daviante.kromium.presentation.js.*
-import dev.daviante.kromium.presentation.network.*
-import dev.daviante.kromium.core.logging.*
-import dev.daviante.kromium.core.util.*
-
-
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.SwingPanel
+import dev.daviante.kromium.domain.model.KromiumState
+import dev.daviante.kromium.presentation.browser.Kromium
+import dev.daviante.kromium.presentation.browser.KromiumClient
+import dev.daviante.kromium.presentation.handler.KromiumAuthListener
+import dev.daviante.kromium.presentation.handler.KromiumDownloadListener
+import dev.daviante.kromium.presentation.handler.KromiumJsDialogListener
 import org.cef.browser.CefBrowser
 import org.cef.browser.CefFrame
 import org.cef.handler.CefDisplayHandlerAdapter
@@ -62,13 +63,17 @@ fun KromiumView(
         effectiveClient.authListener = state.onAuthRequired?.let { cb -> KromiumAuthListener { req -> cb(req) } }
         effectiveClient.onPopupListener = state.onPopup
         effectiveClient.onPermissionRequest = state.onPermissionRequest
+        effectiveClient.permissionHandler = state.permissionHandler
+        effectiveClient.rememberPermissions = state.rememberPermissions
         effectiveClient.enableContextMenus = state.enableContextMenus
+        effectiveClient.contextMenuHandler = state.contextMenuHandler
         effectiveClient.loadErrorListener = state.onLoadError
         effectiveClient.shouldOverrideUrlLoading = state.shouldOverrideUrlLoading
         effectiveClient.sslErrorPolicy = state.sslErrorPolicy
         effectiveClient.assetFilter = state.assetFilter
         effectiveClient.hostLock = state.hostLock
         effectiveClient.hostLockSubresources = state.hostLockSubresources
+        effectiveClient.doNotTrack = state.doNotTrack
     }
 
     // Reactively handle URL loading (if loadUrl was called when browser was not ready)
@@ -129,7 +134,11 @@ fun KromiumView(
                 modifier = Modifier.fillMaxSize(),
                 factory = {
                     JPanel(BorderLayout()).apply {
-                        val browser = effectiveClient.createBrowser(state.url)
+                        isFocusable = true
+                        val browser = effectiveClient.createBrowser(
+                            url = state.url,
+                            isOffScreenRendered = false
+                        )
                         state.browser = browser
 
                         val pending = state.consumePendingUrl()
@@ -137,7 +146,27 @@ fun KromiumView(
                             browser.loadUrl(pending)
                         }
 
+                        browser.uiComponent.isFocusable = true
                         add(browser.uiComponent, BorderLayout.CENTER)
+
+                        addMouseListener(object : java.awt.event.MouseAdapter() {
+                            override fun mousePressed(e: java.awt.event.MouseEvent) {
+                                browser.uiComponent.requestFocusInWindow()
+                            }
+                        })
+
+                        // Dynamically synchronize native surface visibility with Swing hierarchy state
+                        val syncVisibility = {
+                            state.browser?.let { b ->
+                                b.uiComponent.isVisible = isShowing && width > 0 && height > 0
+                            }
+                        }
+                        addHierarchyListener { syncVisibility() }
+                        addComponentListener(object : java.awt.event.ComponentAdapter() {
+                            override fun componentResized(e: java.awt.event.ComponentEvent) { syncVisibility() }
+                            override fun componentShown(e: java.awt.event.ComponentEvent) { syncVisibility() }
+                            override fun componentHidden(e: java.awt.event.ComponentEvent) { syncVisibility() }
+                        })
                     }
                 },
                 update = { panel ->
@@ -148,6 +177,10 @@ fun KromiumView(
                             panel.revalidate()
                             panel.repaint()
                         }
+                        // Keep the heavyweight native surface hidden when the panel is not
+                        // actively displayed (e.g. inactive tabs). This prevents GPU
+                        // compositing artifacts and stale mouse-event routing.
+                        b.uiComponent.isVisible = panel.isShowing && panel.width > 0 && panel.height > 0
                     }
                 }
             )

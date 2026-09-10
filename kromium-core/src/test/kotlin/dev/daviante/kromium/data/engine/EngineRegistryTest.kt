@@ -5,9 +5,6 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.test.assertFalse
 import java.io.File
-import dev.daviante.kromium.domain.model.*
-import dev.daviante.kromium.domain.config.*
-import dev.daviante.kromium.domain.exception.*
 
 class EngineRegistryTest {
 
@@ -31,14 +28,22 @@ class EngineRegistryTest {
             assertFalse(EngineRegistry.isInstalled(tempDir), "Should not be installed initially")
 
             EngineRegistry.markInstalled(tempDir)
-            
-            // Create dummy files to simulate a real installation based on OS
+
+            // Single partial binary should NOT qualify as fully installed
             File(tempDir, "jcef.dll").createNewFile()
             File(tempDir, "libcef.so").createNewFile()
+            val platform = dev.daviante.kromium.core.util.PlatformDetector.current()
+            if (platform.os == dev.daviante.kromium.domain.model.OperatingSystem.Windows || platform.os == dev.daviante.kromium.domain.model.OperatingSystem.Linux) {
+                assertFalse(EngineRegistry.isInstalled(tempDir), "Should NOT be installed when only one of the required libraries is present")
+            }
+
+            // Create complete dummy files to simulate a real installation based on OS
+            File(tempDir, "libcef.dll").createNewFile()
+            File(tempDir, "libjcef.so").createNewFile()
             val macDir = File(tempDir, "Chromium Embedded Framework.framework")
             macDir.mkdirs()
 
-            assertTrue(EngineRegistry.isInstalled(tempDir), "Should be installed after marking and placing binaries")
+            assertTrue(EngineRegistry.isInstalled(tempDir), "Should be installed after marking and placing complete binaries")
 
         } finally {
             tempDir.deleteRecursively()

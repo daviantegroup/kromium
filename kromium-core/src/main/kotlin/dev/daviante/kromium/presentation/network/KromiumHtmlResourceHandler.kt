@@ -1,19 +1,7 @@
 package dev.daviante.kromium.presentation.network
 
-import dev.daviante.kromium.domain.model.*
-import dev.daviante.kromium.domain.config.*
-import dev.daviante.kromium.domain.exception.*
-import dev.daviante.kromium.data.engine.*
-import dev.daviante.kromium.data.model.*
-import dev.daviante.kromium.presentation.browser.*
-import dev.daviante.kromium.presentation.handler.*
-import dev.daviante.kromium.presentation.js.*
-import dev.daviante.kromium.presentation.network.*
-import dev.daviante.kromium.core.logging.*
-import dev.daviante.kromium.core.util.*
-
-
 import org.cef.callback.CefCallback
+import org.cef.callback.CefResourceReadCallback
 import org.cef.handler.CefResourceHandlerAdapter
 import org.cef.misc.BoolRef
 import org.cef.misc.IntRef
@@ -25,7 +13,7 @@ class KromiumHtmlResourceHandler(
     private val htmlContent: String,
     private val mimeType: String = "text/html"
 ) : CefResourceHandlerAdapter() {
-    
+
     private var offset = 0
     private val bytes = htmlContent.toByteArray(Charsets.UTF_8)
 
@@ -52,11 +40,11 @@ class KromiumHtmlResourceHandler(
         responseLength?.set(bytes.size)
     }
 
-    override fun readResponse(
+    @Synchronized
+    private fun readInternal(
         dataOut: ByteArray?,
         bytesToRead: Int,
-        bytesRead: IntRef?,
-        callback: CefCallback?
+        bytesRead: IntRef?
     ): Boolean {
         if (dataOut == null || bytesRead == null) return false
         val available = bytes.size - offset
@@ -70,6 +58,20 @@ class KromiumHtmlResourceHandler(
         bytesRead.set(toRead)
         return true
     }
+
+    override fun readResponse(
+        dataOut: ByteArray?,
+        bytesToRead: Int,
+        bytesRead: IntRef?,
+        callback: CefCallback?
+    ): Boolean = readInternal(dataOut, bytesToRead, bytesRead)
+
+    override fun read(
+        dataOut: ByteArray?,
+        bytesToRead: Int,
+        bytesRead: IntRef?,
+        callback: CefResourceReadCallback?
+    ): Boolean = readInternal(dataOut, bytesToRead, bytesRead)
 
     override fun cancel() {
         // No-op

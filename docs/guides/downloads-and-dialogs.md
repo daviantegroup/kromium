@@ -1,100 +1,114 @@
-# Downloads, Dialogs & DevTools
+# Downloads & Native Dialogs
 
-[Documentation Hub](../README.md) &bull; **Guides** &bull; Downloads & Dialogs
+This guide demonstrates how to handle file downloads with progress tracking, pause/resume capabilities, and customize JavaScript `alert()`, `confirm()`, and `prompt()` dialogs.
 
 ---
 
-## 📥 File Download Interception
+## 📥 Handling File Downloads
 
-Intercept user-initiated file downloads, customize save directories, and track real-time progress:
+Kromium intercepts all browser file downloads without requiring external HTTP libraries.
+
+### 1. Specifying the Download Directory
 
 ```kotlin
-// 1. Set default target directory
-client.downloadDirectory = java.io.File(System.getProperty("user.home"), "Downloads")
+// Compose Desktop:
+val state = rememberKromiumViewState("https://example.com/downloads")
+state.downloadDirectory = File(System.getProperty("user.home"), "Downloads")
+```
 
-// 2. Customize target path or prompt user before download starts
-client.onBeforeDownloadListener = { item, suggestedFileName ->
-    println("Starting download: $suggestedFileName (${item.totalBytes} bytes)")
-    // Return custom path to override destination, or null to use default downloadDirectory
-    null
-}
+```java
+// Pure Java:
+client.setDownloadDirectory(new java.io.File(System.getProperty("user.home"), "Downloads"));
+```
 
-// 3. Monitor live download progress
-client.downloadListener = KromiumDownloadListener { item ->
-    println(
-        "Download #${item.id}: ${item.percentComplete}% | " +
-        "Speed: ${item.speed / 1024} KB/s | " +
-        "Received: ${item.receivedBytes} / ${item.totalBytes}"
-    )
+### 2. Tracking Download Progress & Transfer Speed
+
+```kotlin
+state.onDownload = { item ->
+    println("File: ${item.suggestedFileName} | Progress: ${item.percentComplete}% | Speed: ${item.currentSpeed / 1024} KB/s")
 
     if (item.isComplete) {
-        println("Download complete: ${item.fullPath}")
+        println("Download finished: ${item.fullPath}")
+    } else if (item.isCanceled) {
+        println("Download canceled.")
     }
 }
 ```
 
-### Download Controls
-Pause, resume, or cancel active downloads by their numeric ID:
+### 3. Programmatic Download Controls
+
+Control in-flight downloads programmatically by their unique download ID:
+
+```java
+// Pause an active download:
+browser.pauseDownload(downloadId);
+
+// Check pause status:
+if (browser.isDownloadPaused(downloadId)) {
+    System.out.println("Download is currently paused.");
+}
+
+// Resume download:
+browser.resumeDownload(downloadId);
+
+// Cancel download:
+browser.cancelDownload(downloadId);
+```
+
+### 4. Custom Destination & Native File Chooser (`onBeforeDownload`)
+
+Customize the filename or prompt the user before the download starts:
 
 ```kotlin
-client.pauseDownload(downloadId)
-client.resumeDownload(downloadId)
-client.cancelDownload(downloadId)
+state.onBeforeDownload = { item, suggestedName ->
+    // Return custom path, or null to cancel download:
+    File("/custom/storage/location", suggestedName).absolutePath
+}
 ```
 
 ---
 
-## 💬 JavaScript Modal Dialogs (`alert`, `confirm`, `prompt`)
+## 💬 JavaScript Dialogs (`alert`, `confirm`, `prompt`)
 
-Prevent web pages from locking the UI thread with unhandled modal dialogs:
+By default, Kromium can display native system dialogs or allow you to intercept dialog calls to present custom Compose or Swing modals.
+
+### Compose Dialog Interception
 
 ```kotlin
-client.jsDialogListener = KromiumJsDialogListener { dialog ->
+val state = rememberKromiumViewState("https://example.com")
+
+state.onJsDialog = { dialog ->
     when (dialog.type) {
         KromiumJsDialogType.ALERT -> {
-            println("Alert message: ${dialog.message}")
-            dialog.continueDialog(true) // Dismiss alert
-            true
+            println("JavaScript Alert: ${dialog.message}")
+            dialog.confirm() // Dismiss alert
+            true // Handled
         }
         KromiumJsDialogType.CONFIRM -> {
-            println("Confirm prompt: ${dialog.message}")
-            dialog.continueDialog(true) // Accept (true) or Cancel (false)
+            // Programmatically accept or reject:
+            dialog.confirm() // or dialog.cancel()
             true
         }
         KromiumJsDialogType.PROMPT -> {
-            println("Prompt: ${dialog.message}")
-            dialog.continueDialog(true, "User input text")
-            true
-        }
-        KromiumJsDialogType.BEFORE_UNLOAD -> {
-            dialog.continueDialog(true) // Allow leaving page
+            dialog.confirm(userInput = "Default Answer")
             true
         }
     }
 }
 ```
 
----
+### Pure Java Dialog Handling
 
-## 🛠️ DevTools & Console Logs
+```java
+import dev.daviante.kromium.presentation.handler.KromiumJsDialog;
+import dev.daviante.kromium.presentation.handler.KromiumJsDialogType;
 
-### Redirecting Web Console Messages to Kotlin
-Capture `console.log`, `console.warn`, and `console.error` calls emitted by web pages:
-
-```kotlin
-client.consoleMessageListener = { msg ->
-    println("[WebConsole] [${msg.level}] [${msg.source}:${msg.line}] ${msg.message}")
-}
+client.setJsDialogListener(dialog -> {
+    if (dialog.getType() == KromiumJsDialogType.ALERT) {
+        javax.swing.JOptionPane.showMessageDialog(null, dialog.getMessage(), "Web Alert", javax.swing.JOptionPane.INFORMATION_MESSAGE);
+        dialog.confirm();
+        return true;
+    }
+    return false; // Let default handler process it
+});
 ```
-
-### Remote Chrome DevTools Debugging
-Inspect pages using Google Chrome / Edge Developer Tools:
-
-```kotlin
-Kromium.initialize {
-    // Open DevTools port on localhost:9222
-    remoteDebuggingPort = 9222
-}
-```
-
-Once running, navigate to `chrome://inspect` in your standard Google Chrome browser to inspect DOM, network waterfalls, memory heaps, and CSS in real time.

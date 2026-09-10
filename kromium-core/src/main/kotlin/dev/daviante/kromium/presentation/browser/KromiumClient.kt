@@ -1,17 +1,58 @@
 package dev.daviante.kromium.presentation.browser
 
-import dev.daviante.kromium.domain.model.*
-import dev.daviante.kromium.domain.config.*
-import dev.daviante.kromium.domain.exception.*
-import dev.daviante.kromium.data.engine.*
-import dev.daviante.kromium.data.model.*
-import dev.daviante.kromium.presentation.browser.*
-import dev.daviante.kromium.presentation.handler.*
-import dev.daviante.kromium.presentation.js.*
-import dev.daviante.kromium.presentation.network.*
-import dev.daviante.kromium.core.logging.*
-import dev.daviante.kromium.core.util.*
-
+import dev.daviante.kromium.core.logging.KromiumLogger
+import dev.daviante.kromium.domain.config.KromiumProxy
+import dev.daviante.kromium.domain.exception.KromiumException
+import dev.daviante.kromium.domain.exception.KromiumLoadError
+import dev.daviante.kromium.domain.exception.SslErrorPolicy
+import dev.daviante.kromium.presentation.handler.KromiumAuthListener
+import dev.daviante.kromium.presentation.handler.KromiumAuthRequest
+import dev.daviante.kromium.presentation.handler.KromiumAuthResponse
+import dev.daviante.kromium.presentation.handler.KromiumConsoleMessage
+import dev.daviante.kromium.presentation.handler.KromiumConsoleMessageLevel
+import dev.daviante.kromium.presentation.handler.KromiumDownloadItem
+import dev.daviante.kromium.presentation.handler.KromiumDownloadListener
+import dev.daviante.kromium.presentation.handler.KromiumJsDialog
+import dev.daviante.kromium.presentation.handler.KromiumJsDialogListener
+import dev.daviante.kromium.presentation.handler.KromiumJsDialogType
+import dev.daviante.kromium.presentation.handler.KromiumPermissionDecision
+import dev.daviante.kromium.presentation.handler.KromiumPermissionHandler
+import dev.daviante.kromium.presentation.automation.KromiumEmulation
+import dev.daviante.kromium.presentation.handler.KromiumPermissionRequest
+import dev.daviante.kromium.presentation.handler.KromiumPermissionType
+import dev.daviante.kromium.presentation.keyboard.KromiumShortcutHandler
+import dev.daviante.kromium.presentation.menu.KromiumContextMenuContext
+import dev.daviante.kromium.presentation.menu.KromiumContextMenuHandler
+import dev.daviante.kromium.presentation.menu.KromiumContextMenuParams
+import dev.daviante.kromium.presentation.menu.KromiumMenuBuilder
+import dev.daviante.kromium.presentation.js.KromiumJsHandler
+import dev.daviante.kromium.presentation.network.KromiumAssetFilter
+import dev.daviante.kromium.presentation.network.KromiumHtmlResourceHandler
+import dev.daviante.kromium.presentation.network.KromiumRequestInterceptor
+import dev.daviante.kromium.presentation.network.KromiumWebResourceRequest
+import org.cef.callback.CefMediaAccessCallback
+import org.cef.handler.CefContextMenuHandler
+import org.cef.handler.CefContextMenuHandlerAdapter
+import org.cef.handler.CefDisplayHandler
+import org.cef.handler.CefDisplayHandlerAdapter
+import org.cef.handler.CefDownloadHandler
+import org.cef.handler.CefDownloadHandlerAdapter
+import org.cef.handler.CefFocusHandler
+import org.cef.handler.CefFocusHandlerAdapter
+import org.cef.handler.CefJSDialogHandler
+import org.cef.handler.CefJSDialogHandlerAdapter
+import org.cef.handler.CefKeyboardHandler
+import org.cef.handler.CefKeyboardHandlerAdapter
+import org.cef.handler.CefLifeSpanHandler
+import org.cef.handler.CefLifeSpanHandlerAdapter
+import org.cef.handler.CefLoadHandler
+import org.cef.handler.CefLoadHandlerAdapter
+import org.cef.handler.CefPermissionHandler
+import org.cef.handler.CefRequestHandler
+import org.cef.handler.CefRequestHandlerAdapter
+import org.cef.handler.CefResourceHandler
+import org.cef.handler.CefResourceRequestHandler
+import org.cef.handler.CefResourceRequestHandlerAdapter
 
 import org.cef.CefClient
 import org.cef.browser.CefBrowser
@@ -23,10 +64,10 @@ import org.cef.callback.CefBeforeDownloadCallback
 import org.cef.callback.CefDownloadItem
 import org.cef.callback.CefDownloadItemCallback
 import org.cef.callback.CefJSDialogCallback
-import org.cef.handler.*
 import org.cef.misc.BoolRef
+import org.cef.misc.EventFlags
 import org.cef.network.CefRequest
-
+import java.awt.event.KeyEvent
 
 private const val TAG = "KromiumClient"
 
@@ -39,8 +80,9 @@ class KromiumClient(
     val requestContext: CefRequestContext? = null,
     internal val routerQueryName: String = "kromiumQuery",
     internal val routerCancelName: String = "kromiumQueryCancel"
-) {
+) : AutoCloseable {
 
+    @Volatile
     private var clientProxy: KromiumProxy? = null
 
     /**
@@ -82,41 +124,103 @@ class KromiumClient(
         }
     }
 
+    /**
+     * Dynamically updates the client proxy returning a boolean.
+     * Provides 100% clean Java compatibility bypassing Kotlin Result value class mangling.
+     */
+    @JvmName("updateProxy")
+    fun updateProxy(proxy: KromiumProxy): Boolean {
+        return setProxy(proxy).isSuccess
+    }
+
     internal val jsHandler = KromiumJsHandler()
 
     @Volatile var requestInterceptor: KromiumRequestInterceptor? = null
     @Volatile var downloadListener: KromiumDownloadListener? = null
     @Volatile var downloadDirectory: java.io.File = resolveDefaultDownloadDirectory()
     @Volatile var onBeforeDownloadListener: ((item: KromiumDownloadItem, suggestedFileName: String) -> String?)? = null
-    private val downloadCallbacks = java.util.concurrent.ConcurrentHashMap<Int, CefDownloadItemCallback>()
 
-    fun cancelDownload(downloadId: Int): Boolean {
-        val cb = downloadCallbacks[downloadId] ?: return false
-        cb.cancel()
-        return true
+    /** Sets the onBeforeDownloadListener using a Java [java.util.function.BiFunction]. */
+    fun setOnBeforeDownloadListener(listener: java.util.function.BiFunction<KromiumDownloadItem, String, String?>?) {
+        onBeforeDownloadListener = if (listener != null) { { item, name -> listener.apply(item, name) } } else null
     }
 
-    fun pauseDownload(downloadId: Int): Boolean {
-        val cb = downloadCallbacks[downloadId] ?: return false
-        cb.pause()
-        return true
-    }
+    fun cancelDownload(downloadId: Int): Boolean = cancelDownloadGlobally(downloadId)
 
-    fun resumeDownload(downloadId: Int): Boolean {
-        val cb = downloadCallbacks[downloadId] ?: return false
-        cb.resume()
-        return true
-    }
+    fun pauseDownload(downloadId: Int): Boolean = pauseDownloadGlobally(downloadId)
+
+    fun resumeDownload(downloadId: Int): Boolean = resumeDownloadGlobally(downloadId)
+
+    fun isDownloadPaused(downloadId: Int): Boolean = isDownloadPausedGlobally(downloadId)
 
     @Volatile var jsDialogListener: KromiumJsDialogListener? = null
     @Volatile var consoleMessageListener: ((KromiumConsoleMessage) -> Unit)? = null
+
+    /** Sets the console message listener using a Java [java.util.function.Consumer]. */
+    fun setConsoleMessageListener(listener: java.util.function.Consumer<KromiumConsoleMessage>?) {
+        consoleMessageListener = if (listener != null) { { msg -> listener.accept(msg) } } else null
+    }
+
+    @Volatile var permissionHandler: KromiumPermissionHandler? = null
+    @Volatile var rememberPermissions: Boolean = true
+    private val permissionCache = java.util.concurrent.ConcurrentHashMap<String, Int>()
+
+    /**
+     * Clears all remembered permission decisions from the in-memory session cache.
+     */
+    fun clearPermissionCache() {
+        permissionCache.clear()
+    }
+
+    /**
+     * Whether to assert Do Not Track (DNT) and Global Privacy Control (Sec-GPC) headers on outbound requests.
+     * Defaults to true.
+     */
+    @Volatile var doNotTrack: Boolean = true
+
     @Volatile var authListener: KromiumAuthListener? = null
     @Volatile var onPopupListener: ((url: String) -> Boolean)? = null
+
+    /** Sets the popup listener using a Java [java.util.function.Predicate]. */
+    fun setOnPopupListener(listener: java.util.function.Predicate<String>?) {
+        onPopupListener = if (listener != null) { { url -> listener.test(url) } } else null
+    }
+
     @Volatile var onPermissionRequest: ((url: String) -> Boolean)? = null
+
+    /** Sets the permission request listener using a Java [java.util.function.Predicate]. */
+    fun setOnPermissionRequest(listener: java.util.function.Predicate<String>?) {
+        onPermissionRequest = if (listener != null) { { url -> listener.test(url) } } else null
+    }
+
     @Volatile var enableContextMenus: Boolean = true
+    @Volatile var contextMenuHandler: KromiumContextMenuHandler? = null
+    private val contextMenuActions = java.util.concurrent.ConcurrentHashMap<Int, (KromiumContextMenuContext) -> Unit>()
+    @Volatile private var activeContextMenuContext: KromiumContextMenuContext? = null
+
+    /**
+     * Configures the context menu using a declarative Kotlin DSL block.
+     */
+    fun setContextMenu(block: KromiumMenuBuilder.(KromiumContextMenuContext) -> Unit) {
+        contextMenuHandler = KromiumContextMenuHandler { builder, context ->
+            builder.block(context)
+        }
+    }
+
     @Volatile var loadErrorListener: ((KromiumLoadError) -> Unit)? = null
+
+    /** Sets the load error listener using a Java [java.util.function.Consumer]. */
+    fun setLoadErrorListener(listener: java.util.function.Consumer<KromiumLoadError>?) {
+        loadErrorListener = if (listener != null) { { err -> listener.accept(err) } } else null
+    }
+
     @Volatile var customUserAgent: String? = null
     @Volatile var shouldOverrideUrlLoading: ((url: String) -> Boolean)? = null
+
+    /** Sets the URL loading override using a Java [java.util.function.Predicate]. */
+    fun setShouldOverrideUrlLoading(listener: java.util.function.Predicate<String>?) {
+        shouldOverrideUrlLoading = if (listener != null) { { url -> listener.test(url) } } else null
+    }
 
     /**
      * Asset filter configuration for blocking media, images, fonts, and stylesheets.
@@ -133,14 +237,55 @@ class KromiumClient(
      */
     @Volatile var hostLockSubresources: Boolean = false
 
+    /**
+     * When true, automatically normalizes the headless environment to emulate a standard desktop browser.
+     */
+    @Volatile var emulateDesktopEnvironment: Boolean = false
+
+    private val activeRequestCount = java.util.concurrent.atomic.AtomicInteger(0)
+    private val lastRequestCompletedAt = java.util.concurrent.atomic.AtomicLong(System.currentTimeMillis())
+
+    /**
+     * Number of currently active, in-flight network requests.
+     */
+    val inFlightRequestCount: Int
+        get() = activeRequestCount.get()
+
+    /**
+     * Returns true if there are currently any active network requests in flight.
+     */
+    fun hasPendingRequests(): Boolean = activeRequestCount.get() > 0
+
+    /**
+     * Returns the elapsed time in milliseconds since the last network request completed.
+     */
+    fun timeSinceLastRequestMs(): Long = System.currentTimeMillis() - lastRequestCompletedAt.get()
+
     private val loadHandlers = java.util.concurrent.CopyOnWriteArrayList<CefLoadHandler>()
     private val displayHandlers = java.util.concurrent.CopyOnWriteArrayList<CefDisplayHandler>()
     private val lifeSpanHandlers = java.util.concurrent.CopyOnWriteArrayList<CefLifeSpanHandler>()
     private val contextMenuHandlers = java.util.concurrent.CopyOnWriteArrayList<CefContextMenuHandler>()
     private val focusHandlers = java.util.concurrent.CopyOnWriteArrayList<CefFocusHandler>()
     private val keyboardHandlers = java.util.concurrent.CopyOnWriteArrayList<CefKeyboardHandler>()
+    private val permissionHandlers = java.util.concurrent.CopyOnWriteArrayList<CefPermissionHandler>()
 
     internal val htmlPayloads = java.util.concurrent.ConcurrentHashMap<String, String>()
+    private val htmlPayloadKeys = java.util.concurrent.ConcurrentLinkedDeque<String>()
+
+    /**
+     * Registers an in-memory synthetic HTML payload, capping cache size to prevent memory leaks.
+     */
+    internal fun registerHtmlPayload(url: String, html: String, maxCapacity: Int = 50) {
+        htmlPayloads[url] = html
+        htmlPayloadKeys.remove(url)
+        htmlPayloadKeys.add(url)
+        while (htmlPayloadKeys.size > maxCapacity) {
+            val oldest = htmlPayloadKeys.pollFirst()
+            if (oldest != null) {
+                htmlPayloads.remove(oldest)
+            }
+        }
+    }
 
     /**
      * SSL error handling policy. Defaults to [SslErrorPolicy.Strict] which rejects all
@@ -149,6 +294,7 @@ class KromiumClient(
      *
      * @see SslErrorPolicy
      */
+    @Volatile
     var sslErrorPolicy: SslErrorPolicy = SslErrorPolicy.Strict
         set(value) {
             field = value
@@ -211,7 +357,7 @@ class KromiumClient(
                     val reqUrl = request.url
                     if (!allowed.isNullOrEmpty() && !reqUrl.isNullOrBlank()) {
                         if (!KromiumAssetFilter.isHostAllowed(reqUrl, allowed)) {
-                            KromiumLogger.d(TAG, "Subresource blocked by host lock: $reqUrl")
+                            KromiumLogger.w(TAG, "Subresource blocked by host lock: $reqUrl (allowed: $allowed)")
                             return true
                         }
                     }
@@ -222,7 +368,13 @@ class KromiumClient(
                     request.setHeaderByName("User-Agent", ua, true)
                 }
 
-                // 3. Pass to developer's interceptor if provided
+                // 3. Inject Do Not Track & Global Privacy Control signals if enabled
+                if (doNotTrack) {
+                    request.setHeaderByName("DNT", "1", true)
+                    request.setHeaderByName("Sec-GPC", "1", true)
+                }
+
+                // 4. Pass to developer's interceptor if provided
                 val interceptor = requestInterceptor
                 if (interceptor != null) {
                     val headersMap = mutableMapOf<String, String>()
@@ -254,7 +406,24 @@ class KromiumClient(
                     }
                 }
 
+                // Synthetic in-memory HTML payloads are resolved locally via getResourceHandler and do not fire onResourceLoadComplete
+                val isSyntheticPayload = request.url?.let { htmlPayloads.containsKey(it) } == true
+                if (!isSyntheticPayload) {
+                    activeRequestCount.incrementAndGet()
+                }
                 return false // Proceed
+            }
+
+            override fun onResourceLoadComplete(
+                browser: CefBrowser?,
+                frame: CefFrame?,
+                request: CefRequest?,
+                response: org.cef.network.CefResponse?,
+                status: org.cef.network.CefURLRequest.Status?,
+                receivedContentLength: Long
+            ) {
+                activeRequestCount.updateAndGet { count -> if (count > 0) count - 1 else 0 }
+                lastRequestCompletedAt.set(System.currentTimeMillis())
             }
 
             override fun getResourceHandler(
@@ -320,6 +489,7 @@ class KromiumClient(
                 }
 
                 KromiumLogger.d(TAG, "SSL certificate error rejected for: $requestUrl (error: $certError)")
+                callback?.cancel()
                 return false
             }
 
@@ -440,11 +610,18 @@ class KromiumClient(
                 return when {
                     customPath != null && customPath.isBlank() -> {
                         KromiumLogger.i(TAG, "Download canceled: $cleanName")
+                        callback.Continue("", false)
                         false
                     }
                     customPath != null -> {
-                        KromiumLogger.i(TAG, "Downloading $cleanName to custom path: $customPath")
-                        callback.Continue(customPath, false)
+                        val resolvedCustom = try {
+                            java.io.File(customPath).canonicalFile.absolutePath
+                        } catch (t: Throwable) {
+                            KromiumLogger.e(TAG, "Invalid custom download path: $customPath", t)
+                            defaultTargetPath
+                        }
+                        KromiumLogger.i(TAG, "Downloading $cleanName to custom path: $resolvedCustom")
+                        callback.Continue(resolvedCustom, false)
                         true
                     }
                     else -> {
@@ -464,9 +641,10 @@ class KromiumClient(
 
                 if (callback != null) {
                     if (downloadItem.isComplete || downloadItem.isCanceled) {
-                        downloadCallbacks.remove(downloadItem.id)
+                        globalDownloadCallbacks.remove(downloadItem.id)
+                        pausedDownloads.remove(downloadItem.id)
                     } else {
-                        downloadCallbacks[downloadItem.id] = callback
+                        globalDownloadCallbacks[downloadItem.id] = callback
                     }
                 }
 
@@ -483,7 +661,8 @@ class KromiumClient(
                     speed = downloadItem.currentSpeed,
                     isInProgress = downloadItem.isInProgress,
                     isComplete = downloadItem.isComplete,
-                    isCanceled = downloadItem.isCanceled
+                    isCanceled = downloadItem.isCanceled,
+                    isPaused = pausedDownloads.contains(downloadItem.id)
                 )
 
                 try {
@@ -550,22 +729,10 @@ class KromiumClient(
 
     fun createBrowser(
         url: String? = "about:blank",
-        isOffScreenRendered: Boolean = false,
+        isOffScreenRendered: Boolean = true,
         isTransparent: Boolean = false,
         requestContext: CefRequestContext? = null
     ): KromiumBrowser {
-        if (isOffScreenRendered && !hasJoglSupport) {
-            KromiumLogger.w(
-                TAG,
-                "isOffScreenRendered requested but JOGL (com.jogamp.opengl.GLEventListener) is not present on classpath. " +
-                    "Transparently falling back to zero-dependency offscreen Swing native peer browser."
-            )
-            return createHeadlessBrowser(
-                url = url,
-                requestContext = requestContext
-            )
-        }
-
         val rendering = if (isOffScreenRendered) CefRendering.OFFSCREEN else CefRendering.DEFAULT
         val effectiveContext = requestContext ?: this.requestContext
         val browser = if (effectiveContext != null) {
@@ -582,6 +749,7 @@ class KromiumClient(
      * This provides 100% reliable, zero-dependency background page loading, JavaScript evaluation,
      * DOM extraction, and rendering without requiring JOGL native libraries on the classpath.
      */
+    @JvmOverloads
     fun createHeadlessBrowser(
         url: String? = "about:blank",
         width: Int = 1280,
@@ -627,10 +795,21 @@ class KromiumClient(
         return KromiumBrowser(this, browser, hostPeer = hostWindow)
     }
 
+    fun createBrowser(): KromiumBrowser = createBrowser("about:blank")
+
+    fun createBrowser(url: String?): KromiumBrowser =
+        createBrowser(url = url, isOffScreenRendered = true, isTransparent = false, requestContext = null)
+
     fun createBrowser(
         url: String?,
         isTransparent: Boolean
-    ): KromiumBrowser = createBrowser(url = url, isOffScreenRendered = false, isTransparent = isTransparent)
+    ): KromiumBrowser = createBrowser(url = url, isOffScreenRendered = true, isTransparent = isTransparent)
+
+    fun createBrowser(
+        url: String?,
+        isOffScreenRendered: Boolean,
+        isTransparent: Boolean
+    ): KromiumBrowser = createBrowser(url = url, isOffScreenRendered = isOffScreenRendered, isTransparent = isTransparent, requestContext = null)
 
     fun addLoadHandler(handler: CefLoadHandler) = apply { loadHandlers.add(handler) }
     fun removeLoadHandler(handler: CefLoadHandler) = apply { loadHandlers.remove(handler) }
@@ -656,6 +835,15 @@ class KromiumClient(
     fun removeKeyboardHandler(handler: CefKeyboardHandler) = apply { keyboardHandlers.remove(handler) }
     fun removeKeyboardHandler() = apply { keyboardHandlers.clear() }
 
+    internal fun handleCommandShortcut(
+        browser: CefBrowser,
+        event: CefKeyboardHandler.CefKeyEvent
+    ): Boolean = KromiumShortcutHandler.handleCefKeyEvent(browser, event, isMacOverride = true)
+
+    fun addPermissionHandler(handler: CefPermissionHandler) = apply { permissionHandlers.add(handler) }
+    fun removePermissionHandler(handler: CefPermissionHandler) = apply { permissionHandlers.remove(handler) }
+    fun removePermissionHandler() = apply { permissionHandlers.clear() }
+
     private fun setupCompositeHandlers() {
         rawClient.addLoadHandler(object : CefLoadHandlerAdapter() {
             override fun onLoadingStateChange(
@@ -664,6 +852,11 @@ class KromiumClient(
                 canGoBack: Boolean,
                 canGoForward: Boolean
             ) {
+                if (!isLoading) {
+                    if (activeRequestCount.get() <= 0) {
+                        lastRequestCompletedAt.set(System.currentTimeMillis())
+                    }
+                }
                 for (h in loadHandlers) {
                     try {
                         h.onLoadingStateChange(browser, isLoading, canGoBack, canGoForward)
@@ -678,6 +871,9 @@ class KromiumClient(
                 frame: CefFrame?,
                 transitionType: org.cef.network.CefRequest.TransitionType?
             ) {
+                if (emulateDesktopEnvironment) {
+                    KromiumEmulation.inject(frame)
+                }
                 for (h in loadHandlers) {
                     try {
                         h.onLoadStart(browser, frame, transitionType)
@@ -688,6 +884,9 @@ class KromiumClient(
             }
 
             override fun onLoadEnd(browser: CefBrowser?, frame: CefFrame?, httpStatusCode: Int) {
+                if (emulateDesktopEnvironment) {
+                    KromiumEmulation.inject(frame)
+                }
                 for (h in loadHandlers) {
                     try {
                         h.onLoadEnd(browser, frame, httpStatusCode)
@@ -704,6 +903,8 @@ class KromiumClient(
                 errorText: String?,
                 failedUrl: String?
             ) {
+                activeRequestCount.updateAndGet { count -> if (count > 0) count - 1 else 0 }
+                lastRequestCompletedAt.set(System.currentTimeMillis())
                 if (frame?.isMain == true) {
                     loadErrorListener?.let { listener ->
                         try {
@@ -905,7 +1106,25 @@ class KromiumClient(
             ) {
                 if (!enableContextMenus) {
                     model?.clear()
+                    return
                 }
+
+                val customHandler = contextMenuHandler
+                if (customHandler != null && model != null) {
+                    contextMenuActions.clear()
+                    val contextParams = KromiumContextMenuParams.from(params)
+                    val kBrowser = browser?.let { KromiumBrowser(this@KromiumClient, it) }
+                    val ctx = KromiumContextMenuContext(kBrowser, browser, contextParams, frame)
+                    activeContextMenuContext = ctx
+
+                    val builder = KromiumMenuBuilder(model, ctx, contextMenuActions)
+                    try {
+                        customHandler.onBuildContextMenu(builder, ctx)
+                    } catch (e: Throwable) {
+                        KromiumLogger.e(TAG, "Exception in contextMenuHandler", e)
+                    }
+                }
+
                 for (h in contextMenuHandlers) {
                     try { h.onBeforeContextMenu(browser, frame, params, model) } catch (e: Throwable) {
                         KromiumLogger.e(TAG, "Exception in onBeforeContextMenu handler", e)
@@ -920,6 +1139,22 @@ class KromiumClient(
                 commandId: Int,
                 eventFlags: Int
             ): Boolean {
+                val action = contextMenuActions[commandId]
+                if (action != null) {
+                    val ctx = activeContextMenuContext ?: KromiumContextMenuContext(
+                        browser = browser?.let { KromiumBrowser(this@KromiumClient, it) },
+                        rawBrowser = browser,
+                        params = KromiumContextMenuParams.from(params),
+                        frame = frame
+                    )
+                    try {
+                        action.invoke(ctx)
+                    } catch (e: Throwable) {
+                        KromiumLogger.e(TAG, "Exception in context menu action", e)
+                    }
+                    return true
+                }
+
                 var handled = false
                 for (h in contextMenuHandlers) {
                     try {
@@ -932,6 +1167,8 @@ class KromiumClient(
             }
 
             override fun onContextMenuDismissed(browser: CefBrowser?, frame: CefFrame?) {
+                contextMenuActions.clear()
+                activeContextMenuContext = null
                 for (h in contextMenuHandlers) {
                     try { h.onContextMenuDismissed(browser, frame) } catch (e: Throwable) {
                         KromiumLogger.e(TAG, "Exception in onContextMenuDismissed handler", e)
@@ -962,6 +1199,7 @@ class KromiumClient(
             }
 
             override fun onGotFocus(browser: CefBrowser?) {
+                browser?.uiComponent?.requestFocusInWindow()
                 for (h in focusHandlers) {
                     try { h.onGotFocus(browser) } catch (e: Throwable) {
                         KromiumLogger.e(TAG, "Exception in onGotFocus handler", e)
@@ -984,7 +1222,15 @@ class KromiumClient(
                         KromiumLogger.e(TAG, "Exception in onPreKeyEvent handler", e)
                     }
                 }
-                return handled
+                if (handled) return true
+
+                // In Windowed mode, intercept and execute cross-platform shortcuts (Mac Cmd, Windows/Linux Ctrl).
+                // In OSR mode, CefBrowserOsr already handles and consumes AWT events before sending to CEF.
+                if (browser != null && event != null && KromiumShortcutHandler.handleCefKeyEvent(browser, event)) {
+                    isKeyboardShortcut?.set(true)
+                    return true
+                }
+                return false
             }
 
             override fun onKeyEvent(
@@ -1002,17 +1248,120 @@ class KromiumClient(
                 return handled
             }
         })
+
+        rawClient.addPermissionHandler(object : CefPermissionHandler {
+            override fun onRequestMediaAccessPermission(
+                browser: CefBrowser?,
+                frame: CefFrame?,
+                requestingUrl: String?,
+                accessFlags: Int,
+                callback: CefMediaAccessCallback?
+            ): Boolean {
+                for (h in permissionHandlers) {
+                    try {
+                        if (h.onRequestMediaAccessPermission(browser, frame, requestingUrl, accessFlags, callback)) {
+                            return true
+                        }
+                    } catch (e: Throwable) {
+                        KromiumLogger.e(TAG, "Exception in permissionHandler", e)
+                    }
+                }
+
+                val cb = callback ?: return false
+                val url = requestingUrl ?: ""
+                val request = KromiumPermissionRequest.from(url, accessFlags)
+
+                // Check in-memory session cache
+                if (rememberPermissions) {
+                    val cachedMask = permissionCache[request.origin]
+                    if (cachedMask != null) {
+                        if (cachedMask == 0) {
+                            KromiumLogger.d(TAG, "Denied media access for ${request.origin} from session cache")
+                            cb.Cancel()
+                            return true
+                        } else {
+                            val allowedMask = accessFlags and cachedMask
+                            if (allowedMask != 0) {
+                                KromiumLogger.d(TAG, "Granted media access (flags: $allowedMask) for ${request.origin} from session cache")
+                                cb.Continue(allowedMask)
+                                return true
+                            }
+                        }
+                    }
+                }
+
+                val handler = permissionHandler
+                val decision = if (handler != null) {
+                    handler.onRequestPermission(request)
+                } else if (onPermissionRequest != null) {
+                    val allowed = onPermissionRequest?.invoke(request.url) == true
+                    if (allowed) KromiumPermissionDecision.GRANT else KromiumPermissionDecision.DENY
+                } else {
+                    KromiumPermissionDecision.DENY
+                }
+
+                return when (decision) {
+                    is KromiumPermissionDecision.Grant -> {
+                        val mask = if (decision.allowedTypes != null) {
+                            KromiumPermissionType.toFlags(decision.allowedTypes) and accessFlags
+                        } else {
+                            accessFlags
+                        }
+                        if (mask != 0) {
+                            if (rememberPermissions) {
+                                permissionCache.merge(request.origin, mask) { old, new -> old or new }
+                            }
+                            KromiumLogger.i(TAG, "Granted media permission (mask=$mask) for ${request.origin}")
+                            cb.Continue(mask)
+                            true
+                        } else {
+                            if (rememberPermissions) {
+                                permissionCache[request.origin] = 0
+                            }
+                            KromiumLogger.i(TAG, "Denied media permission for ${request.origin} (no matching allowed types)")
+                            cb.Cancel()
+                            true
+                        }
+                    }
+                    is KromiumPermissionDecision.Deny -> {
+                        if (rememberPermissions) {
+                            permissionCache[request.origin] = 0
+                        }
+                        KromiumLogger.i(TAG, "Denied media permission for ${request.origin}")
+                        cb.Cancel()
+                        true
+                    }
+                }
+            }
+        })
+    }
+
+    override fun close() {
+        dispose()
     }
 
     fun dispose() {
         try {
+            permissionCache.clear()
             loadHandlers.clear()
             displayHandlers.clear()
             lifeSpanHandlers.clear()
             contextMenuHandlers.clear()
+            contextMenuActions.clear()
+            activeContextMenuContext = null
             focusHandlers.clear()
             keyboardHandlers.clear()
+            permissionHandlers.clear()
+            htmlPayloads.clear()
+            htmlPayloadKeys.clear()
             rawClient.dispose()
+            if (requestContext != null && !requestContext.isGlobal) {
+                try {
+                    requestContext.dispose()
+                } catch (e: Throwable) {
+                    KromiumLogger.d(TAG, "Error disposing isolated request context: ${e.message}")
+                }
+            }
         } catch (e: Throwable) {
             KromiumLogger.w(TAG, "Error during client disposal", e)
         }
@@ -1023,6 +1372,7 @@ class KromiumClient(
          * Checks whether JOGL (Java OpenGL) runtime classes are present on the classpath.
          * Required for CEF native offscreen rendering (OSR); if absent, headless mode safely falls back to Swing native peer.
          */
+        @JvmStatic
         val hasJoglSupport: Boolean by lazy {
             try {
                 Class.forName("com.jogamp.opengl.GLEventListener")
@@ -1032,15 +1382,54 @@ class KromiumClient(
             }
         }
 
+        private val globalDownloadCallbacks = java.util.concurrent.ConcurrentHashMap<Int, CefDownloadItemCallback>()
+        private val pausedDownloads = java.util.concurrent.ConcurrentHashMap.newKeySet<Int>()
+
+        @JvmStatic
+        fun cancelDownloadGlobally(downloadId: Int): Boolean {
+            val cb = globalDownloadCallbacks[downloadId] ?: return false
+            return try {
+                cb.cancel()
+                pausedDownloads.remove(downloadId)
+                true
+            } catch (e: Throwable) {
+                KromiumLogger.w(TAG, "Failed to cancel download $downloadId", e)
+                false
+            }
+        }
+
+        @JvmStatic
+        fun pauseDownloadGlobally(downloadId: Int): Boolean {
+            val cb = globalDownloadCallbacks[downloadId] ?: return false
+            return try {
+                cb.pause()
+                pausedDownloads.add(downloadId)
+                true
+            } catch (e: Throwable) {
+                KromiumLogger.w(TAG, "Failed to pause download $downloadId", e)
+                false
+            }
+        }
+
+        @JvmStatic
+        fun resumeDownloadGlobally(downloadId: Int): Boolean {
+            val cb = globalDownloadCallbacks[downloadId] ?: return false
+            return try {
+                cb.resume()
+                pausedDownloads.remove(downloadId)
+                true
+            } catch (e: Throwable) {
+                KromiumLogger.w(TAG, "Failed to resume download $downloadId", e)
+                false
+            }
+        }
+
+        @JvmStatic
+        fun isDownloadPausedGlobally(downloadId: Int): Boolean = pausedDownloads.contains(downloadId)
+
+        @JvmStatic
         fun resolveDefaultDownloadDirectory(): java.io.File {
-            val rawHome = System.getProperty("user.home") ?: "."
-            if (rawHome.contains("..")) {
-                return java.io.File("Downloads").canonicalFile.apply { mkdirs() }
-            }
-            val homeDir = java.io.File(rawHome).canonicalFile
-            if (homeDir.path.contains("..")) {
-                return java.io.File("Downloads").canonicalFile.apply { mkdirs() }
-            }
+            val homeDir = getSafeUserHome() ?: return java.io.File("Downloads").canonicalFile.apply { mkdirs() }
             val userDownloads = java.io.File(homeDir, "Downloads").canonicalFile
             if (!userDownloads.canonicalPath.startsWith(homeDir.canonicalPath)) {
                 return getFallbackDownloadDirectory()
@@ -1058,20 +1447,20 @@ class KromiumClient(
         }
 
         private fun getFallbackDownloadDirectory(): java.io.File {
-            val rawHome = System.getProperty("user.home") ?: "."
-            if (rawHome.contains("..")) {
-                return java.io.File("KromiumDownloads").canonicalFile.apply { mkdirs() }
-            }
-            val homeDir = java.io.File(rawHome).canonicalFile
-            if (homeDir.path.contains("..")) {
-                return java.io.File("KromiumDownloads").canonicalFile.apply { mkdirs() }
-            }
+            val homeDir = getSafeUserHome() ?: return java.io.File("KromiumDownloads").canonicalFile.apply { mkdirs() }
             val fallback = java.io.File(homeDir, "KromiumDownloads").canonicalFile
             if (!fallback.canonicalPath.startsWith(homeDir.canonicalPath)) {
                 return java.io.File("KromiumDownloads").canonicalFile.apply { mkdirs() }
             }
             if (!fallback.exists()) fallback.mkdirs()
             return fallback
+        }
+
+        private fun getSafeUserHome(): java.io.File? {
+            val rawHome = System.getProperty("user.home") ?: return null
+            if (rawHome.contains("..")) return null
+            val homeDir = java.io.File(rawHome).canonicalFile
+            return if (homeDir.path.contains("..")) null else homeDir
         }
     }
 }

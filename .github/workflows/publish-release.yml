@@ -12,6 +12,16 @@ on:
       - 'v*'
   workflow_dispatch:
     inputs:
+      custom_notes:
+        description: 'Custom release notes in Markdown (optional: leave empty to extract automatically from CHANGELOG.md)'
+        required: false
+        type: string
+        default: ''
+      force:
+        description: 'Force publish even if git tag already exists'
+        required: false
+        type: boolean
+        default: false
       dry_run:
         description: 'Dry run (build, test, sign, and verify bundle without uploading)'
         required: true
@@ -60,6 +70,8 @@ jobs:
 
       - name: Check Trigger Condition (PR Merge & JAR Update)
         id: check_trigger
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             if [ "${{ github.event.pull_request.merged }}" != "true" ]; then
@@ -81,6 +93,16 @@ jobs:
               echo "proceed=false" >> $GITHUB_OUTPUT
               exit 0
             fi
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            TAG_NAME="${{ github.ref_name }}"
+            echo "Tag push event detected for $TAG_NAME. Checking if release already exists..."
+            if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+              echo "Release $TAG_NAME already created by PR merge. Skipping duplicate tag run."
+              echo "proceed=false" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            echo "New standalone tag push without existing release. Proceeding."
+            echo "proceed=true" >> $GITHUB_OUTPUT
           else
             echo "Direct release or manual workflow dispatch. Proceeding."
             echo "proceed=true" >> $GITHUB_OUTPUT
@@ -141,12 +163,19 @@ jobs:
             echo "Pushed tag and Gradle version match perfectly ($PROJECT_VERSION)."
           fi
 
-          if [ "${{ github.event_name }}" = "pull_request" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
             git fetch --tags
             if git rev-parse "v$PROJECT_VERSION" >/dev/null 2>&1; then
-              echo "::warning::Tag v$PROJECT_VERSION already exists. Skipping duplicate publish."
+              echo "::warning::Tag v$PROJECT_VERSION already exists. Skipping duplicate PR publish."
               echo "proceed=false" >> $GITHUB_OUTPUT
               exit 0
+            fi
+          fi
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            git fetch --tags
+            if git rev-parse "v$PROJECT_VERSION" >/dev/null 2>&1; then
+              echo "ℹ️ Tag v$PROJECT_VERSION already exists in repository. Proceeding with release and publication."
             fi
           fi
 
@@ -182,61 +211,128 @@ jobs:
         if: steps.check_trigger.outputs.proceed == 'true' && steps.preflight.outputs.proceed == 'true' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.event_name == 'push') && inputs.dry_run != true
         env:
           GH_TOKEN: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
+          CUSTOM_NOTES: ${{ inputs.custom_notes }}
         run: |
           PROJECT_VERSION="${{ steps.preflight.outputs.project_version }}"
           TAG_NAME="v$PROJECT_VERSION"
 
           if [ "${{ github.event_name }}" != "push" ]; then
-            echo "Creating Git Tag: $TAG_NAME"
-            if [ -n "${{ steps.app_token.outputs.token }}" ]; then
-              git config user.name "${{ steps.app_token.outputs.app-slug || 'daviante-releaser' }}"
-              git config user.email "${{ steps.app_token.outputs.app-slug || 'daviante-releaser' }}@users.noreply.github.com"
+            if ! git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+              echo "Creating Git Tag: $TAG_NAME"
+              if [ -n "${{ steps.app_token.outputs.token }}" ]; then
+                git config user.name "${{ steps.app_token.outputs.app-slug || 'daviante-releaser' }}"
+                git config user.email "${{ steps.app_token.outputs.app-slug || 'daviante-releaser' }}@users.noreply.github.com"
+              else
+                git config user.name "daviante-releaser"
+                git config user.email "daviante-releaser@users.noreply.github.com"
+              fi
+              git tag -a "$TAG_NAME" -m "Release $TAG_NAME"
+              git push origin "$TAG_NAME"
             else
-              git config user.name "github-actions"
-              git config user.email "github-actions@users.noreply.github.com"
+              echo "Git tag $TAG_NAME already exists in repository."
             fi
-            git tag -a "$TAG_NAME" -m "Release $TAG_NAME"
-            git push origin "$TAG_NAME"
           fi
 
-          UPSTREAM_VER=$(cat jcef-version.txt 2>/dev/null || echo "")
+          export PROJECT_VERSION="$PROJECT_VERSION"
+          export TAG_NAME="$TAG_NAME"
+          export UPSTREAM_VER="$(cat jcef-version.txt 2>/dev/null || echo '')"
 
-          echo "Creating GitHub Release for $TAG_NAME..."
-          {
-            echo "<div align=\"center\">"
-            echo "  <img src=\"https://kromium.daviante.dev/android-chrome-192x192.png\" alt=\"Kromium Logo\" width=\"80\" height=\"80\" />"
-            echo "  <h2>Kromium $TAG_NAME</h2>"
-            echo "  <p>"
-            echo "    <img src=\"https://img.shields.io/badge/Channel-Stable-107c41?style=flat-square&logo=shield\" alt=\"Stable\" />"
-            echo "    <img src=\"https://img.shields.io/badge/Type-Bug--Fix-0078d4?style=flat-square\" alt=\"Bug-Fix\" />"
-            echo "    <img src=\"https://img.shields.io/badge/Engine-JetBrains_Certified_JCEF-5c2d91?style=flat-square\" alt=\"JetBrains Certified\" />"
-            echo "    <img src=\"https://img.shields.io/badge/Chromium-CEF_150-e36209?style=flat-square&logo=googlechrome\" alt=\"Chromium 150\" />"
-            echo "  </p>"
-            echo "</div>"
-            echo ""
-            echo "Automated update release of Kromium compiled against certified upstream JCEF runtime \`$UPSTREAM_VER\`."
-            echo ""
-            echo "#### 📦 Coordinates"
-            echo "\`\`\`kotlin"
-            echo "dependencies {"
-            echo "    // Compose Multiplatform Desktop"
-            echo "    implementation(\"dev.daviante:kromium-compose:$PROJECT_VERSION\")"
-            echo ""
-            echo "    // Standalone Kotlin JVM / Swing"
-            echo "    // implementation(\"dev.daviante:kromium-core:$PROJECT_VERSION\")"
-            echo "}"
-            echo "\`\`\`"
-            echo ""
-            echo "#### ⚙️ Engine Details"
-            echo "- **Upstream JCEF Runtime**: \`$UPSTREAM_VER\`"
-            echo "- **Native Cache Directory**: \`jcef-$(echo "$PROJECT_VERSION" | sed -E 's/^[0-9]+\.[0-9]+\.//')\`"
-            echo ""
-            echo "📖 **Documentation**: [kromium.daviante.dev](https://kromium.daviante.dev) &bull; **Changelog**: [CHANGELOG.md](CHANGELOG.md)"
-          } > release_notes.md
+          echo "Generating GitHub Release notes for $TAG_NAME..."
+          python3 -c '
+          import os, re
 
-          gh release create "$TAG_NAME" \
-            --title "Kromium $TAG_NAME" \
-            --notes-file release_notes.md || echo "GitHub release $TAG_NAME already created or exists."
+          version = os.environ.get("PROJECT_VERSION", "")
+          tag_name = os.environ.get("TAG_NAME", "")
+          upstream_ver = os.environ.get("UPSTREAM_VER", "")
+          custom_notes = os.environ.get("CUSTOM_NOTES", "").strip()
+
+          notes = custom_notes
+          release_type = "Release"
+          badge_color = "107c41"
+
+          if not notes and os.path.exists("CHANGELOG.md"):
+              with open("CHANGELOG.md", "r") as f:
+                  content = f.read()
+
+              header_match = re.search(rf"## \[{re.escape(version)}\]([^\n]*)", content)
+              if header_match:
+                  header_text = header_match.group(1).lower()
+                  if "major" in header_text:
+                      release_type = "Major-Release"
+                      badge_color = "blueviolet"
+                  elif "security" in header_text:
+                      release_type = "Security-Patch"
+                      badge_color = "d13438"
+                  elif "minor" in header_text or "feature" in header_text:
+                      release_type = "Feature-Release"
+                      badge_color = "0078d4"
+
+              pattern = rf"## \[{re.escape(version)}\][^\n]*\n(.*?)(?=\n---\n|\n## \[|\Z)"
+              match = re.search(pattern, content, re.DOTALL)
+              if match:
+                  notes = match.group(1).strip()
+
+          if not notes:
+              notes = f"Automated update release of Kromium compiled against certified upstream JCEF runtime `{upstream_ver}`."
+
+          type_badge = f"https://img.shields.io/badge/Type-{release_type}-{badge_color}?style=flat-square"
+          cache_dir = re.sub(r"^[0-9]+\.[0-9]+\.", "", version)
+
+          release_body = f"""<div align=\"center\">
+            <img src=\"https://kromium.daviante.dev/android-chrome-192x192.png\" alt=\"Kromium Logo\" width=\"80\" height=\"80\" />
+            <h2>Kromium {tag_name}</h2>
+            <p>
+              <img src=\"https://img.shields.io/badge/Channel-Stable-107c41?style=flat-square&logo=shield\" alt=\"Stable\" />
+              <img src=\"{type_badge}\" alt=\"{release_type}\" />
+              <img src=\"https://img.shields.io/badge/Engine-JetBrains_Certified_JCEF-5c2d91?style=flat-square\" alt=\"JetBrains Certified\" />
+              <img src=\"https://img.shields.io/badge/Chromium-CEF_150-e36209?style=flat-square&logo=googlechrome\" alt=\"Chromium 150\" />
+            </p>
+          </div>
+
+          {notes}
+
+          #### 📦 Coordinates
+
+          ```kotlin
+          dependencies {{
+              // Compose Multiplatform Desktop
+              implementation(\"dev.daviante:kromium-compose:{version}\")
+
+              // Standalone Kotlin JVM / Universal Java Desktop (Swing, AWT, SWT, JavaFX)
+              implementation(\"dev.daviante:kromium-core:{version}\")
+          }}
+          ```
+
+          ```xml
+          <dependency>
+              <groupId>dev.daviante</groupId>
+              <artifactId>kromium-core</artifactId>
+              <version>{version}</version>
+          </dependency>
+          ```
+
+          #### ⚙️ Engine Details
+          - **Upstream JCEF Runtime**: `{upstream_ver}`
+          - **Native Cache Directory**: `jcef-{cache_dir}`
+
+          📖 **Documentation**: [kromium.daviante.dev](https://kromium.daviante.dev) &bull; **Changelog**: [CHANGELOG.md](CHANGELOG.md)
+          """
+
+          with open("release_notes.md", "w") as f:
+              f.write(release_body)
+          '
+
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            echo "GitHub release $TAG_NAME already exists. Updating release notes..."
+            gh release edit "$TAG_NAME" \
+              --title "Kromium $TAG_NAME" \
+              --notes-file release_notes.md
+          else
+            echo "Creating GitHub Release for $TAG_NAME..."
+            gh release create "$TAG_NAME" \
+              --title "Kromium $TAG_NAME" \
+              --notes-file release_notes.md
+          fi
 
       - name: Build, Sign & Package Publications
         if: steps.check_trigger.outputs.proceed == 'true' && steps.preflight.outputs.proceed == 'true'
@@ -338,3 +434,30 @@ jobs:
           echo "Track Validation & Publication Status:"
           echo "https://central.sonatype.com/publishing/deployments/$DEPLOYMENT_ID"
           echo "=========================================================="
+
+      - name: Publish to GitHub Packages (maven.pkg.github.com)
+        if: steps.check_trigger.outputs.proceed == 'true' && steps.preflight.outputs.proceed == 'true' && inputs.dry_run != true
+        env:
+          GITHUB_ACTOR: ${{ steps.app_token.outputs.app-slug || 'daviante-releaser' }}
+          GITHUB_TOKEN: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
+          GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
+          GPG_SIGNING_PASSWORD: ${{ secrets.GPG_SIGNING_PASSWORD }}
+        run: |
+          echo "=========================================================="
+          echo "📦 Publishing signed artifacts to GitHub Packages..."
+          echo "Actor: $GITHUB_ACTOR"
+          echo "Target: https://maven.pkg.github.com/daviantegroup/kromium"
+          echo "=========================================================="
+          ./gradlew publishAllPublicationsToGitHubPackagesRepository --no-daemon
+          echo "🚀 Successfully published to GitHub Packages!"
+
+      - name: Attach Bundle Asset to GitHub Release
+        if: steps.check_trigger.outputs.proceed == 'true' && steps.preflight.outputs.proceed == 'true' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.event_name == 'push') && inputs.dry_run != true
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME="v${{ steps.preflight.outputs.project_version }}"
+          echo "Attaching build/bundle.zip to GitHub Release $TAG_NAME..."
+          gh release upload "$TAG_NAME" build/bundle.zip --clobber
+          echo "✅ Release asset attached successfully."
+

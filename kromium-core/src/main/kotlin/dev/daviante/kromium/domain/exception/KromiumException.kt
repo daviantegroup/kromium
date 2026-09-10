@@ -1,18 +1,5 @@
 package dev.daviante.kromium.domain.exception
 
-import dev.daviante.kromium.domain.model.*
-import dev.daviante.kromium.domain.config.*
-import dev.daviante.kromium.domain.exception.*
-import dev.daviante.kromium.data.engine.*
-import dev.daviante.kromium.data.model.*
-import dev.daviante.kromium.presentation.browser.*
-import dev.daviante.kromium.presentation.handler.*
-import dev.daviante.kromium.presentation.js.*
-import dev.daviante.kromium.presentation.network.*
-import dev.daviante.kromium.core.logging.*
-import dev.daviante.kromium.core.util.*
-
-
 /**
  * Sealed exception hierarchy for all Kromium-specific errors.
  *
@@ -22,7 +9,7 @@ import dev.daviante.kromium.core.util.*
 sealed class KromiumException(
     override val message: String,
     override val cause: Throwable? = null
-) : Exception(message, cause) {
+) : RuntimeException(message, cause) {
 
     /** Kromium has not been initialized. Call [Kromium.initialize] first. */
     data object NotInitialized : KromiumException("Kromium is not initialized. Call Kromium.initialize() first.")
@@ -41,6 +28,11 @@ sealed class KromiumException(
         val directory: String,
         override val cause: Throwable? = null
     ) : KromiumException("Failed to prepare installation directory: $directory", cause)
+
+    /** Auto-download is disabled and no pre-installed JCEF engine was found in the target directory. */
+    data class AutoDownloadDisabled(
+        val directory: String
+    ) : KromiumException("Auto-download is disabled (autoDownload = false), and no valid JCEF engine binaries were found at: $directory")
 
     /** No compatible JCEF bundle was found for the current platform in the release. */
     data class NoBundleAvailable(
@@ -95,4 +87,10 @@ sealed class KromiumException(
     data class ProxyError(
         val detail: String
     ) : KromiumException("Proxy error: $detail")
+
+    /** Failed to print web page to PDF. */
+    data class PdfPrintFailed(
+        val path: String,
+        override val cause: Throwable? = null
+    ) : KromiumException("Failed to print web page to PDF: $path", cause)
 }

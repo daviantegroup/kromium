@@ -7,7 +7,9 @@ import kotlin.test.assertNull
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
-import io.mockk.*
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
 import org.cef.browser.CefBrowser
 
 class JsEvaluatorTest {

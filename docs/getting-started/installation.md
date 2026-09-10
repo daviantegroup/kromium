@@ -1,94 +1,120 @@
-# Installation & Requirements
+# Installation & Setup Guide
 
-[Documentation Hub](../README.md) &bull; **Getting Started** &bull; Installation
-
----
-
-## 📦 Artifact Coordinates
-
-Kromium is published to Maven Central under the `dev.daviante` namespace.
-
-| Module | Description | Maven Central |
-|---|---|---|
-| **`dev.daviante:kromium-compose`** | Compose Multiplatform desktop UI bindings, `@Composable KromiumView`, and `KromiumViewState`. | [![Maven Central](https://img.shields.io/badge/Maven_Central-v2.1.150--b11-107c41?style=flat-square&logo=apachemaven)](https://central.sonatype.com/artifact/dev.daviante/kromium-compose) |
-| **`dev.daviante:kromium-core`** | Core engine bootstrap, JCEF lifecycle manager, `KromiumClient`, and headless automation. | [![Maven Central](https://img.shields.io/badge/Maven_Central-v2.1.150--b11-107c41?style=flat-square&logo=apachemaven)](https://central.sonatype.com/artifact/dev.daviante/kromium-core) |
+This guide walks you through adding **Kromium** to your desktop project, configuring dependency repositories, satisfying native operating system prerequisites, and setting up the engine runtime.
 
 ---
 
-## 🛠️ Gradle Setup
+## 📦 Dependency Coordinates
 
-### Compose Multiplatform Desktop
+Kromium artifacts are published to **Maven Central** under the group ID `dev.daviante`.
 
-In your desktop application's `build.gradle.kts`:
+| Artifact | Purpose | Best For |
+|:---|:---|:---|
+| **`dev.daviante:kromium-compose:3.0.150-b11`** | `@Composable KromiumView`, reactive `KromiumViewState`, and Compose Multiplatform desktop integration. | Jetpack / JetBrains Compose Desktop applications. |
+| **`dev.daviante:kromium-core:3.0.150-b11`** | Pure JVM engine, `KromiumClient`, `KromiumBrowser`, headless automation, and pure Java APIs (`CompletableFuture`, SAM callbacks). | Pure Java, Swing, Standard AWT, Eclipse SWT, JavaFX, CLI, and headless servers. |
+
+---
+
+## 🛠️ Build Tool Configuration
+
+### 1. Gradle (Kotlin DSL) — `build.gradle.kts`
 
 ```kotlin
+plugins {
+    kotlin("jvm") version "2.1.10"
+    // Optional: Compose plugin if using Compose Desktop:
+    id("org.jetbrains.compose") version "1.7.3"
+    id("org.jetbrains.kotlin.plugin.compose") version "2.1.10"
+}
+
 repositories {
     mavenCentral()
     google()
     maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
 }
 
+dependencies {
+    // For Compose Desktop:
+    implementation("dev.daviante:kromium-compose:3.0.150-b11")
+
+    // Or for Universal Java Desktop (Swing, AWT, SWT, JavaFX, Headless):
+    implementation("dev.daviante:kromium-core:3.0.150-b11")
+}
+
 kotlin {
-    jvm("desktop")
-    
-    sourceSets {
-        val desktopMain by getting {
-            dependencies {
-                implementation(compose.desktop.currentOs)
-                // Kromium Compose Multiplatform bindings (includes kromium-core transitively)
-                implementation("dev.daviante:kromium-compose:2.1.150-b11")
-                
-                // Kotlin Coroutines
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.9.0")
-            }
-        }
+    jvmToolchain(21) // Java 17 LTS minimum, Java 21 LTS recommended
+}
+```
+
+### 2. Gradle (Groovy DSL) — `build.gradle`
+
+```groovy
+plugins {
+    id 'org.jetbrains.kotlin.jvm' version '2.1.10'
+    id 'org.jetbrains.compose' version '1.7.3'
+}
+
+repositories {
+    mavenCentral()
+    google()
+    maven { url 'https://maven.pkg.jetbrains.space/public/p/compose/dev' }
+}
+
+dependencies {
+    implementation 'dev.daviante:kromium-compose:3.0.150-b11'
+    // or: implementation 'dev.daviante:kromium-core:3.0.150-b11'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
     }
 }
 ```
 
-### Pure Kotlin JVM / Java Swing (Without Compose)
+### 3. Apache Maven — `pom.xml` (Pure Java Applications)
 
-If building a command-line tool, backend service, web scraper, or Swing desktop application:
+```xml
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
 
-```kotlin
-repositories {
-    mavenCentral()
-}
+    <groupId>com.mycompany</groupId>
+    <artifactId>my-desktop-browser</artifactId>
+    <version>1.0.0</version>
 
-dependencies {
-    // Core engine without Compose Desktop dependencies
-    implementation("dev.daviante:kromium-core:2.1.150-b11")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
-}
+    <properties>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <kromium.version>3.0.150-b11</kromium.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>dev.daviante</groupId>
+            <artifactId>kromium-core</artifactId>
+            <version>${kromium.version}</version>
+        </dependency>
+    </dependencies>
+</project>
 ```
 
----
+### 4. Toolkit UI Dependencies (SWT & JavaFX)
 
-## ☕ Runtime Requirements & Java Modules
-
-### Supported JDKs
-* **Java 17 LTS** (Minimum)
-* **Java 21 LTS** (Recommended)
-* **Java 23+**
-
-### Dynamic Java Module Opening
-Because JCEF hooks directly into the Java AWT native peer system (`sun.awt`, `java.desktop/sun.awt`), Java 17+ strong encapsulation requires these packages to be opened to unnamed modules.
-
-> [!TIP]
-> **Zero Configuration Required in Kromium**:  
-> Kromium includes an internal `JvmModuleOpener` that **dynamically opens** the required `java.desktop` packages via reflection at engine startup. You do **not** need to manually add `--add-opens` flags for standard applications.
-
-If running in heavily restricted security manager environments or modular Jigsaw apps, you can explicitly configure your Gradle run task or `application` block:
+When pairing `kromium-core` with Eclipse SWT or JavaFX, add the corresponding framework libraries:
 
 ```kotlin
-application {
-    applicationDefaultJvmArgs = listOf(
-        "--add-opens=java.desktop/sun.awt=ALL-UNNAMED",
-        "--add-opens=java.desktop/sun.awt.windows=ALL-UNNAMED", // Windows
-        "--add-opens=java.desktop/sun.lwawt=ALL-UNNAMED",        // macOS
-        "--add-opens=java.desktop/sun.awt.X11=ALL-UNNAMED"      // Linux
-    )
+// build.gradle.kts
+dependencies {
+    implementation("dev.daviante:kromium-core:3.0.150-b11")
+
+    // Eclipse SWT (select platform artifact or dynamic classifier):
+    implementation("org.eclipse.platform:org.eclipse.swt.win32.win32.x86_64:3.128.0")
+
+    // JavaFX (requires javafx-controls and javafx-swing for SwingNode):
+    implementation("org.openjfx:javafx-controls:21.0.6")
+    implementation("org.openjfx:javafx-swing:21.0.6")
 }
 ```
 
@@ -96,29 +122,109 @@ application {
 
 ## 💻 Operating System Prerequisites
 
-### Windows (x64)
-* **Windows 10 / 11** or **Windows Server 2019+**
-* [Microsoft Visual C++ 2015–2022 Redistributable (x64)](https://aka.ms/vs/17/release/vc_redist.x64.exe) (Installed by default on almost all consumer machines).
+Kromium targets 64-bit desktop operating systems. The native Chromium binaries are resolved automatically by Kromium's bootstrapper, but certain operating system runtime libraries must be present on the user's system:
 
-### macOS (Apple Silicon ARM64 & Intel x64)
-* **macOS 11.0 (Big Sur)** or newer (macOS 12, 13, 14, 15 fully supported).
-* Native Apple Silicon (M1/M2/M3/M4) and Intel binaries are resolved automatically by Kromium's platform detector.
+### 🪟 Windows (x64)
+* **Supported OS**: Windows 10 (Build 1809+), Windows 11, Windows Server 2019+
+* **Prerequisites**: [Microsoft Visual C++ 2015–2022 Redistributable (x64)](https://aka.ms/vs/17/release/vc_redist.x64.exe).
+  * *Note: Most Windows installations already have this pre-installed via other applications.*
 
-<a id="linux-prerequisites"></a>
-<a id="linux-x64-arm64"></a>
-### Linux (x64 & ARM64)
-Ensure standard graphical and audio libraries are installed on the host system:
+### 🍎 macOS (Apple Silicon & Intel x64)
+* **Supported OS**: macOS 11.0 (Big Sur), 12 (Monterey), 13 (Ventura), 14 (Sonoma), 15 (Sequoia)+
+* **Architectures**: Universal support (native ARM64 on Apple Silicon M1/M2/M3/M4; native x86_64 on Intel).
+* **Prerequisites**: None. Dynamic framework symlinking (`ensureMacFrameworkLinks`) is handled automatically at engine initialization.
 
-```bash
-# Ubuntu / Debian
-sudo apt-get update && sudo apt-get install -y \
-    libx11-6 libxcomposite1 libxcursor1 libxdamage1 libxext6 \
-    libxfixes3 libxi6 libxrandr2 libxrender1 libxtst6 \
-    libnss3 libasound2 libatk1.0-0 libcups2 libdrm2 libgbm1
+### 🐧 Linux (x64 & ARM64)
+* **Supported Distributions**: Ubuntu 20.04+, Debian 11+, Fedora 36+, Arch Linux, openSUSE.
+* **Prerequisites**: Standard X11/GTK and multimedia runtime libraries.
+  ```bash
+  # Ubuntu / Debian
+  sudo apt-get update && sudo apt-get install -y \
+      libnss3 libasound2 libatk-bridge2.0-0 libdrm2 libgbm1 libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2
+  
+  # Fedora / RHEL
+  sudo dnf install -y \
+      nss alsa-lib at-spi2-atk libdrm mesa-libgbm libxkbcommon libXcomposite libXdamage libXrandr
+  ```
 
-# Fedora / RHEL
-sudo dnf install -y \
-    libX11 libXcomposite libXcursor libXdamage libXext \
-    libXfixes libXi libXrandr libXrender libXtst \
-    nss alsa-lib atk cups-libs libdrm mesa-libgbm
+---
+
+## ☕ Zero JVM Configuration (`--add-opens`)
+
+Traditional JCEF setups require developers to configure complex JVM command-line flags (such as `--add-opens java.desktop/sun.awt=ALL-UNNAMED`) to prevent `InaccessibleObjectException` when accessing native AWT peers.
+
+**Kromium eliminates this completely.**
+
+Using Kromium's built-in `JvmModuleOpener`, internal JDK desktop modules (`sun.awt`, `sun.awt.X11`, `sun.lwawt.macosx`, `sun.awt.windows`) are dynamically opened in-memory via Unsafe/reflection during `Kromium.initialize()`.
+
+> [!NOTE]
+> You do **not** need to declare `--add-opens` in `build.gradle.kts`, Maven POMs, or launcher scripts on Java 17, 21, or 23+.
+
+---
+
+## 🚀 Engine Bootstrapping & Installation Lifecycle
+
+When `Kromium.initialize()` is called for the first time on a machine:
+
 ```
+┌─────────────────────────────────────────────────────────────┐
+│                   Kromium.initialize()                      │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                Is local JCEF cached & valid?
+                               │
+               ┌───────────────┴───────────────┐
+              YES                              NO
+               │                               │
+               │                   Download platform runtime
+               │                   from JetBrains CDN / Mirror
+               │                               │
+               │                   Verify SHA-256 Checksum
+               │                               │
+               │                   Extract to ~/.kromium/cef-...
+               │                               │
+               └───────────────┬───────────────┘
+                               │
+                   Load Native Libraries & JNI
+                               │
+                 Initialize CEF Process Loop
+                               │
+                     KromiumState.Ready
+```
+
+### Cache Storage Locations
+By default, Kromium stores verified native binaries in a version-isolated user cache directory:
+* **Windows**: `%LOCALAPPDATA%\Kromium\cef-150-...\`
+* **macOS**: `~/Library/Caches/dev.daviante.kromium/cef-150-.../`
+* **Linux**: `~/.cache/kromium/cef-150-.../`
+
+### Customizing Engine Installation Directory
+For enterprise deployments, kiosks, or portable USB apps, you can customize the installation directory:
+
+```kotlin
+val config = KromiumConfig.builder()
+    .installDir(File("/opt/mycompany/kromium-runtime"))
+    .autoDownload(true)
+    .build()
+
+Kromium.initialize(config)
+```
+
+### Bundling Offline / Air-Gapped Runtimes
+To distribute Kromium in restricted, internet-free enterprise environments:
+1. Pre-download the JCEF runtime for your target operating system.
+2. Bundle the files into your application installer.
+3. Point `installDir` to the bundled folder and set `autoDownload(false)`:
+   ```kotlin
+   val config = KromiumConfig.builder()
+       .installDir(File(System.getProperty("app.dir"), "runtime/cef"))
+       .autoDownload(false)
+       .build()
+   ```
+
+---
+
+## ⏭️ Next Steps
+
+* **[Compose Desktop Quickstart](quickstart-compose.md)**: Build your first browser UI in 5 minutes using Kotlin & Compose Multiplatform.
+* **[Pure Java & Swing Quickstart](quickstart-jvm.md)**: Build a desktop browser using standard Java, Swing, and FlatLaf.

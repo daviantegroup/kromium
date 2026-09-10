@@ -1,90 +1,120 @@
 # Kromium Documentation Hub
 
-Welcome to the official documentation for **Kromium**, the modern, production-grade Chromium Embedded Framework (CEF) library for **Compose Multiplatform Desktop** and **Kotlin JVM**.
+Welcome to the official documentation for **Kromium**, the high-performance, enterprise-grade Chromium browser engine for **Compose Multiplatform Desktop** and the **Universal Java Desktop ecosystem (Swing, AWT, Eclipse SWT, JavaFX)**.
 
 ---
 
-## 🗺️ Documentation Architecture
+## 🗺️ Diátaxis Documentation Structure
 
-Our documentation is structured into five distinct sections designed for different stages of development:
+Our documentation is organized following the [Diátaxis framework](https://diataxis.fr/) to help you learn, solve problems, understand architecture, and look up technical specifications:
 
 ```
 docs/
-├── getting-started/      <- Onboarding, installation, and first application
-├── core-concepts/        <- Architecture, state machine, and security foundation
-├── guides/               <- Practical, task-oriented tutorials and how-tos
-├── reference/            <- Exhaustive API signatures, configurations, and errors
-└── deployment/           <- Packaging, platform nuances, and troubleshooting
+├── getting-started/       # 🚀 Learning-oriented tutorials for quick onboarding
+│   ├── installation.md
+│   ├── quickstart-compose.md
+│   └── quickstart-jvm.md
+│
+├── core-concepts/         # 💡 Understanding-oriented architectural deep dives
+│   ├── architecture.md
+│   ├── state-and-lifecycle.md
+│   └── security-and-privacy.md
+│
+├── guides/                # 🛠️ Task-oriented how-to guides for real-world scenarios
+│   ├── compose-ui.md
+│   ├── navigation-and-history.md
+│   ├── javascript-and-dom.md
+│   ├── network-and-proxies.md
+│   ├── asset-filtering-and-security.md
+│   ├── cookie-management.md
+│   ├── downloads-and-dialogs.md
+│   └── headless-and-automation.md
+│
+├── reference/             # 📖 Information-oriented technical references and APIs
+│   ├── browser-and-client-api.md
+│   ├── handlers-and-events.md
+│   ├── configuration.md
+│   └── exceptions-and-logging.md
+│
+└── deployment/            # 📦 Operations, native packaging, and platform guides
+    ├── packaging-and-distribution.md
+    ├── platform-specifics.md
+    └── troubleshooting-and-faq.md
 ```
 
 ---
 
 ## 🚀 Getting Started
-Everything you need to install Kromium and launch your first embedded browser.
 
-* [**Installation & Requirements**](getting-started/installation.md)  
-  Gradle Kotlin DSL setup for Multiplatform & JVM, Maven Central coordinates, JVM 17/21+ module opening, and platform prerequisites.
-* [**Quickstart with Compose Desktop**](getting-started/quickstart-compose.md)  
-  Step-by-step tutorial: initializing Kromium, managing `rememberKromiumState`, and embedding `@Composable KromiumView`.
-* [**Quickstart with Pure Kotlin JVM & Swing**](getting-started/quickstart-jvm.md)  
-  Building traditional desktop applications using `JFrame`, `JPanel`, and Swing EDT threading.
+New to Kromium? Start here:
 
----
-
-## 🏛️ Core Concepts
-Deep dives into Kromium's internal engine architecture and design philosophy.
-
-* [**Engine Architecture & Bootstrapping**](core-concepts/architecture.md)  
-  Dynamic JetBrains Runtime JCEF bundle downloads, SHA-256 verification, native binary loading, and multi-process architecture.
-* [**State & Lifecycle Management**](core-concepts/state-and-lifecycle.md)  
-  The `KromiumState` reactive state machine, mutex-guarded initialization, idempotency, and graceful shutdown.
-* [**Security Hardening & Privacy**](core-concepts/security-and-privacy.md)  
-  Chromium process sandboxing, automated Windows Registry write suppression, anti-telemetry switches, and dangerous flag validation.
+1. [**Installation & Setup**](getting-started/installation.md)  
+   Gradle (Kotlin & Groovy) coordinates, Maven POM configuration, OS-level prerequisites, and JVM module flags.
+2. [**Quickstart: Compose Multiplatform Desktop**](getting-started/quickstart-compose.md)  
+   Build a complete reactive desktop browser with `@Composable KromiumView`, state observers, native window chrome, custom context menus, WebRTC permissions, and PDF printing in minutes.
+3. [**Quickstart: Universal Java Desktop (Swing, AWT, SWT, JavaFX)**](getting-started/quickstart-jvm.md)  
+   Mount `KromiumBrowser` directly into Swing (`JFrame`), standard AWT (`Frame`), Eclipse SWT (`SWT_AWT`), or JavaFX (`SwingNode`) with zero Kotlin runtime dependencies, using standard `CompletableFuture` and SAM lambdas.
 
 ---
 
-## 📖 Practical Guides
-In-depth, task-oriented guides with complete, copy-pasteable Kotlin code snippets.
+## 💡 Core Concepts
 
-* [**Compose Multiplatform UI Integration**](guides/compose-ui.md)  
-  Reactive browser state, custom loading placeholders, multi-tab window implementations, and recomposition safety.
-* [**Navigation, History & Page Controls**](guides/navigation-and-history.md)  
-  URL navigation, back/forward history, zoom control, in-page text search (`find`), and print-to-PDF.
-* [**JavaScript Bridge & Two-Way IPC**](guides/javascript-and-dom.md)  
-  Suspendable `evaluateJavaScript`, cancellation timeouts, two-way query router (`window.cefQuery`), and DOM extraction (`getHtml`, `getText`).
-* [**Network Interception & Enterprise Proxies**](guides/network-and-proxies.md)  
-  Custom header injection, ad/tracker blocking, WPAD, PAC scripts, authenticated SOCKS5/HTTP proxies, dynamic runtime proxy switching, and NTLM/Kerberos SSO.
-* [**Asset Filtering & Scoped SSL Policies**](guides/asset-filtering-and-security.md)  
-  Media/font/script blocking (`KromiumAssetFilter`), strict host-locking for kiosk apps, and scoped `SslErrorPolicy`.
-* [**Cookie & Session Management**](guides/cookie-management.md)  
-  Suspendable `KromiumCookieManager`, setting/getting/deleting cookies, session isolation, and persistent disk flushing.
-* [**Downloads, Dialogs & DevTools**](guides/downloads-and-dialogs.md)  
-  Download tracking, pause/resume/cancel, JavaScript modal dialogs (`alert`, `confirm`, `prompt`), and console log redirection.
-* [**Headless Browsing & Automation**](guides/headless-and-automation.md)  
-  Zero-dependency headless browser backed by an off-screen Swing peer, background web scraping, and automated screenshots.
+Understand how Kromium works under the hood:
+
+- [**Architecture & Process Model**](core-concepts/architecture.md)  
+  Multi-process Chromium architecture, JCEF bridging layer, Off-Screen Rendering (OSR) vs. Windowed rendering, and thread boundaries.
+- [**State & Lifecycle Management**](core-concepts/state-and-lifecycle.md)  
+  Engine initialization, reactive `KromiumState` flows, navigation state machines, composition disposal, and clean process teardown.
+- [**Security & Privacy by Design**](core-concepts/security-and-privacy.md)  
+  Zero-telemetry enforcement, Windows registry bypass, origin sandboxing, WebRTC permission security model, and remote debugging security.
 
 ---
 
-## 📚 API Reference
-Exhaustive reference for every public class, configuration, handler, and error code.
+## 🛠️ Practical How-To Guides
 
-* [**Engine Configuration (`KromiumConfig`)**](reference/configuration.md)  
-  Complete catalogue of initialization properties, CEF flags, proxy strategies, and cache settings.
-* [**Browser & Client API (`KromiumBrowser` & `KromiumClient`)**](reference/browser-and-client-api.md)  
-  Complete signatures and documentation for all browser control methods and lifecycle APIs.
-* [**Handlers, Listeners & Callbacks**](reference/handlers-and-events.md)  
-  Event handlers: `CefLoadHandler`, `CefDisplayHandler`, `CefContextMenuHandler`, composite multiplexers, and download listeners.
-* [**Error Handling & Logging (`KromiumException`)**](reference/exceptions-and-logging.md)  
-  Complete sealed exception hierarchy, recovery strategies, and the pluggable `KromiumLogger`.
+Step-by-step guides for common desktop application requirements:
+
+- [**Compose UI Integration & Window Chrome**](guides/compose-ui.md)  
+  Overlay Compose components over WebGL canvases, custom window chrome titlebars, draggable regions, and tab strip insets.
+- [**Navigation & History Controls**](guides/navigation-and-history.md)  
+  Back/forward stacks, stop/reload, address bar synchronization, loading indicators, and intercepting link clicks.
+- [**JavaScript Execution & DOM Bridge**](guides/javascript-and-dom.md)  
+  Evaluate JavaScript asynchronously, parse structured return values, and establish bi-directional IPC bridges between Web and JVM.
+- [**Network Configuration & Proxy Switching**](guides/network-and-proxies.md)  
+  Dynamic proxy switching at runtime (HTTP, HTTPS, SOCKS5), authenticated proxies, and custom network headers.
+- [**Virtual Asset Streaming (`app://`) & Security Filters**](guides/asset-filtering-and-security.md)  
+  Serve single-page React/Vue apps from local JAR resources without spinning up an HTTP server, plus request blocking and ad-filtering.
+- [**Cookie & Session Management**](guides/cookie-management.md)  
+  Inspect, inject, and delete HTTP cookies, configure persistent encrypted storage, and manage partitioned session data.
+- [**Downloads & Native Dialogs**](guides/downloads-and-dialogs.md)  
+  Intercept file downloads with progress tracking, pause/resume, and customize native file choosers and JavaScript alert/prompt dialogs.
+- [**Headless Automation & PDF Generation**](guides/headless-and-automation.md)  
+  Run off-screen headless instances for automated testing, content extraction, synthetic monitoring, and background vector PDF generation in CI/CD pipelines.
 
 ---
 
-## 📦 Deployment & Platform Specifics
-Packaging applications for production and resolving platform-specific quirks.
+## 📖 API Reference
 
-* [**Packaging & Distribution**](deployment/packaging-and-distribution.md)  
-  Packaging with Conveyor, Gradle Compose distributions (`packageDmg`, `packageMsi`, `packageDeb`), ProGuard/R8 rules, and bundle size optimization.
-* [**Platform-Specific Considerations**](deployment/platform-specifics.md)  
-  macOS Apple Silicon/Intel framework symlinks and Gatekeeper signing, Linux native dependencies, and Windows VC++ runtimes.
-* [**Troubleshooting & FAQ**](deployment/troubleshooting-and-faq.md)  
-  Solutions to black screens, GPU compositing bugs, EDT deadlocks, Wayland/X11 quirks, and cache locking.
+Complete class catalogs, methods, and configurations:
+
+- [**Browser & Client API Reference**](reference/browser-and-client-api.md)  
+  Detailed documentation for `KromiumBrowser`, `KromiumClient`, and `KromiumViewState`.
+- [**Handlers & Event Listeners**](reference/handlers-and-events.md)  
+  `KromiumContextMenuHandler`, `KromiumPermissionHandler`, `KromiumDownloadListener`, `KromiumLoadListener`, and display handlers.
+- [**Configuration Catalog**](reference/configuration.md)  
+  All settings in `KromiumConfig`, `KromiumChromeConfig`, proxy configurations, cache directories, and switch flags.
+- [**Exceptions & Diagnostic Logging**](reference/exceptions-and-logging.md)  
+  Kromium error hierarchy (`PdfPrintFailed`, `ProxyError`, `KromiumException`) and plugging into `KromiumLogger`.
+
+---
+
+## 📦 Deployment & Native Packaging
+
+Deliver polished, native desktop executables:
+
+- [**Packaging & Distribution**](deployment/packaging-and-distribution.md)  
+  Package with Compose Gradle plugin (`packageDmg`, `packageMsi`, `packageDeb`), jpackage, or Conveyor.
+- [**Platform-Specific Considerations**](deployment/platform-specifics.md)  
+  macOS notarization, app entitlements (camera/microphone), Windows DPI scaling, Linux GTK3/ALSA dependencies, and Wayland compatibility.
+- [**Troubleshooting & FAQ**](deployment/troubleshooting-and-faq.md)  
+  Diagnose native crashes, missing shared libraries, GPU acceleration issues, and frequent enterprise integration questions.

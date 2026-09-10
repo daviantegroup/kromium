@@ -5,14 +5,20 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.test.assertFailsWith
 import kotlinx.coroutines.test.runTest
-import io.ktor.client.*
-import io.ktor.client.engine.mock.*
-import io.ktor.client.plugins.contentnegotiation.*
-import io.ktor.serialization.kotlinx.json.*
-import io.ktor.http.*
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
+import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
-import dev.daviante.kromium.domain.model.*
-import dev.daviante.kromium.domain.exception.*
+import dev.daviante.kromium.domain.model.Architecture
+import dev.daviante.kromium.domain.model.OperatingSystem
+import dev.daviante.kromium.domain.model.PlatformInfo
+import dev.daviante.kromium.domain.exception.KromiumException
 
 class EngineDownloaderTest {
 

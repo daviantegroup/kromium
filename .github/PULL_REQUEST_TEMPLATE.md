@@ -20,9 +20,9 @@ Fixes # <!-- e.g., Fixes #123, or leave blank if there is no tracked issue -->
 
 ## 📦 Subsystems Affected
 
-- [ ] `kromium-core` (CEF engine, JCEF lifecycle, runtime downloader, JS/DOM bridge, cookies, network)
-- [ ] `kromium-compose` (`KromiumView`, Compose Desktop state bindings, lifecycle listeners)
-- [ ] `kromium-demo` (Showcase browser application)
+- [ ] `kromium-core` (CEF engine, pure Java2D OSR, JCEF lifecycle, runtime downloader, JS/DOM bridge, cookies, network, automation DSL)
+- [ ] `kromium-compose` (`KromiumView`, Compose Desktop state bindings, shortcuts, lifecycle listeners)
+- [ ] `samples` (`kromium-sample-compose`, `kromium-sample-swing`, `kromium-sample-awt`, `kromium-sample-swt`, `kromium-sample-javafx`)
 - [ ] `docs` / Portal (Developer documentation, architecture guides, API explorer)
 - [ ] Build & CI/CD (`build.gradle.kts`, GitHub Actions workflows, publishing pipelines)
 
@@ -33,7 +33,13 @@ Fixes # <!-- e.g., Fixes #123, or leave blank if there is no tracked issue -->
 <!-- Describe how you verified your changes across target operating systems -->
 
 - [ ] **Unit Tests**: Passed via `./gradlew test`
-- [ ] **Showcase Demo**: Verified running via `./gradlew :kromium-demo:run`
+- [ ] **Compilation & Checks**: Passed via `./gradlew check`
+- [ ] **Showcase Demo Verified**:
+  - [ ] `./gradlew :kromium-sample-compose:run` (Compose Multiplatform Desktop)
+  - [ ] `./gradlew :kromium-sample-swing:run` (Java Swing & FlatLaf Pure Java2D OSR)
+  - [ ] `./gradlew :kromium-sample-awt:run` (Standard AWT Windowed Native)
+  - [ ] `./gradlew :kromium-sample-swt:run` (Eclipse SWT Embedding)
+  - [ ] `./gradlew :kromium-sample-javafx:run` (JavaFX SwingNode OSR)
 - [ ] **Platforms Tested**:
   - [ ] Windows 11 / 10 (x64 / ARM64)
   - [ ] macOS (Apple Silicon / Intel)
@@ -56,3 +62,4 @@ Fixes # <!-- e.g., Fixes #123, or leave blank if there is no tracked issue -->
 - [ ] `./gradlew test` passes cleanly with zero failures or regressions.
 - [ ] No new compiler warnings or build deprecations were introduced.
 - [ ] If this introduces a breaking API change, it is clearly noted above with migration steps.
+- [ ] **Contributor License Agreement (CLA)**: By submitting this pull request, I confirm that my contributions are my original creation and I grant Daviante Group full rights to license, relicense, dual-license, and distribute these contributions under open-source and/or commercial licenses in accordance with the [Contributor License Agreement](CONTRIBUTING.md#contributor-license-agreement-cla).

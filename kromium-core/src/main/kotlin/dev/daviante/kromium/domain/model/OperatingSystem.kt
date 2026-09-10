@@ -1,17 +1,7 @@
 package dev.daviante.kromium.domain.model
 
-import dev.daviante.kromium.domain.model.*
-import dev.daviante.kromium.domain.config.*
-import dev.daviante.kromium.domain.exception.*
-import dev.daviante.kromium.data.engine.*
-import dev.daviante.kromium.data.model.*
-import dev.daviante.kromium.presentation.browser.*
-import dev.daviante.kromium.presentation.handler.*
-import dev.daviante.kromium.presentation.js.*
-import dev.daviante.kromium.presentation.network.*
-import dev.daviante.kromium.core.logging.*
-import dev.daviante.kromium.core.util.*
-
+import dev.daviante.kromium.core.logging.KromiumLogger
+import dev.daviante.kromium.core.util.FileUtils
 
 import java.io.File
 import java.util.Locale
@@ -221,4 +211,3 @@ sealed class OperatingSystem(val name: String, private vararg val aliases: Strin
         }
     }
 }
-

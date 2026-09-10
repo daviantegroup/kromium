@@ -106,4 +106,89 @@ class KromiumConfigTest {
         assertTrue(config.commandLineArgs.any { it == "--root-cache-path=C:/tmp/kromium-cache" })
         assertTrue(config.commandLineArgs.any { it == "--user-data-dir=C:/tmp/kromium-cache" })
     }
+
+    @Test
+    fun testAutoDownloadDefaultsAndToggling() {
+        val config = KromiumConfig()
+        assertTrue(config.autoDownload, "autoDownload should be enabled by default")
+
+        config.autoDownload = false
+        assertFalse(config.autoDownload, "autoDownload should be configurable to false")
+
+        val builtConfig = KromiumConfig.builder()
+            .autoDownload(false)
+            .build()
+        assertFalse(builtConfig.autoDownload, "Builder should properly configure autoDownload")
+    }
+
+    @Test
+    fun testEmulateDesktopEnvironmentDefaultsAndToggling() {
+        val config = KromiumConfig()
+        assertFalse(config.emulateDesktopEnvironment, "emulateDesktopEnvironment should be disabled by default")
+
+        config.emulateDesktopEnvironment = true
+        assertTrue(config.emulateDesktopEnvironment, "emulateDesktopEnvironment should be configurable to true")
+
+        val built = KromiumConfig.builder()
+            .emulateDesktopEnvironment(true)
+            .build()
+        assertTrue(built.emulateDesktopEnvironment, "Builder should properly configure emulateDesktopEnvironment")
+    }
+
+    @Test
+    fun testSslErrorPolicyConfiguration() {
+        val config = KromiumConfig()
+        assertEquals(dev.daviante.kromium.domain.exception.SslErrorPolicy.Strict, config.sslErrorPolicy)
+
+        val policy = dev.daviante.kromium.domain.exception.SslErrorPolicy.allowDomains("*.internal.corp", "localhost")
+        config.sslErrorPolicy = policy
+        assertEquals(policy, config.sslErrorPolicy)
+
+        val built = KromiumConfig.builder()
+            .sslErrorPolicy(policy)
+            .build()
+        assertEquals(policy, built.sslErrorPolicy)
+    }
+
+    @Test
+    fun testWebRtcAndDoNotTrackDefaultsAndConfiguration() {
+        val config = KromiumConfig()
+        assertTrue(config.doNotTrack, "doNotTrack should be true by default")
+        assertTrue(config.commandLineArgs.contains("--enable-do-not-track"))
+
+        config.toCefSettings()
+        assertTrue(config.commandLineArgs.contains("--webrtc-ip-handling-policy=default_public_interface_only"))
+
+        // Explicit proxy should default WebRTC to disable_non_proxied_udp
+        val proxyConfig = KromiumConfig().apply {
+            proxy = KromiumProxy.http("127.0.0.1", 8080)
+        }
+        proxyConfig.toCefSettings()
+        assertTrue(proxyConfig.commandLineArgs.contains("--webrtc-ip-handling-policy=disable_non_proxied_udp"))
+
+        // Custom builder configuration
+        val custom = KromiumConfig.builder()
+            .doNotTrack(false)
+            .webrtcIpHandlingPolicy(KromiumConfig.WEBRTC_POLICY_DEFAULT)
+            .build()
+        custom.toCefSettings()
+        assertFalse(custom.doNotTrack)
+        assertFalse(custom.commandLineArgs.contains("--enable-do-not-track"))
+        assertTrue(custom.commandLineArgs.contains("--webrtc-ip-handling-policy=default"))
+    }
+
+    @Test
+    fun testDoNotTrackDynamicSynchronization() {
+        val config = KromiumConfig()
+        assertTrue(config.doNotTrack)
+        assertTrue(config.commandLineArgs.contains("--enable-do-not-track"))
+
+        config.doNotTrack = false
+        assertFalse(config.doNotTrack)
+        assertFalse(config.commandLineArgs.contains("--enable-do-not-track"))
+
+        config.doNotTrack = true
+        assertTrue(config.doNotTrack)
+        assertTrue(config.commandLineArgs.contains("--enable-do-not-track"))
+    }
 }

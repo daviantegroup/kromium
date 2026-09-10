@@ -1,6 +1,13 @@
 package dev.daviante.kromium.core.util
 
-import kotlin.test.*
+import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import java.io.File
 import java.nio.file.Files
 
@@ -48,6 +55,16 @@ class FileUtilsTest {
         if (!userHome.isNullOrBlank()) {
             val sanitized = FileUtils.sanitizeDirectory(File(userHome))
             assertNull(sanitized, "Sanitize must reject user home root directory directly")
+        }
+    }
+
+    @Test
+    fun testResolveChildUnderUserHomePermitted() {
+        val userHome = System.getProperty("user.home")
+        if (!userHome.isNullOrBlank()) {
+            val child = FileUtils.resolveChild(File(userHome), ".kromium")
+            assertNotNull(child, "resolveChild should permit safe child directories under user.home")
+            assertEquals(File(userHome, ".kromium").canonicalPath, child.canonicalPath)
         }
     }
 

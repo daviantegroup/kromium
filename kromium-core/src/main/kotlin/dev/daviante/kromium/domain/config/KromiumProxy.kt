@@ -69,7 +69,7 @@ sealed class KromiumProxy {
      *                 essential for modern Zero-Trust enterprise egress proxies.
      * @param bypassList List of hosts/patterns that bypass the proxy (e.g. `listOf("<local>", "127.0.0.1", "*.internal.corp")`).
      */
-    data class Http(
+    data class Http @JvmOverloads constructor(
         val host: String,
         val port: Int,
         val username: String? = null,
@@ -126,7 +126,7 @@ sealed class KromiumProxy {
      * @param remoteDns When true (default), DNS queries are resolved by the proxy (prevents DNS leaks).
      * @param bypassList List of hosts/patterns that bypass the proxy.
      */
-    data class Socks5(
+    data class Socks5 @JvmOverloads constructor(
         val host: String,
         val port: Int,
         val username: String? = null,
@@ -187,19 +187,68 @@ sealed class KromiumProxy {
      * )
      * ```
      */
-    data class MultiProtocol(
+    data class MultiProtocol @JvmOverloads constructor(
         val http: String? = null,
         val https: String? = null,
         val ftp: String? = null,
         val socks: String? = null,
         val bypassList: List<String> = emptyList()
     ) : KromiumProxy() {
+        private data class ParsedEndpoint(val cleanSpec: String, val host: String?, val port: Int?, val credentials: Pair<String, String>?)
+
+        private fun parseEndpoint(raw: String): ParsedEndpoint {
+            val trimmed = raw.trim()
+            if (!trimmed.contains("://")) {
+                // E.g. "proxy.corp:8080" or "user:pass@proxy.corp:8080"
+                return if (trimmed.contains("@")) {
+                    val userPart = trimmed.substringBeforeLast("@")
+                    val hostPort = trimmed.substringAfterLast("@")
+                    val creds = if (userPart.contains(":")) {
+                        userPart.substringBefore(":") to userPart.substringAfter(":")
+                    } else {
+                        userPart to ""
+                    }
+                    val host = hostPort.substringBefore(":")
+                    val port = hostPort.substringAfter(":", "").toIntOrNull()
+                    ParsedEndpoint(cleanSpec = hostPort, host = host, port = port, credentials = creds)
+                } else {
+                    val host = trimmed.substringBefore(":")
+                    val port = trimmed.substringAfter(":", "").toIntOrNull()
+                    ParsedEndpoint(cleanSpec = trimmed, host = host, port = port, credentials = null)
+                }
+            }
+
+            return try {
+                val uri = java.net.URI(trimmed)
+                val host = uri.host
+                val port = if (uri.port != -1) uri.port else null
+                val creds = uri.userInfo?.let { info ->
+                    if (info.contains(":")) {
+                        info.substringBefore(":") to info.substringAfter(":")
+                    } else {
+                        info to ""
+                    }
+                }
+                val scheme = uri.scheme
+                val hostPort = if (port != null) "$host:$port" else host ?: ""
+                val cleanSpec = if (scheme != null) "$scheme://$hostPort" else hostPort
+                ParsedEndpoint(cleanSpec = cleanSpec, host = host, port = port, credentials = creds)
+            } catch (_: Throwable) {
+                ParsedEndpoint(cleanSpec = trimmed, host = null, port = null, credentials = null)
+            }
+        }
+
+        private val parsedHttp = http?.takeIf { it.isNotBlank() }?.let { parseEndpoint(it) }
+        private val parsedHttps = https?.takeIf { it.isNotBlank() }?.let { parseEndpoint(it) }
+        private val parsedFtp = ftp?.takeIf { it.isNotBlank() }?.let { parseEndpoint(it) }
+        private val parsedSocks = socks?.takeIf { it.isNotBlank() }?.let { parseEndpoint(it) }
+
         val serverSpec: String get() {
             val rules = mutableListOf<String>()
-            http?.takeIf { it.isNotBlank() }?.let { rules.add("http=$it") }
-            https?.takeIf { it.isNotBlank() }?.let { rules.add("https=$it") }
-            ftp?.takeIf { it.isNotBlank() }?.let { rules.add("ftp=$it") }
-            socks?.takeIf { it.isNotBlank() }?.let { rules.add("socks=$it") }
+            parsedHttp?.let { rules.add("http=${it.cleanSpec}") }
+            parsedHttps?.let { rules.add("https=${it.cleanSpec}") }
+            parsedFtp?.let { rules.add("ftp=${it.cleanSpec}") }
+            parsedSocks?.let { rules.add("socks=${it.cleanSpec}") }
             return rules.joinToString(";")
         }
 
@@ -227,6 +276,19 @@ sealed class KromiumProxy {
             return map
         }
 
+        override fun getCredentials(targetHost: String?, targetPort: Int?): Pair<String, String>? {
+            val endpoints = listOfNotNull(parsedHttp, parsedHttps, parsedFtp, parsedSocks)
+            for (ep in endpoints) {
+                val creds = ep.credentials ?: continue
+                if (targetHost.isNullOrBlank() || targetHost.equals(ep.host, ignoreCase = true)) {
+                    if (targetPort == null || targetPort == ep.port || targetPort == 0 || ep.port == null) {
+                        return creds
+                    }
+                }
+            }
+            return null
+        }
+
         override fun validate() {
             if (http.isNullOrBlank() && https.isNullOrBlank() && ftp.isNullOrBlank() && socks.isNullOrBlank()) {
                 throw KromiumException.InvalidConfig("MultiProtocol proxy must specify at least one protocol proxy rule")
@@ -249,4 +311,62 @@ sealed class KromiumProxy {
      * Validates proxy configuration parameters.
      */
     open fun validate() {}
+
+    companion object {
+        /** Uses the operating system's default proxy configuration. */
+        @JvmStatic val SYSTEM: KromiumProxy get() = System
+
+        /** Bypasses all proxies and connects directly to destination hosts. */
+        @JvmStatic val DIRECT: KromiumProxy get() = Direct
+
+        /** Automatically discovers proxy settings via WPAD. */
+        @JvmStatic val AUTO_DETECT: KromiumProxy get() = AutoDetect
+
+        @JvmStatic fun system(): KromiumProxy = System
+        @JvmStatic fun direct(): KromiumProxy = Direct
+        @JvmStatic fun autoDetect(): KromiumProxy = AutoDetect
+        @JvmStatic fun pac(pacUrl: String): KromiumProxy = Pac(pacUrl)
+
+        @JvmStatic
+        @JvmOverloads
+        fun http(
+            host: String,
+            port: Int,
+            username: String? = null,
+            password: String? = null,
+            isSecure: Boolean = false,
+            bypassList: List<String> = emptyList()
+        ): KromiumProxy = Http(host, port, username, password, isSecure, bypassList)
+
+        @JvmStatic
+        @JvmOverloads
+        fun https(
+            host: String,
+            port: Int,
+            username: String? = null,
+            password: String? = null,
+            bypassList: List<String> = emptyList()
+        ): KromiumProxy = Http(host, port, username, password, isSecure = true, bypassList = bypassList)
+
+        @JvmStatic
+        @JvmOverloads
+        fun socks5(
+            host: String,
+            port: Int,
+            username: String? = null,
+            password: String? = null,
+            remoteDns: Boolean = true,
+            bypassList: List<String> = emptyList()
+        ): KromiumProxy = Socks5(host, port, username, password, remoteDns, bypassList)
+
+        @JvmStatic
+        @JvmOverloads
+        fun multiProtocol(
+            http: String? = null,
+            https: String? = null,
+            ftp: String? = null,
+            socks: String? = null,
+            bypassList: List<String> = emptyList()
+        ): KromiumProxy = MultiProtocol(http, https, ftp, socks, bypassList)
+    }
 }

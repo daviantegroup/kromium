@@ -122,4 +122,125 @@ class KromiumClientMultiplexerTest {
         verify(exactly = 1) { mockRawClient.addFocusHandler(any()) }
         verify(exactly = 1) { mockRawClient.addKeyboardHandler(any()) }
     }
+
+    @Test
+    fun testRegisterHtmlPayloadCapAndEviction() {
+        val mockRawClient = mockk<CefClient>(relaxed = true)
+        val client = KromiumClient(mockRawClient)
+
+        // Register 3 payloads with a max capacity of 2
+        client.registerHtmlPayload("http://local/1", "<h1>1</h1>", maxCapacity = 2)
+        client.registerHtmlPayload("http://local/2", "<h1>2</h1>", maxCapacity = 2)
+        assertEquals(2, client.htmlPayloads.size)
+
+        client.registerHtmlPayload("http://local/3", "<h1>3</h1>", maxCapacity = 2)
+        assertEquals(2, client.htmlPayloads.size)
+        // Oldest (1) must be evicted!
+        assertEquals(null, client.htmlPayloads["http://local/1"])
+        assertEquals("<h1>2</h1>", client.htmlPayloads["http://local/2"])
+        assertEquals("<h1>3</h1>", client.htmlPayloads["http://local/3"])
+
+        // Re-registering existing key should update and not cause desynchronized eviction
+        client.registerHtmlPayload("http://local/2", "<h1>2-updated</h1>", maxCapacity = 2)
+        assertEquals(2, client.htmlPayloads.size)
+        assertEquals("<h1>2-updated</h1>", client.htmlPayloads["http://local/2"])
+    }
+
+    @Test
+    fun testHandleCommandShortcutInWindowedMode() {
+        val mockRawClient = mockk<CefClient>(relaxed = true)
+        val client = KromiumClient(mockRawClient)
+        val mockBrowser = mockk<CefBrowser>(relaxed = true)
+        val mockFrame = mockk<CefFrame>(relaxed = true)
+        io.mockk.every { mockBrowser.focusedFrame } returns mockFrame
+
+        // 1. Command + C -> copy()
+        val copyEvent = org.cef.handler.CefKeyboardHandler.CefKeyEvent(
+            org.cef.handler.CefKeyboardHandler.CefKeyEvent.EventType.KEYEVENT_RAWKEYDOWN,
+            org.cef.misc.EventFlags.EVENTFLAG_COMMAND_DOWN,
+            java.awt.event.KeyEvent.VK_C,
+            0,
+            false,
+            'c',
+            'c',
+            false
+        )
+        val copyHandled = client.handleCommandShortcut(mockBrowser, copyEvent)
+        assertTrue(copyHandled)
+        verify(exactly = 1) { mockFrame.copy() }
+
+        // 2. Command + V -> paste()
+        val pasteEvent = org.cef.handler.CefKeyboardHandler.CefKeyEvent(
+            org.cef.handler.CefKeyboardHandler.CefKeyEvent.EventType.KEYEVENT_RAWKEYDOWN,
+            org.cef.misc.EventFlags.EVENTFLAG_COMMAND_DOWN,
+            java.awt.event.KeyEvent.VK_V,
+            0,
+            false,
+            'v',
+            'v',
+            false
+        )
+        val pasteHandled = client.handleCommandShortcut(mockBrowser, pasteEvent)
+        assertTrue(pasteHandled)
+        verify(exactly = 1) { mockFrame.paste() }
+
+        // 3. Command + Z -> undo()
+        val undoEvent = org.cef.handler.CefKeyboardHandler.CefKeyEvent(
+            org.cef.handler.CefKeyboardHandler.CefKeyEvent.EventType.KEYEVENT_RAWKEYDOWN,
+            org.cef.misc.EventFlags.EVENTFLAG_COMMAND_DOWN,
+            java.awt.event.KeyEvent.VK_Z,
+            0,
+            false,
+            'z',
+            'z',
+            false
+        )
+        val undoHandled = client.handleCommandShortcut(mockBrowser, undoEvent)
+        assertTrue(undoHandled)
+        verify(exactly = 1) { mockFrame.undo() }
+
+        // 4. Command + Shift + Z -> redo()
+        val redoEvent = org.cef.handler.CefKeyboardHandler.CefKeyEvent(
+            org.cef.handler.CefKeyboardHandler.CefKeyEvent.EventType.KEYEVENT_RAWKEYDOWN,
+            org.cef.misc.EventFlags.EVENTFLAG_COMMAND_DOWN or org.cef.misc.EventFlags.EVENTFLAG_SHIFT_DOWN,
+            java.awt.event.KeyEvent.VK_Z,
+            0,
+            false,
+            'Z',
+            'Z',
+            false
+        )
+        val redoHandled = client.handleCommandShortcut(mockBrowser, redoEvent)
+        assertTrue(redoHandled)
+        verify(exactly = 1) { mockFrame.redo() }
+
+        // 5. Command + R -> reload()
+        val reloadEvent = org.cef.handler.CefKeyboardHandler.CefKeyEvent(
+            org.cef.handler.CefKeyboardHandler.CefKeyEvent.EventType.KEYEVENT_RAWKEYDOWN,
+            org.cef.misc.EventFlags.EVENTFLAG_COMMAND_DOWN,
+            java.awt.event.KeyEvent.VK_R,
+            0,
+            false,
+            'r',
+            'r',
+            false
+        )
+        val reloadHandled = client.handleCommandShortcut(mockBrowser, reloadEvent)
+        assertTrue(reloadHandled)
+        verify(exactly = 1) { mockBrowser.reload() }
+
+        // 6. Regular key without Command should NOT be intercepted
+        val regularKeyEvent = org.cef.handler.CefKeyboardHandler.CefKeyEvent(
+            org.cef.handler.CefKeyboardHandler.CefKeyEvent.EventType.KEYEVENT_RAWKEYDOWN,
+            0,
+            java.awt.event.KeyEvent.VK_C,
+            0,
+            false,
+            'c',
+            'c',
+            false
+        )
+        val regularHandled = client.handleCommandShortcut(mockBrowser, regularKeyEvent)
+        kotlin.test.assertFalse(regularHandled)
+    }
 }
