@@ -263,6 +263,9 @@ class KromiumConfig {
             if (commandLineArgs.none { it.equals("--disable-direct-composition", ignoreCase = true) }) {
                 commandLineArgs.add("--disable-direct-composition")
             }
+            if (commandLineArgs.none { it.equals("--disable-gpu-compositing", ignoreCase = true) }) {
+                commandLineArgs.add("--disable-gpu-compositing")
+            }
             if (commandLineArgs.none { it.equals("--disable-gpu-watchdog", ignoreCase = true) }) {
                 commandLineArgs.add("--disable-gpu-watchdog")
             }

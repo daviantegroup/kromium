@@ -132,14 +132,12 @@ object CefBootstrapper {
         // Preload JAWT (Java AWT Native Library)
         loadNativeLibrary(installDir, "jawt", platform)
 
-        // Preload GPU libraries into JVM only when running in-process and GPU is not disabled
-        if (!effectiveRemote && gpuMode != KromiumGpuMode.SOFTWARE && cefArgs.none { it.trim().equals("--disable-gpu", ignoreCase = true) }) {
-            val gpuLibPath = if (os.isMacOS) {
-                val macOs = os as OperatingSystem.MacOS
-                File(macOs.getFrameworkPath(installDir, inFrameworks = true), "Libraries")
-            } else {
-                installDir
-            }
+        // Preload GPU libraries into JVM only on macOS where dyld requires dylibs in Frameworks/Libraries.
+        // On Windows and Linux, jcef_helper loads GPU libraries out-of-process; loading EGL/GLESv2 directly
+        // into the JVM process injects ANGLE hooks that corrupt Skiko's Direct3D device (skiko-windows-x64.dll crash).
+        if (os.isMacOS && !effectiveRemote && gpuMode != KromiumGpuMode.SOFTWARE && cefArgs.none { it.trim().equals("--disable-gpu", ignoreCase = true) }) {
+            val macOs = os as OperatingSystem.MacOS
+            val gpuLibPath = File(macOs.getFrameworkPath(installDir, inFrameworks = true), "Libraries")
             loadNativeLibrary(gpuLibPath, "EGL", platform)
             loadNativeLibrary(gpuLibPath, "GLESv2", platform)
             loadNativeLibrary(gpuLibPath, "vk_swiftshader", platform)

@@ -83,25 +83,6 @@ val config = KromiumConfig().apply {
 
 ---
 
-### 5. Windows GPU Collision: Failed Direct3D call (0x887a0005 / DXGI_ERROR_DEVICE_REMOVED)
-
-**Symptom:**
-Application terminates with a native DirectX crash:
-```
-Failed Direct3D call. error: 0x887a0005 (DXGI_ERROR_DEVICE_REMOVED)
-```
-
-**Cause:**
-When running in-process, both the host UI toolkit (Jetpack Compose Desktop with Skiko, Java2D D3D, or JavaFX) and Chromium share the **same OS Process ID (PID)**. Both engines independently attempt to acquire DirectX 11/12 devices, DirectComposition swapchains, and adapter contexts on the same HWND window. When DirectX detects contention or driver latency, it issues a device removal (`0x887a0005`), which collapses the host JVM graphics context.
-
-**Solution 1 (Recommended — Out-of-Process Isolation):**
-Isolate Chromium into a dedicated server process (`cef_server.exe`) with its own independent Process ID:
-```kotlin
-val config = KromiumConfig().apply {
-    processModel = KromiumProcessModel.OUT_OF_PROCESS // Disconnects GPU device context from host PID
-}
-```
-
 **Solution 2 (Software / WARP Rendering):**
 Bypass physical GPU hardware drivers and Direct3D contention entirely using software rasterization:
 ```kotlin
@@ -125,6 +106,33 @@ WebRTC applications (Google Meet, Jitsi) report "No camera/microphone found" or 
    ```
 2. **macOS Entitlements**: Ensure your app bundle includes `NSCameraUsageDescription` and `NSMicrophoneUsageDescription` in `Info.plist`.
 3. **Session Cache**: If a user previously denied permission, call `state.clearPermissionCache()`.
+
+---
+
+### 6. Compose Desktop Crash: EXCEPTION_ACCESS_VIOLATION (0xc0000005) in `skiko-windows-x64.dll`
+
+**Symptom:**
+In Compose Desktop on Windows, the application crashes immediately upon mounting a browser view:
+```
+# A fatal error has been detected by the Java Runtime Environment:
+#  EXCEPTION_ACCESS_VIOLATION (0xc0000005) at pc=0x..., pid=..., tid=...
+# Problematic frame:
+# C  [skiko-windows-x64.dll+0x...]
+```
+
+**Cause:**
+Jetpack Compose Desktop uses **Skiko** for GPU rasterization. On Windows, Skiko defaults to Direct3D (`skiko.renderApi=DIRECT3D`). When embedding heavyweight native AWT/CEF child HWNDs (`SwingPanel`), Skiko's Direct3D swapchain collides with the embedded window's surface, or ANGLE's Direct3D hooks intercept the device context, causing a native null pointer dereference in `skiko-windows-x64.dll`.
+
+**Solution 1 (Automatic Protection in Kromium):**
+Kromium automatically sets `System.setProperty("skiko.renderApi", "OPENGL")` when initialized on Windows if `skiko.renderApi` is not already configured, which cleanly separates Skiko's drawing pipeline from the native child HWND.
+
+**Solution 2 (Explicit Gradle JVM Arguments):**
+In your Compose Desktop Gradle build script, pass the OpenGL or Software rendering backend to your run task:
+```kotlin
+tasks.withType<JavaExec>().configureEach {
+    systemProperty("skiko.renderApi", "OPENGL") // or "SOFTWARE"
+}
+```
 
 ---
 
